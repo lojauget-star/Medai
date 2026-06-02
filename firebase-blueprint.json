@@ -1,0 +1,43 @@
+{
+  "entities": {
+    "Patient": {
+      "title": "Paciente",
+      "description": "Dados cadastrais do animal",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "species": { "type": "string" },
+        "breed": { "type": "string" },
+        "age": { "type": "string" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["name", "species", "ownerId"]
+    },
+    "Report": {
+      "title": "Laudo/Prontuário",
+      "description": "Laudo gerado pela IA",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string" },
+        "anamnesis": { "type": "string" },
+        "examData": { "type": "string" },
+        "soapContent": { "type": "string" },
+        "sources": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "ownerId": { "type": "string" },
+        "status": { "type": "string", "enum": ["draft", "finalized"] }
+      },
+      "required": ["patientId", "soapContent", "ownerId"]
+    }
+  },
+  "firestore": {
+    "/patients/{patientId}": {
+      "schema": "Patient",
+      "description": "Documentos dos pacientes"
+    },
+    "/reports/{reportId}": {
+      "schema": "Report",
+      "description": "Registros de consultas e laudos"
+    }
+  }
+}

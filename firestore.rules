@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Global Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // 3. Entity Validations
+    function isValidReport(data) {
+      return data.keys().hasAll(['patientId', 'soapContent', 'ownerId', 'createdAt', 'status']) &&
+             data.patientId is string && data.patientId.size() <= 100 &&
+             data.soapContent is string && data.soapContent.size() <= 50000 &&
+             data.ownerId == request.auth.uid &&
+             data.status in ['draft', 'finalized'] &&
+             (data.anamnesis == null || (data.anamnesis is string && data.anamnesis.size() <= 5000)) &&
+             (data.examData == null || (data.examData is string && data.examData.size() <= 5000));
+    }
+
+    // 4. Matches
+    match /guidelines/{guidelineId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /reports/{reportId} {
+      allow get: if isOwner(existing().ownerId);
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      
+      allow create: if isSignedIn() && 
+                      isValidId(reportId) && 
+                      isValidReport(incoming()) && 
+                      incoming().createdAt == request.time;
+      
+      allow update: if isOwner(existing().ownerId) && 
+                      isValidReport(incoming()) &&
+                      incoming().ownerId == existing().ownerId &&
+                      incoming().createdAt == existing().createdAt &&
+                      // Basic Action pattern: any field change is allowed if schema passes,
+                      // but typically we'd restrict more. Here we allow content/status updates.
+                      incoming().diff(existing()).affectedKeys().hasOnly(['soapContent', 'status', 'anamnesis', 'examData', 'sources', 'patientId']);
+                      
+      allow delete: if isOwner(existing().ownerId);
+    }
+  }
+}
