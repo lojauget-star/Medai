@@ -35,7 +35,9 @@ service cloud.firestore {
              data.ownerId == request.auth.uid &&
              data.status in ['draft', 'finalized'] &&
              (data.anamnesis == null || (data.anamnesis is string && data.anamnesis.size() <= 5000)) &&
-             (data.examData == null || (data.examData is string && data.examData.size() <= 5000));
+             (data.examData == null || (data.examData is string && data.examData.size() <= 5000)) &&
+             (!('rating' in data) || (data.rating is int && data.rating >= 1 && data.rating <= 5)) &&
+             (!('feedbackComment' in data) || (data.feedbackComment is string && data.feedbackComment.size() <= 10000));
     }
 
     // 4. Matches
@@ -45,8 +47,8 @@ service cloud.firestore {
     }
 
     match /reports/{reportId} {
-      allow get: if isOwner(existing().ownerId);
-      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow get: if isOwner(existing().ownerId) || (isSignedIn() && existing().rating != null);
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || resource.data.rating != null);
       
       allow create: if isSignedIn() && 
                       isValidId(reportId) && 
@@ -59,7 +61,7 @@ service cloud.firestore {
                       incoming().createdAt == existing().createdAt &&
                       // Basic Action pattern: any field change is allowed if schema passes,
                       // but typically we'd restrict more. Here we allow content/status updates.
-                      incoming().diff(existing()).affectedKeys().hasOnly(['soapContent', 'status', 'anamnesis', 'examData', 'sources', 'patientId']);
+                      incoming().diff(existing()).affectedKeys().hasOnly(['soapContent', 'status', 'anamnesis', 'examData', 'sources', 'patientId', 'rating', 'feedbackComment']);
                       
       allow delete: if isOwner(existing().ownerId);
     }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutGrid, PlusCircle, BookOpen, UserCircle, ClipboardList, Calendar as CalendarIcon, TrendingUp, Library as LibraryIcon, Menu, X } from 'lucide-react';
+import { LayoutGrid, PlusCircle, BookOpen, UserCircle, ClipboardList, Calendar as CalendarIcon, TrendingUp, Library as LibraryIcon, Menu, X, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReportWorkspace from './components/ReportWorkspace';
 import Dashboard from './components/Dashboard';
@@ -8,13 +8,15 @@ import { BusinessIntelligence } from './components/BusinessIntelligence';
 import { auth } from './lib/firebase';
 import { signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
 import { Report } from './types';
-import VoaVetQuiz from './components/VoaVetQuiz';
+import VetmindQuiz from './components/VetmindQuiz';
+import VetmindLogo from './components/VetmindLogo';
 import GuidelinesManager from './components/GuidelinesManager';
+import AdminFeedbacks from './components/AdminFeedbacks';
 
 import Library from './components/Library';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'workspace' | 'dashboard' | 'profile' | 'calendar' | 'bi' | 'quiz' | 'guidelines'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'workspace' | 'dashboard' | 'profile' | 'calendar' | 'bi' | 'quiz' | 'guidelines' | 'feedbacks'>('dashboard');
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,10 +52,14 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-slate-50">
-        <div className="flex flex-col items-center gap-6">
-          <div className="w-16 h-16 border-4 border-medai-blue border-t-transparent rounded-[2rem] animate-spin shadow-xl"></div>
-          <p className="text-sm font-black text-medai-blue uppercase tracking-[0.2em] animate-pulse">Iniciando MedAI</p>
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <VetmindLogo showText={true} size="xl" />
+          <div className="flex items-center gap-2 mt-4">
+            <span className="w-2.5 h-2.5 rounded-full bg-clinical-blue animate-bounce" style={{ animationDelay: '0ms' }} />
+            <span className="w-2.5 h-2.5 rounded-full bg-clinical-blue animate-bounce" style={{ animationDelay: '150ms' }} />
+            <span className="w-2.5 h-2.5 rounded-full bg-clinical-blue animate-bounce" style={{ animationDelay: '300ms' }} />
+          </div>
         </div>
       </div>
     );
@@ -64,11 +70,8 @@ export default function App() {
       {/* Sidebar - Desktop Only */}
       <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200 flex-col shrink-0 z-30 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
         <div className="p-8 pb-4">
-          <div className="flex items-center gap-3 mb-10">
-            <div className="w-10 h-10 bg-clinical-blue rounded-2xl flex items-center justify-center text-white shadow-lg shadow-clinical-blue/20">
-              <ClipboardList className="w-6 h-6" />
-            </div>
-            <h1 className="text-xl font-black text-slate-900 tracking-tight">MedAI</h1>
+          <div className="flex items-center gap-3 mb-10 px-2">
+            <VetmindLogo showText={true} size={42} />
           </div>
 
           <nav className="space-y-2">
@@ -77,7 +80,8 @@ export default function App() {
               { id: 'guidelines', icon: LibraryIcon, label: 'Banco de Diretrizes' },
               { id: 'calendar', icon: CalendarIcon, label: 'Agenda Médica' },
               { id: 'bi', icon: TrendingUp, label: 'Inteligência (BI)' },
-              { id: 'profile', icon: UserCircle, label: 'Meu Perfil' }
+              { id: 'profile', icon: UserCircle, label: 'Meu Perfil' },
+              { id: 'feedbacks', icon: Star, label: 'Feedbacks Admin' }
             ].map((item) => (
               <button
                 key={item.id}
@@ -128,12 +132,7 @@ export default function App() {
             >
               <Menu className="w-6 h-6" />
             </button>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-clinical-blue/10 flex items-center justify-center text-clinical-blue">
-                 <ClipboardList className="w-5 h-5 pointer-events-none" />
-              </div>
-              <h1 className="text-lg font-black text-slate-905 tracking-tight leading-none pointer-events-none">MedAI</h1>
-            </div>
+            <VetmindLogo showText={true} size={36} />
           </div>
           <div className="w-10 h-10 rounded-xl overflow-hidden border-2 border-slate-100 shadow-sm">
             <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Vet" alt="Doc" />
@@ -163,12 +162,7 @@ export default function App() {
                 className="lg:hidden fixed inset-y-0 left-0 w-72 bg-white z-50 shadow-2xl flex flex-col h-full pointer-events-auto"
               >
                 <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-9 h-9 bg-clinical-blue rounded-xl flex items-center justify-center text-white">
-                      <ClipboardList className="w-5 h-5" />
-                    </div>
-                    <span className="font-black text-lg text-slate-900 tracking-tight leading-none">MedAI Navigation</span>
-                  </div>
+                  <VetmindLogo showText={true} size={36} />
                   <button 
                     id="btn-mobile-sidebar-close"
                     onClick={() => setIsMobileMenuOpen(false)}
@@ -185,7 +179,8 @@ export default function App() {
                     { id: 'guidelines', icon: LibraryIcon, label: 'Banco de Diretrizes' },
                     { id: 'calendar', icon: CalendarIcon, label: 'Agenda Médica' },
                     { id: 'bi', icon: TrendingUp, label: 'Inteligência (BI)' },
-                    { id: 'profile', icon: UserCircle, label: 'Meu Perfil' }
+                    { id: 'profile', icon: UserCircle, label: 'Meu Perfil' },
+                    { id: 'feedbacks', icon: Star, label: 'Feedbacks Admin' }
                   ].map((item) => (
                     <button
                       key={item.id}
@@ -328,7 +323,7 @@ export default function App() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                   >
-                    <VoaVetQuiz />
+                    <VetmindQuiz />
                   </motion.div>
                 )}
                 {activeTab === 'guidelines' && (
@@ -339,6 +334,16 @@ export default function App() {
                     exit={{ opacity: 0, y: -10 }}
                   >
                     <GuidelinesManager />
+                  </motion.div>
+                )}
+                {activeTab === 'feedbacks' && (
+                  <motion.div 
+                    key="feedbacks"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                  >
+                    <AdminFeedbacks />
                   </motion.div>
                 )}
               </AnimatePresence>

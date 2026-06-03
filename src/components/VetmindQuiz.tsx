@@ -3,6 +3,7 @@ import {
   Check, ArrowLeft, ArrowRight, BookOpen, Sparkle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import VetmindLogo from './VetmindLogo';
 
 interface Answers {
   role?: string;
@@ -13,7 +14,7 @@ interface Answers {
   willTrustIfCited?: string;
 }
 
-export default function VoaVetQuiz() {
+export default function VetmindQuiz() {
   const [cur, setCur] = useState<string>('0'); // '0' is intro, '1'-'6' are qs, 'i1' & 'i2' are insights, 'R' is result.
   const [hist, setHist] = useState<string[]>([]);
   const [answers, setAnswers] = useState<Answers>({});
@@ -116,22 +117,22 @@ export default function VoaVetQuiz() {
     if (hasSpec === 'nao') {
       return {
         title: <>Você precisa disso <em className="text-[#6B4EFF] not-italic font-black">mais do que imagina.</em></>,
-        sub: 'Trabalhar sem rede de especialistas é a situação mais arriscada da clínica. A Voa.Vet é o especialista disponível às 22h, sem incomodar ninguém.'
+        sub: 'Trabalhar sem rede de especialistas é a situação mais arriscada da clínica. O Vetmind é o especialista disponível às 22h, sem incomodar ninguém.'
       };
     } else if (willTrust === 'sim') {
       return {
         title: <>Você é o perfil <em className="text-[#6B4EFF] not-italic font-black">exato.</em></>,
-        sub: 'Você já sabe o que falta: fonte rastreável. É exatamente isso que a Voa.Vet entrega. Cada diagnóstico com referência clínica verificável.'
+        sub: 'Você já sabe o que falta: fonte rastreável. É exatamente isso que o Vetmind entrega. Cada diagnóstico com referência clínica verificável.'
       };
     } else if (willTrust === 'talvez') {
       return {
         title: <>O ceticismo é <em className="text-[#6B4EFF] not-italic font-black">bem-vindo aqui.</em></>,
-        sub: 'A Voa.Vet foi construída para quem só acredita testando. Cancele se não entregar. Mas você vai querer ficar.'
+        sub: 'O Vetmind foi construído para quem só acredita testando. Cancele se não entregar. Mas você vai querer ficar.'
       };
     } else {
       return {
         title: <>Você vai entender <em className="text-[#6B4EFF] not-italic font-black">quando precisar.</em></>,
-        sub: 'A Voa.Vet é para quando a dúvida aparecer e não tiver ninguém para ligar. Garanta acesso agora e teste quando o momento chegar.'
+        sub: 'O Vetmind é para quando a dúvida aparecer e não tiver ninguém para ligar. Garanta acesso agora e teste quando o momento chegar.'
       };
     }
   };
@@ -166,7 +167,7 @@ export default function VoaVetQuiz() {
         </div>
         <h3 className="text-sm font-black text-slate-800 leading-tight">Mockup de Conversão (Nebula Quiz)</h3>
         <p className="text-[11px] text-slate-500 leading-normal">
-          Esta é a página estática de marketing e captura de leads do <b>Voa.Vet</b>. Alinhada integralmente ao design de alta fidelidade.
+          Esta é a página estática de marketing e captura de leads do <b>Vetmind</b>. Alinhada integralmente ao design de alta fidelidade.
         </p>
         {cur !== '0' && (
           <button 
@@ -230,8 +231,8 @@ export default function VoaVetQuiz() {
                 className="px-5 pt-8 pb-10 flex flex-col min-h-full"
               >
                 <div className="flex justify-center mb-8">
-                  <div className="w-[72px] h-[72px] bg-[#F0EDFF] rounded-full flex items-center justify-center shadow-inner">
-                    <span className="text-3xl">🐾</span>
+                  <div className="w-[72px] h-[72px] bg-[#F0EDFF] rounded-full flex items-center justify-center p-2.5">
+                    <VetmindLogo showText={false} size={54} />
                   </div>
                 </div>
                 
@@ -247,7 +248,7 @@ export default function VoaVetQuiz() {
                 </h1>
                 
                 <p className="text-[15px] text-[#9B9BB5] text-center leading-[1.6] mb-8 font-normal max-w-[320px] mx-auto">
-                  6 perguntas para descobrir se a Voa.Vet resolve sua dor clínica de verdade.
+                  6 perguntas para descobrir se o Vetmind resolve sua dor clínica de verdade.
                 </p>
 
                 <div className="flex flex-wrap gap-2 justify-center mb-6">
@@ -730,7 +731,7 @@ export default function VoaVetQuiz() {
                     </div>
                     <h4 className="text-[13px] font-black text-[#1A1A2E] uppercase tracking-wider">Vaga Assegurada!</h4>
                     <p className="text-[12px] text-[#3D3D5C] leading-[1.6]">
-                      O link de acesso especial para o onboarding da <b>Voa.Vet</b> foi despachado para <span className="font-semibold text-[#1A1A2E]">{email}</span>.
+                      O link de acesso especial para o onboarding do <b>Vetmind</b> foi despachado para <span className="font-semibold text-[#1A1A2E]">{email}</span>.
                     </p>
                   </div>
                 )}

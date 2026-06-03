@@ -86,7 +86,8 @@ async function extractPdfTextWithPDFParse(buffer: Buffer): Promise<string> {
 function retrieveGlobalRelevantChunks(
   documents: { source: string, text: string }[],
   queryText: string,
-  maxTotalChars: number = 300000
+  maxTotalChars: number = 300000,
+  outConsulted?: { source: string; snippet: string; score: number }[]
 ): string {
   if (documents.length === 0) return "Nenhum livro ou diretriz de referência disponível.";
 
@@ -159,6 +160,18 @@ function retrieveGlobalRelevantChunks(
     totalLength += chunk.text.length;
   }
 
+  if (outConsulted) {
+    for (const chunk of selectedChunks) {
+      if (chunk.score > 0) {
+        outConsulted.push({
+          source: chunk.source,
+          snippet: chunk.text,
+          score: chunk.score
+        });
+      }
+    }
+  }
+
   // Sort chronologically/sequentially by book order and then relative index
   selectedChunks.sort((a, b) => {
     if (a.source !== b.source) {
@@ -194,7 +207,7 @@ function retrieveRelevantChunks(fullText: string, queryText: string, maxChars: n
 }
 
 // Read reference files from both bundled guidelines directory and the writable /tmp upload folder
-async function getAdminGuidelinesFiles(userQuery?: string): Promise<any[]> {
+async function getAdminGuidelinesFiles(userQuery?: string, outConsulted?: any[]): Promise<any[]> {
   const parts: any[] = [];
   const dirs = [
     path.join(process.cwd(), 'guidelines'),
@@ -281,7 +294,7 @@ async function getAdminGuidelinesFiles(userQuery?: string): Promise<any[]> {
   if (textDocuments.length > 0) {
     if (userQuery) {
       console.log(`[GLOBAL RAG] Executing unified context search across ${textDocuments.length} textbooks for query.`);
-      const matchedContext = retrieveGlobalRelevantChunks(textDocuments, userQuery, 60000); // 60k chars absolute budget for fast performance and low token consumption
+      const matchedContext = retrieveGlobalRelevantChunks(textDocuments, userQuery, 60000, outConsulted); // 60k chars absolute budget for fast performance and low token consumption
       parts.push({
         text: `CONTEÚDO ACADÊMICO RELEVANTE EXTRAÍDO DOS LIVROS E DIRETRIZES CLÍNICAS DE REFERÊNCIA:\n${matchedContext}`
       });
@@ -581,6 +594,7 @@ app.post('/api/generate-report', async (req, res) => {
     }
 
     const currentGuidelines = await getFullGuidelines();
+    const consultedSources: any[] = [];
 
     const systemInstruction = `
       Você é um Copiloto Veterinário de elite especializado em Laudos e Prontuários no padrão SOAP.
@@ -591,7 +605,13 @@ app.post('/api/generate-report', async (req, res) => {
       ## O (Objetivo): Analise detalhadamente os achados clínicos, exames de imagem ou laboratoriais anexados. Se houver imagens, descreva o que vê tecnicamente.
       ## A (Avaliação): Interpretação clínica. Quais são as suspeitas principais e por quê?
       ## P (Plano): Recomendações terapêuticas, exames adicionais ou monitoramento.
-      ## D (Diferenciais): Liste EXATAMENTE 3 diagnósticos diferenciais prováveis. Você DEVE realizar uma revisão clínica minuciosa dos PDFs fornecidos como Base Geral (enviados pelo administrador) e/ou dos PDFs enviados pelo usuário. Para cada diagnóstico, determine a plausibilidade clínica e justifique informando explicitamente qual PDF, autor, trecho ou página apoia a suspeita.
+      ## D (Diferenciais): Liste EXATAMENTE 3 diagnósticos diferenciais prováveis ranqueados em ordem de plausibilidade (1º, 2º, 3º). Para cada diagnóstico, retorne OBRIGATORIAMENTE nesta estrutura:
+         - **[Nome da Patologia] - [Porcentagem de Assertividade, ex: 85%] de Probabilidade**
+         - **Revisão Sistemática (RAG) / Por que esta causa?**: Uma revisão crítica detalhada e sistemática justificando clinicamente por que essa patologia é compatível com os exames e a anamnese fornecidos.
+         - **Embasamento Literário**: Forneça o embasamento literário e uma referência bibliográfica EXTREMAMENTE RASTREÁVEL e completamente CLICÁVEL em formato de link Markdown, utilizando o seguinte padrão:
+            - Para livros da base ou clássicos: \`[Nome do Livro (ex: Nelson - Medicina Interna de Pequenos Animais), Cap. X, pág. Y](https://scholar.google.com/scholar?q=Nelson+Internal+Medicine+Small+Animals+Chapter+X+Page+Y)\`
+            - Para artigos científicos ou consensos: \`[Título do Artigo/Consenso](https://scholar.google.com/scholar?q=Nome+do+Artigo+Ou+Consenso)\` ou se tiver DOI: \`[DOI: 10.xxxx/yyyy](https://doi.org/10.xxxx/yyyy)\`
+         Sempre certifique-se de que cada diagnóstico diferencial tenha pelo menos um link ativo para busca bibliográfica direta facilitando a verificação profissional pelo médico.
       ## M (Métricas): Forneça os valores encontrados para FC (Freq. Cardíaca), FR (Freq. Respiratória), Temp (Temperatura), TRC (Tempo Repreenchimento Capilar) e a ORIGEM do cliente (Indicação, Instagram, Google, Facebook ou Outros) no formato JSON simple: {"fc": "valor", "fr": "valor", "temp": "valor", "trc": "valor", "origem": "valor"}. Se não encontrar a origem na anamnese, classifique como "Outros" ou tente deduzir pelo contexto.
 
       Regras:
@@ -623,7 +643,7 @@ app.post('/api/generate-report', async (req, res) => {
     const parts: any[] = [{ text: userPrompt }];
 
     // Inject Admin General Base PDFs from /guidelines/ folder
-    const adminPDFParts = await getAdminGuidelinesFiles(userPrompt);
+    const adminPDFParts = await getAdminGuidelinesFiles(userPrompt, consultedSources);
     parts.push(...adminPDFParts);
     
     if (files && Array.isArray(files)) {
@@ -636,7 +656,7 @@ app.post('/api/generate-report', async (req, res) => {
               console.log(`[RAG] Processing multi-page user-uploaded PDF '${file.name || 'documento'}' (${pageCount} pages)...`);
               try {
                 const textContent = await extractPdfTextWithPDFParse(userPdfBuffer);
-                const finalContext = retrieveRelevantChunks(textContent, userPrompt, 45000); // Optimized budget for user pdfs
+                const finalContext = retrieveGlobalRelevantChunks([{ source: file.name || 'Anexo do Usuário', text: textContent }], userPrompt, 45000, consultedSources); // Optimized budget for user pdfs
                 parts.push({
                   text: `ARQUIVO ENVIADO PELO USUÁRIO: ${file.name || 'documento'}\nCONTEÚDO EXTRAÍDO RELEVANTE PARA O CASO:\n${finalContext}`
                 });
@@ -669,7 +689,10 @@ app.post('/api/generate-report', async (req, res) => {
     
     res.json({ 
       soapContent,
-      sources: currentGuidelines.map(g => g.topic) 
+      sources: [
+        ...currentGuidelines.map(g => ({ topic: g.topic, content: g.content, type: 'guideline' })),
+        ...consultedSources.map(s => ({ topic: s.source, content: s.snippet, type: 'pdf', score: s.score }))
+      ]
     });
 
   } catch (error: any) {
@@ -779,9 +802,10 @@ app.post('/api/literature-review', async (req, res) => {
     }
 
     const currentGuidelines = await getFullGuidelines();
+    const consultedSources: any[] = [];
 
     const systemInstruction = `
-      Você é o motor clínico avançado do Voa.Vet, focado exclusivamente em revisão crítica literária e auxílio ao raciocínio para cirurgiões e clínicos veterinários.
+      Você é o motor clínico avançado do Vetmind, focado exclusivamente em revisão crítica literária e auxílio ao raciocínio para cirurgiões e clínicos veterinários.
       Você analisa artigos científicos fornecidos pelo usuário (via anexos) ou realiza a busca profunda a partir de diretrizes consagradas.
       
       HIERARQUIA DE FONTES E RESOLUÇÃO DE CONFLITOS (MALHAS DE SEGURANÇA):
@@ -808,7 +832,10 @@ app.post('/api/literature-review', async (req, res) => {
       (Confronte o documento fornecido com as referências tradicionais. Se houver divergências entre o artigo e manuais consagrados, inicie com: "⚠️ DIVERGÊNCIA LITERÁRIA" e explique a quebra de padrão.)
 
       ## 📖 CITAÇÃO CLÍNICA EXATA
-      (Informe a citação científica completa no padrão ABNT ou Vancouver para que o médico possa encontrar o artigo, livro ou diretriz original, indicando capítulo ou página aplicável se for pertinente)
+      (Informe a citação científica completa no padrão ABNT ou Vancouver para que o médico possa encontrar o artigo, livro ou diretriz original, indicando capítulo ou página aplicável se for pertinente. Você DEVE tornar essa referência bibliográfica completamente CLICÁVEL, fornecendo links no formato markdown, como:
+      - Para livros: \`[Nome do Livro (ex: Fossum - Cirurgia de Pequenos Animais), Cap. X, pág. Y](https://scholar.google.com/scholar?q=Fossum+Small+Animal+Surgery+Chapter+X+Page+Y)\`
+      - Para artigos ou consensos: \`[Título do Artigo ou Consenso (ex: WSAVA Vaccination Guidelines)](https://scholar.google.com/scholar?q=WSAVA+Vaccination+Guidelines)\` ou se houver DOI: \`[DOI: 10.xxxx/yyyy](https://doi.org/10.xxxx/yyyy)\`
+      Crie links diretos e inteligentes automatizados no Google Scholar: "https://scholar.google.com/scholar?q=...", ou URLs DOI resolver "https://doi.org/...")
 
       Não retorne informações vazias ou fictícias. Use sempre jargão profissional exemplar (ex: "êmese" no lugar de "vômito", "polidipsia" no lugar de "beber muita água").
     `;
@@ -824,7 +851,7 @@ app.post('/api/literature-review', async (req, res) => {
     const parts: any[] = [{ text: userPrompt }];
 
     // Inject Admin General Base PDFs from /guidelines/ folder
-    const adminPDFParts = await getAdminGuidelinesFiles(userPrompt);
+    const adminPDFParts = await getAdminGuidelinesFiles(userPrompt, consultedSources);
     parts.push(...adminPDFParts);
 
     if (files && Array.isArray(files)) {
@@ -837,7 +864,7 @@ app.post('/api/literature-review', async (req, res) => {
               console.log(`[RAG] Processing multi-page user-uploaded PDF in literature-review '${file.name || 'documento'}' (${pageCount} pages)...`);
               try {
                 const textContent = await extractPdfTextWithPDFParse(userPdfBuffer);
-                const finalContext = retrieveRelevantChunks(textContent, userPrompt, 60000); // Optimized budget for literature review of user PDFs
+                const finalContext = retrieveGlobalRelevantChunks([{ source: file.name || 'Anexo do Usuário', text: textContent }], userPrompt, 60000, consultedSources); // Optimized budget for literature review of user PDFs
                 parts.push({
                   text: `ARQUIVO ENVIADO PELO USUÁRIO: ${file.name || 'documento'}\nCONTEÚDO EXTRAÍDO RELEVANTE PARA O CASO:\n${finalContext}`
                 });
@@ -866,7 +893,10 @@ app.post('/api/literature-review', async (req, res) => {
       }
     });
 
-    res.json({ review: response.text || "Falha ao gerar revisão clínica." });
+    res.json({ 
+      review: response.text || "Falha ao gerar revisão clínica.",
+      sources: consultedSources.map(s => ({ topic: s.source, content: s.snippet, type: 'pdf', score: s.score }))
+    });
 
   } catch (error: any) {
     console.error('Literature Review Error:', error);

@@ -25,7 +25,9 @@
         "sources": { "type": "array", "items": { "type": "string" } },
         "createdAt": { "type": "string", "format": "date-time" },
         "ownerId": { "type": "string" },
-        "status": { "type": "string", "enum": ["draft", "finalized"] }
+        "status": { "type": "string", "enum": ["draft", "finalized"] },
+        "rating": { "type": "integer" },
+        "feedbackComment": { "type": "string" }
       },
       "required": ["patientId", "soapContent", "ownerId"]
     }

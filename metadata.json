@@ -1,5 +1,5 @@
 {
-  "name": "Voa.Vet",
+  "name": "Vetmind",
   "description": "Copiloto veterinário inteligente de elite com laudos SOAP automatizados e motor de revisão crítica de literatura baseada em evidências.",
   "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

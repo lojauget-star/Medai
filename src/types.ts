@@ -19,6 +19,8 @@ export interface Report {
   createdAt: number;
   ownerId: string;
   status: 'draft' | 'finalized';
+  rating?: number;
+  feedbackComment?: string;
 }
 
 export interface GenerateReportRequest {
