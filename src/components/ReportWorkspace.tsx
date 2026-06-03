@@ -32,6 +32,8 @@ import {
   Clock,
   ExternalLink,
   Star,
+  FileSpreadsheet,
+  X,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "motion/react";
@@ -287,9 +289,14 @@ export default function ReportWorkspace({
   });
   const [anamnesis, setAnamnesis] = useState(initialReport?.anamnesis || "");
   const [examData, setExamData] = useState(initialReport?.examData || "");
-  const [uploadedFiles, setUploadedFiles] = useState<
+  const [uploadedExamFiles, setUploadedExamFiles] = useState<
     { name: string; size: string; data?: string; mimeType?: string }[]
   >([]);
+  const [uploadedLiteratureFiles, setUploadedLiteratureFiles] = useState<
+    { name: string; size: string; data?: string; mimeType?: string }[]
+  >([]);
+  const uploadedFiles = [...uploadedExamFiles, ...uploadedLiteratureFiles];
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedReport, setGeneratedReport] = useState<string | null>(
     initialReport?.soapContent || null,
@@ -329,6 +336,7 @@ export default function ReportWorkspace({
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const examInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (initialReport) {
@@ -340,6 +348,8 @@ export default function ReportWorkspace({
       });
       setAnamnesis(initialReport.anamnesis || "");
       setExamData(initialReport.examData || "");
+      setUploadedExamFiles([]);
+      setUploadedLiteratureFiles([]);
       setGeneratedReport(initialReport.soapContent || null);
       setSources(initialReport.sources || []);
       setSavedReportId(initialReport.id || null);
@@ -357,7 +367,8 @@ export default function ReportWorkspace({
       });
       setAnamnesis("");
       setExamData("");
-      setUploadedFiles([]);
+      setUploadedExamFiles([]);
+      setUploadedLiteratureFiles([]);
       setGeneratedReport(null);
       setGeneratedReview(null);
       setSources([]);
@@ -370,7 +381,7 @@ export default function ReportWorkspace({
     }
   }, [initialReport]);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleExamFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
       const newFilesPromises = Array.from(files).map(async (f) => {
@@ -395,20 +406,59 @@ export default function ReportWorkspace({
       });
 
       const newFiles = await Promise.all(newFilesPromises);
-      setUploadedFiles((prev) => [...prev, ...newFiles]);
-      // Update examData summary
+      setUploadedExamFiles((prev) => [...prev, ...newFiles]);
       setExamData(
         (prev) =>
           prev +
-          "\n[Arquivos analisados: " +
+          "\n[Exame anexado: " +
           newFiles.map((f) => f.name).join(", ") +
           "]",
       );
     }
   };
 
-  const removeFile = (index: number) => {
-    setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
+  const handleLiteratureFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const newFilesPromises = Array.from(files).map(async (f) => {
+        return new Promise<{
+          name: string;
+          size: string;
+          data: string;
+          mimeType: string;
+        }>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const base64 = (event.target?.result as string).split(",")[1];
+            resolve({
+              name: f.name,
+              size: (f.size / (1024 * 1024)).toFixed(1) + "MB",
+              data: base64,
+              mimeType: f.type,
+            });
+          };
+          reader.readAsDataURL(f);
+        });
+      });
+
+      const newFiles = await Promise.all(newFilesPromises);
+      setUploadedLiteratureFiles((prev) => [...prev, ...newFiles]);
+      setExamData(
+        (prev) =>
+          prev +
+          "\n[Diretriz literária anexada: " +
+          newFiles.map((f) => f.name).join(", ") +
+          "]",
+      );
+    }
+  };
+
+  const removeExamFile = (index: number) => {
+    setUploadedExamFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removeLiteratureFile = (index: number) => {
+    setUploadedLiteratureFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleGenerate = async () => {
@@ -1309,7 +1359,7 @@ export default function ReportWorkspace({
             className="flex flex-col items-center gap-1.5 text-[10px] font-bold text-clinical-blue hover:scale-105 transition-transform"
           >
             <div className="bg-blue-50 p-2 rounded">
-              <Save className="w-6 h-6" />
+              <Save className="w-5 h-5" />
             </div>
             Salvar
           </button>
@@ -1319,41 +1369,79 @@ export default function ReportWorkspace({
   }
 
   return (
-    <div className="space-y-8 pb-40 animate-in fade-in slide-in-from-right-2 duration-400 max-w-md mx-auto px-1">
-      {/* Progress */}
-      <div className="flex justify-center gap-2 mb-6">
-        <div className="h-1 w-10 bg-clinical-blue animate-pulse"></div>
-        <div className="h-1 w-10 bg-slate-200"></div>
-        <div className="h-1 w-10 bg-slate-200"></div>
+    <div className="space-y-6 pb-36 animate-in fade-in slide-in-from-right-2 duration-300 max-w-md mx-auto px-1">
+      {/* Step Indicator */}
+      <div className="flex justify-between items-center px-1 mb-2">
+        <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-[#003399]">
+          <Sparkles className="w-3.5 h-3.5 text-clinical-blue" />
+          <span>Fase Única: Diagnóstico RAG</span>
+        </div>
+        <div className="flex gap-1">
+          <div className="h-1.5 w-8 rounded-full bg-clinical-blue"></div>
+          <div className="h-1.5 w-2 rounded-full bg-slate-200"></div>
+        </div>
       </div>
 
-      <div className="px-1 flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <VetmindLogo showText={true} size={36} />
-            <span className="bg-clinical-blue/10 text-clinical-blue px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">
-              Copilot
+      {/* Header */}
+      <div className="px-1 flex flex-col gap-1.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <VetmindLogo showText={true} size={32} />
+            <span className="bg-[#EBF2FF] text-[#003399] px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border border-blue-100">
+              Copilot RAG Ativo
             </span>
           </div>
-          <p className="text-xs font-semibold text-slate-500 mt-2">
-            Conectado ao cérebro de RAG Clínico Certificado.
-          </p>
+        </div>
+        <p className="text-[11px] font-semibold text-slate-500 leading-relaxed">
+          Sua anamnese cruzada instantaneamente com as principais diretrizes científicas da medicina veterinária.
+        </p>
+      </div>
+
+      {/* RAG Feature Callout */}
+      <div className="bg-gradient-to-br from-blue-50 to-indigo-50/50 border border-blue-100 rounded-3xl p-5 space-y-3.5 shadow-sm animate-in fade-in duration-300">
+        <div className="flex items-center gap-2 text-clinical-blue">
+          <Activity className="w-4 h-4 text-[#003399] animate-pulse" />
+          <h4 className="font-extrabold text-[10px] uppercase tracking-wider text-slate-800">
+            A Solução Vetmind: Revisão Sistemática RAG
+          </h4>
+        </div>
+        <div className="space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-xs text-clinical-blue shrink-0 mt-0.5">
+              ✓
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest leading-none">Assertividade com % de Causa</p>
+              <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                Classificação automática do ranking de diagnósticos prováveis com base em dados clínicos.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-xs text-clinical-blue shrink-0 mt-0.5">
+              ✓
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-[#003399] uppercase tracking-widest leading-none">Justificativa Baseada em Evidências</p>
+              <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                Resumo sistemático explicitando o "porquê" de cada causa, com links funcionais para livros de cabeceira.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Dados do Paciente */}
-      <div className="card-clinical p-8 space-y-6 animate-in fade-in duration-300">
-        <div className="flex items-center gap-3 text-clinical-blue">
-          <PawPrint className="w-5 h-5" />
-          <h3 className="font-bold text-lg text-surface-text tracking-tight">
-            Dados do Paciente
-          </h3>
+      <div className="card-clinical p-6 space-y-5 animate-in fade-in duration-350">
+        <div className="flex items-center gap-2 text-[#003399] border-b border-slate-100 pb-3">
+          <PawPrint className="w-4.5 h-4.5" />
+          <h3 className="font-extrabold text-sm text-slate-800 tracking-tight">Paciente</h3>
         </div>
-        <div className="space-y-4">
-          <div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="col-span-2">
             <label className="label-medical">Nome do Paciente</label>
             <input
-              className="input-clinical"
+              className="input-clinical text-xs py-2.5"
               placeholder="Ex: Rex"
               value={patient.name}
               onChange={(e) => setPatient({ ...patient, name: e.target.value })}
@@ -1362,18 +1450,16 @@ export default function ReportWorkspace({
           <div>
             <label className="label-medical">Espécie / Raça</label>
             <input
-              className="input-clinical"
-              placeholder="Ex: Canino / Golden Retriever"
+              className="input-clinical text-xs py-2.5"
+              placeholder="Ex: Canino / Golden"
               value={patient.breed}
-              onChange={(e) =>
-                setPatient({ ...patient, breed: e.target.value })
-              }
+              onChange={(e) => setPatient({ ...patient, breed: e.target.value })}
             />
           </div>
           <div>
             <label className="label-medical">Idade</label>
             <input
-              className="input-clinical"
+              className="input-clinical text-xs py-2.5"
               placeholder="Ex: 5 anos"
               value={patient.age}
               onChange={(e) => setPatient({ ...patient, age: e.target.value })}
@@ -1382,255 +1468,284 @@ export default function ReportWorkspace({
         </div>
       </div>
 
-      {/* Upload de Literatura Científica Opcional ou Exames */}
-      <div className="card-clinical p-8 space-y-6 animate-in fade-in duration-300">
-        <div className="flex items-center gap-3 text-clinical-blue">
-          <FileUp className="w-5 h-5" strokeWidth={2.5} />
-          <h3 className="font-bold text-lg text-surface-text tracking-tight">
-            Subir Literatura Específica / Exames (Opcional)
-          </h3>
+      {/* Exames do Paciente Opcional */}
+      <div className="card-clinical p-6 space-y-4 animate-in fade-in duration-300">
+        <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2 text-[#003399]">
+            <FileSpreadsheet className="w-4.5 h-4.5 text-[#003399]" />
+            <h3 className="font-extrabold text-xs uppercase tracking-wider text-slate-800">
+              Anexar Exames do Paciente
+            </h3>
+          </div>
+          <span className="bg-[#EBF2FF] text-[#003399] text-[8px] font-black uppercase px-2 py-0.5 rounded-full border border-blue-50">
+            Opcional
+          </span>
         </div>
+
+        <p className="text-[10.5px] text-slate-500 font-semibold leading-relaxed">
+          Anexe hemogramas, exames bioquímicos, ultrassons, raio-X ou laudos anteriores. Nosso motor lerá os dados estruturados para correlacionar com o caso.
+        </p>
+
+        <input
+          type="file"
+          hidden
+          ref={examInputRef}
+          onChange={handleExamFileChange}
+          multiple
+          accept=".pdf,.jpg,.jpeg,.png"
+        />
+
+        <div
+          onClick={() => examInputRef.current?.click()}
+          className="border border-dashed border-slate-200 hover:border-[#003399]/40 hover:bg-blue-50/20 rounded-2xl p-5 flex flex-col items-center justify-center bg-white transition-all group cursor-pointer"
+        >
+          <Upload className="w-6 h-6 text-[#003399] group-hover:scale-110 transition-transform mb-2" />
+          <p className="text-[11px] font-bold text-slate-700 text-center">
+            Clique ou arraste Hemogramas ou Exames
+          </p>
+          <p className="text-[9px] text-slate-400 font-medium text-center mt-1">
+            Formatos aceitos: PDF ou Imagem (.png, .jpg)
+          </p>
+        </div>
+
+        <AnimatePresence>
+          {uploadedExamFiles.length > 0 && (
+            <div className="space-y-1.5 pt-1">
+              {uploadedExamFiles.map((file, i) => (
+                <div
+                  key={i}
+                  className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <FileText className="w-4 h-4 text-clinical-blue shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold text-slate-700 truncate max-w-[180px]">
+                        {file.name}
+                      </p>
+                      <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wide">
+                        Laudo de Exame • {file.size}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeExamFile(i);
+                    }}
+                    className="p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-red-500 transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Upload de Literatura Científica Opcional */}
+      <div className="card-clinical p-6 space-y-4 animate-in fade-in duration-400">
+        <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2 text-slate-600">
+            <BookOpen className="w-4.5 h-4.5" />
+            <h3 className="font-extrabold text-xs uppercase tracking-wider text-slate-755">
+              Literatura Específica de Apoio
+            </h3>
+          </div>
+          <span className="bg-slate-100 text-slate-500 text-[8px] font-black uppercase px-2 py-0.5 rounded-full">
+            Opcional
+          </span>
+        </div>
+
+        <p className="text-[10.5px] text-slate-500 font-semibold leading-relaxed">
+          Opcionalmente suba um artigo, PDF ou foto da bula de um medicamento para que o motor RAG inclua-o como base prioritária para o diagnóstico.
+        </p>
 
         <input
           type="file"
           hidden
           ref={fileInputRef}
-          onChange={handleFileChange}
+          onChange={handleLiteratureFileChange}
           multiple
           accept=".pdf,.jpg,.jpeg,.png"
         />
 
         <div
           onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed border-slate-200 rounded-2xl p-10 flex flex-col items-center justify-center bg-white hover:bg-slate-50 transition-all group cursor-pointer animate-in fade-in duration-200"
+          className="border border-dashed border-slate-200 hover:border-slate-400 hover:bg-slate-50/50 rounded-2xl p-5 flex flex-col items-center justify-center bg-white transition-all group cursor-pointer"
         >
-          <div className="text-slate-400 group-hover:scale-110 transition-all mb-4">
-            <Upload className="w-10 h-10 text-[#003399]" />
-          </div>
-          <p className="text-sm font-bold text-slate-755 text-center">
-            Adicionar livro, artigo ou guia clínico para embasamento
+          <Upload className="w-6 h-6 text-slate-400 group-hover:scale-110 transition-transform mb-2" />
+          <p className="text-[11px] font-bold text-slate-650 text-center">
+            Clique ou arraste um Artigo ou Bula
           </p>
-          <p className="text-[10px] text-slate-400 mt-2 text-center uppercase font-bold tracking-widest leading-relaxed">
-            Aceita PDFs densos de literatura ou exames (.pdf, .jpg, .png)
-            <br />O sistema lerá via RAG para cruzar com o caso
+          <p className="text-[9px] text-slate-400 font-medium text-center mt-1">
+            Até 10MB • O sistema lerá todo o conteúdo via RAG
           </p>
-          <button className="mt-5 bg-[#003399] text-white text-[11px] font-black uppercase px-8 py-3 rounded-lg shadow-lg shadow-[#003399]/20 transition-transform active:scale-95">
-            Selecionar Arquivo
-          </button>
         </div>
 
         <AnimatePresence>
-          <div className="space-y-2 pt-2">
-            {uploadedFiles.map((file, i) => (
-              <div
-                key={i}
-                className="bg-slate-50 border border-slate-100 rounded-md p-3 flex items-center justify-between animate-in fade-in duration-300"
-              >
-                <div className="flex items-center gap-3">
-                  <FileText className="w-5 h-5 text-clinical-blue" />
-                  <div>
-                    <p className="text-xs font-bold text-slate-700 truncate max-w-[200px]">
-                      {file.name}
-                    </p>
-                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-tighter">
-                      Pronto para Cruzamento • {file.size}
-                    </p>
+          {uploadedLiteratureFiles.length > 0 && (
+            <div className="space-y-1.5 pt-1">
+              {uploadedLiteratureFiles.map((file, i) => (
+                <div
+                  key={i}
+                  className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <FileText className="w-4 h-4 text-clinical-blue shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold text-slate-700 truncate max-w-[180px]">
+                        {file.name}
+                      </p>
+                      <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wide">
+                        Literatura RAG • {file.size}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <CheckCircle2 className="w-4 h-4 text-trusted-green" />
-              </div>
-            ))}
-            {isGenerating && (
-              <div className="bg-slate-50 border border-slate-100 rounded-md p-3 space-y-2">
-                <div className="flex items-center justify-between font-bold text-[10px] text-slate-400 uppercase tracking-widest">
-                  <span>Indexando com RAG Inteligente...</span>
-                  <Loader2 className="w-3 h-3 animate-spin text-clinical-blue" />
-                </div>
-                <div className="h-1 w-full bg-slate-200 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{
-                      width: "85%",
-                      transition: { duration: 2.5, repeat: Infinity },
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeLiteratureFile(i);
                     }}
-                    className="h-full bg-clinical-blue"
-                  />
+                    className="p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-red-500 transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-              </div>
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </AnimatePresence>
+
+        {isGenerating && (
+          <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 space-y-1.5 animate-pulse">
+            <div className="flex items-center justify-between text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+              <span>Cruzando exames e literatura científica...</span>
+              <Loader2 className="w-3 h-3 animate-spin text-clinical-blue" />
+            </div>
+            <div className="h-1 w-full bg-slate-200 rounded-full overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{
+                  width: "85%",
+                  transition: { duration: 2.5, repeat: Infinity },
+                }}
+                className="h-full bg-[#003399]"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Anamnese */}
-      <div className="card-clinical p-8 space-y-6 animate-in fade-in duration-300">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 text-clinical-blue">
-            <ClipboardList className="w-5 h-5" />
-            <h3 className="font-bold text-lg text-surface-text tracking-tight">
-              Anamnese & Discussão Clínica
+      {/* Relato e Anamnese */}
+      <div className="card-clinical p-6 space-y-5 animate-in fade-in duration-450">
+        <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2 text-clinical-blue">
+            <ClipboardList className="w-4.5 h-4.5" />
+            <h3 className="font-extrabold text-xs uppercase tracking-wider text-slate-800">
+              Anamnese & Sintomas
             </h3>
           </div>
-          <div className="flex items-center gap-2">
-            {isTranscribing && (
-              <div className="flex items-center gap-1.5 text-[10px] font-bold text-clinical-blue animate-pulse">
-                <Loader2 className="w-3 h-3 animate-spin" /> Transcrevendo...
-              </div>
-            )}
-            <button
-              onClick={isRecording ? handleStopRecording : handleStartRecording}
-              className={`p-3 rounded-xl flex items-center gap-2 transition-all ${isRecording ? "bg-red-500 text-white animate-pulse" : "bg-slate-50 text-clinical-blue border border-slate-200 hover:bg-slate-100"}`}
-            >
-              {isRecording ? (
-                <Square className="w-4 h-4" />
-              ) : (
-                <Mic className="w-4 h-4" />
-              )}
-              <span className="text-[10px] font-black uppercase tracking-widest">
-                {isRecording ? "Parar Grav." : "Gravar Áudio"}
-              </span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={isRecording ? handleStopRecording : handleStartRecording}
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all text-[10px] font-extrabold uppercase ${
+              isRecording 
+                ? "bg-red-500 text-white animate-pulse" 
+                : "bg-slate-50 text-[#003399] hover:bg-slate-100 border border-slate-200"
+            }`}
+          >
+            {isRecording ? <Square className="w-3 h-3" /> : <Mic className="w-3 h-3 text-clinical-blue" />}
+            <span>{isRecording ? "Parar" : "Áudio"}</span>
+          </button>
         </div>
-        <div>
-          <label className="label-medical">
-            Relato Clínico da Consulta e Dúvidas Associadas
-          </label>
+
+        <div className="space-y-2">
+          <label className="label-medical">Descreva o caso do paciente</label>
           <div className="relative">
             <textarea
-              className="input-clinical h-64 resize-none leading-relaxed text-sm"
-              placeholder="Descreva detalhadamente os sintomas do paciente (ex: vômitos, letargia), exames, ou dúvidas científicas sobre diagnóstico diferencial..."
+              className="input-clinical h-48 resize-none leading-relaxed text-xs focus:ring-[#003399]/30"
+              placeholder="Ex: Felino, letárgico, dor epigástrica na palpação, vômitos amarelos há 3 dias. Tutor relata perda de peso aguda. Quero verificar lipidose ou colangiohepatite, informando a conduta e doses preconizadas por Nelson..."
               value={anamnesis}
               onChange={(e) => setAnamnesis(e.target.value)}
             />
             {isRecording && (
-              <div className="absolute inset-0 bg-red-50/50 backdrop-blur-[2px] rounded-xl flex flex-col items-center justify-center space-y-3 z-10">
-                <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center animate-ping absolute opacity-20"></div>
-                <Mic className="w-8 h-8 text-red-500 animate-bounce" />
-                <p className="text-sm font-black text-red-600 uppercase tracking-widest">
-                  Gravando...
+              <div className="absolute inset-0 bg-red-50/70 backdrop-blur-[1.5px] rounded-xl flex flex-col items-center justify-center space-y-2 z-10 animate-in fade-in duration-250">
+                <Mic className="w-6 h-6 text-red-500 animate-bounce" />
+                <p className="text-[10px] font-black text-red-600 uppercase tracking-widest animate-pulse">
+                  Gravando Relato Clínico...
                 </p>
                 <button
+                  type="button"
                   onClick={handleStopRecording}
-                  className="bg-red-600 text-white px-6 py-2 rounded-full text-xs font-bold shadow-lg"
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-full text-[10px] font-bold shadow-md transition-colors"
                 >
-                  Finalizar
+                  Concluir Áudio
                 </button>
               </div>
             )}
           </div>
         </div>
-        <div className="bg-[#EBF2FF] border border-blue-50 rounded-lg p-6 flex gap-4">
-          <BookOpen className="w-6 h-6 text-clinical-blue shrink-0 mt-0.5" />
+
+        <div className="bg-[#F0F5FF] border border-blue-50 p-4 rounded-xl flex gap-3">
+          <BookOpen className="w-5 h-5 text-clinical-blue shrink-0 mt-0.5" />
+          <p className="text-[10px] text-slate-600 font-semibold leading-relaxed">
+            <b>RAG Literário Ativo:</b> O sistema rastreará automaticamente as diretrizes (Nelson, Fossum, WSAVA, ACVIM) comparando com os sintomas apresentados.
+          </p>
+        </div>
+      </div>
+
+      {/* Action Status and Trigger */}
+      <div className="card-clinical bg-slate-50 border-slate-200 p-6 space-y-4 shadow-sm relative overflow-hidden">
+        <div className="flex justify-between items-center">
           <div>
-            <h4 className="text-[11px] font-bold text-clinical-blue uppercase tracking-tight mb-1">
-              Cérebro Veterinário Ativo (RAG)
+            <h4 className="text-xs font-extrabold text-slate-800 tracking-tight">
+              Análise Preditiva
             </h4>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Nosso motor de RAG cruza automaticamente as referências
-              científicas (Nelson, Fossum, WSAVA, ACVIM) com o seu relato e
-              materiais de literatura enviados.
+            <p className="text-[10px] text-slate-500 font-semibold">
+              Pronto para cruzar as evidências
             </p>
           </div>
-        </div>
-      </div>
-
-      {/* Próximos Passos */}
-      <div className="bg-[#081528] rounded-xl p-8 text-white space-y-6 shadow-2xl">
-        <h3 className="font-bold text-xl tracking-tight">Próximos Passos</h3>
-        <div className="space-y-4">
-          <div className="bg-white/5 border border-white/5 p-4 rounded-lg flex items-center gap-4 group hover:bg-white/10 transition-colors">
-            <div className="p-2 rounded bg-emerald-500/10 text-emerald-400">
-              <Activity className="w-5 h-5" />
-            </div>
-            <span className="text-sm font-semibold text-slate-300">
-              Diagnóstico Diferencial com %
-            </span>
-          </div>
-          <div className="bg-white/5 border border-white/5 p-4 rounded-lg flex items-center gap-4 group hover:bg-white/10 transition-colors">
-            <div className="p-2 rounded bg-clinical-blue/10 text-clinical-blue">
-              <div className="w-5 h-5 flex items-center justify-center border-2 border-clinical-blue rounded-sm text-[8px] font-bold">
-                +
-              </div>
-            </div>
-            <span className="text-sm font-semibold text-slate-300">
-              Justificativas Sistemáticas (RAG)
-            </span>
-          </div>
-          <div className="bg-white/5 border border-white/5 p-4 rounded-lg flex items-center gap-4 group hover:bg-white/10 transition-colors">
-            <div className="p-2 rounded bg-slate-500/10 text-slate-400">
-              <Share2 className="w-5 h-5" />
-            </div>
-            <span className="text-sm font-semibold text-slate-300">
-              Geração de Laudo SOAP
-            </span>
+          <div className="flex items-center gap-1.5 text-[9px] text-trusted-green font-black uppercase tracking-wider bg-white px-2.5 py-1 rounded-md border border-slate-100 shadow-sm">
+            <CheckCircle2 className="w-3.5 h-3.5 text-trusted-green" />
+            Motor Pronto
           </div>
         </div>
-      </div>
 
-      {/* Status Bar */}
-      <div className="card-clinical bg-slate-50 border-slate-200 p-8 space-y-6 shadow-sm mb-10 group relative overflow-hidden">
-        <div className="relative z-10">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h4 className="text-lg font-bold text-surface-text tracking-tight">
-                Status do Protocolo
-              </h4>
-              <p className="text-xs text-slate-500 mt-1">
-                Dados validados e prontos para análise
-              </p>
-            </div>
-            <div className="flex flex-col items-end gap-1">
-              <span className="bg-clinical-blue/10 text-clinical-blue text-[10px] font-bold uppercase px-3 py-1 rounded-full">
-                Etapa Única
-              </span>
-              <div className="flex items-center gap-1 text-[9px] text-trusted-green font-bold uppercase tracking-tighter">
-                <CheckCircle2 className="w-3 h-3" /> Conectado à IA
-              </div>
-            </div>
+        {error && (
+          <div className="bg-red-50 border border-red-150 rounded-xl p-3 flex items-start gap-2 animate-in fade-in">
+            <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+            <p className="text-[9.5px] font-bold text-red-700 leading-relaxed">
+              {error}
+            </p>
           </div>
+        )}
 
-          {error && (
-            <div className="bg-red-50 border border-red-100 rounded-xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
-              <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-xs font-bold text-red-900">
-                  Erro na Consulta
-                </p>
-                <p className="text-[10px] text-red-700 leading-relaxed mt-0.5">
-                  {error}
-                </p>
-              </div>
-            </div>
+        <button
+          onClick={handleGenerate}
+          disabled={isGenerating || (!anamnesis && uploadedFiles.length === 0)}
+          className={`w-full py-4 rounded-xl font-bold text-xs uppercase tracking-[0.12em] shadow-lg flex items-center justify-center gap-2.5 transition-all active:scale-[0.98] ${
+            isGenerating || (!anamnesis && uploadedFiles.length === 0)
+              ? "bg-slate-300 cursor-not-allowed text-white"
+              : "bg-trusted-green text-white hover:bg-emerald-600 shadow-trusted-green/20 cursor-pointer"
+          }`}
+        >
+          {isGenerating ? (
+            <>
+              <Loader2 className="w-4.5 h-4.5 animate-spin" />
+              <span>Cruzando evidências...</span>
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4 text-white animate-pulse" />
+              GERAR DIAGNÓSTICO E REVISÃO RAG
+            </>
           )}
+        </button>
 
-          <button
-            onClick={handleGenerate}
-            disabled={
-              isGenerating || (!anamnesis && uploadedFiles.length === 0)
-            }
-            className={`w-full py-4 rounded-xl font-bold text-xs uppercase tracking-[0.15em] shadow-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98] ${
-              isGenerating || (!anamnesis && uploadedFiles.length === 0)
-                ? "bg-slate-300 cursor-not-allowed text-white"
-                : "bg-trusted-green text-white hover:bg-emerald-600 shadow-trusted-green/20"
-            }`}
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Analisando e Cruzando Bases...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4" />
-                GERAR LAUDO E REVISÃO RAG
-              </>
-            )}
-          </button>
-        </div>
-        {/* Subtle decoration */}
-        <div className="absolute -right-6 -bottom-6 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
-          <PawPrint className="w-32 h-32" strokeWidth={1} />
+        {/* Subtle Watermark decoration */}
+        <div className="absolute -right-6 -bottom-6 opacity-[0.02] pointer-events-none">
+          <PawPrint className="w-24 h-24" strokeWidth={1} />
         </div>
       </div>
     </div>
