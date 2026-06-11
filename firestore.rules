@@ -65,5 +65,18 @@ service cloud.firestore {
                       
       allow delete: if isOwner(existing().ownerId);
     }
+
+    match /generations/{generationId} {
+      allow get, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn() && 
+                      generationId is string && generationId.size() <= 128 &&
+                      incoming().ownerId == request.auth.uid &&
+                      incoming().createdAt == request.time;
+      allow update: if isSignedIn() && 
+                      resource.data.ownerId == request.auth.uid && 
+                      incoming().ownerId == resource.data.ownerId &&
+                      incoming().createdAt == resource.data.createdAt;
+    }
   }
 }

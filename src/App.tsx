@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutGrid, PlusCircle, BookOpen, UserCircle, ClipboardList, Calendar as CalendarIcon, TrendingUp, Library as LibraryIcon, Menu, X, Star } from 'lucide-react';
+import { LayoutGrid, PlusCircle, BookOpen, UserCircle, ClipboardList, Calendar as CalendarIcon, TrendingUp, Library as LibraryIcon, Menu, X, Star, Sparkles, Chrome, PenTool } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReportWorkspace from './components/ReportWorkspace';
 import Dashboard from './components/Dashboard';
@@ -12,11 +12,20 @@ import VetmindQuiz from './components/VetmindQuiz';
 import VetmindLogo from './components/VetmindLogo';
 import GuidelinesManager from './components/GuidelinesManager';
 import AdminFeedbacks from './components/AdminFeedbacks';
+import MarketingWorkspace from './components/MarketingWorkspace';
+import IntegrationsSandbox from './components/IntegrationsSandbox';
+import SignatureDashboard from './components/SignatureDashboard';
 
 import Library from './components/Library';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'workspace' | 'dashboard' | 'profile' | 'calendar' | 'bi' | 'quiz' | 'guidelines' | 'feedbacks'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'workspace' | 'dashboard' | 'profile' | 'calendar' | 'bi' | 'quiz' | 'guidelines' | 'feedbacks' | 'marketing' | 'integrations' | 'signature'>('dashboard');
+  const [marketingPrefill, setMarketingPrefill] = useState<{
+    queixa?: string;
+    exames?: string;
+    tecnica?: string;
+    desfecho?: string;
+  } | null>(null);
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -77,7 +86,10 @@ export default function App() {
           <nav className="space-y-2">
             {[
               { id: 'dashboard', icon: LayoutGrid, label: 'Painel Central' },
+              { id: 'integrations', icon: Chrome, label: 'Copiloto de Prontuários' },
+              { id: 'signature', icon: PenTool, label: 'Termos & Assinatura' },
               { id: 'guidelines', icon: LibraryIcon, label: 'Banco de Diretrizes' },
+              { id: 'marketing', icon: Sparkles, label: 'Estúdio de Marketing' },
               { id: 'calendar', icon: CalendarIcon, label: 'Agenda Médica' },
               { id: 'bi', icon: TrendingUp, label: 'Inteligência (BI)' },
               { id: 'profile', icon: UserCircle, label: 'Meu Perfil' },
@@ -176,7 +188,10 @@ export default function App() {
                 <div className="p-6 flex-grow overflow-y-auto space-y-1.5">
                   {[
                     { id: 'dashboard', icon: LayoutGrid, label: 'Painel Central' },
+                    { id: 'integrations', icon: Chrome, label: 'Copiloto de Prontuários' },
+                    { id: 'signature', icon: PenTool, label: 'Termos & Assinatura' },
                     { id: 'guidelines', icon: LibraryIcon, label: 'Banco de Diretrizes' },
+                    { id: 'marketing', icon: Sparkles, label: 'Estúdio de Marketing' },
                     { id: 'calendar', icon: CalendarIcon, label: 'Agenda Médica' },
                     { id: 'bi', icon: TrendingUp, label: 'Inteligência (BI)' },
                     { id: 'profile', icon: UserCircle, label: 'Meu Perfil' },
@@ -251,7 +266,15 @@ export default function App() {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.98 }}
                   >
-                    <ReportWorkspace initialReport={selectedReport} onBack={() => setActiveTab('dashboard')} />
+                    <ReportWorkspace 
+                      initialReport={selectedReport} 
+                      onBack={() => setActiveTab('dashboard')} 
+                      onTransformToSocial={(socialData) => {
+                        setMarketingPrefill(socialData);
+                        setActiveTab('marketing');
+                      }}
+                      onNavigateToSignature={() => setActiveTab('signature')}
+                    />
                   </motion.div>
                 )}
                 {activeTab === 'profile' && (
@@ -344,6 +367,42 @@ export default function App() {
                     exit={{ opacity: 0, y: -10 }}
                   >
                     <AdminFeedbacks />
+                  </motion.div>
+                )}
+                {activeTab === 'marketing' && (
+                  <motion.div 
+                    key="marketing"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                  >
+                    <MarketingWorkspace 
+                      initialClinicalData={marketingPrefill}
+                      onBack={() => {
+                        setActiveTab('dashboard');
+                        setMarketingPrefill(null);
+                      }} 
+                    />
+                  </motion.div>
+                )}
+                {activeTab === 'integrations' && (
+                  <motion.div 
+                    key="integrations"
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.98 }}
+                  >
+                    <IntegrationsSandbox />
+                  </motion.div>
+                )}
+                {activeTab === 'signature' && (
+                  <motion.div 
+                    key="signature"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                  >
+                    <SignatureDashboard />
                   </motion.div>
                 )}
               </AnimatePresence>

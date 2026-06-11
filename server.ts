@@ -336,6 +336,9 @@ interface GenerateContentParams {
 async function generateContentWithFallback(params: GenerateContentParams): Promise<any> {
   const modelsToTry = [
     params.model || 'gemini-3.5-flash',
+    'gemini-2.5-flash',
+    'gemini-2.5-pro',
+    'gemini-1.5-flash',
     'gemini-flash-latest',
     'gemini-3.1-flash-lite'
   ];
@@ -407,6 +410,10 @@ const MEDICAL_GUIDELINES = [
   {
     topic: "Tratamento de Cardiomiopatia Dilatada [ACVIM Consensus Statement on Canine Dilated Cardiomyopathy, pág. 8-14]",
     content: "O uso precoce de maleato de enalapril ou benazepril associado ao pimobendan prolonga significativamente o tempo de sobrevida em cães com cardiomiopatia dilatada em estágio pré-clínico (Estágio B2)."
+  },
+  {
+    topic: "Hérnia Perineal em Cães [Fossum, Cirurgia de Pequenos Animais, Capítulo 19: Cirurgia do Sistema Hemolinfático e Perineal, pág. 480-492]",
+    content: "A hérnia perineal resulta da falha ou fraqueza do diafragma pélvico (músculos elevador do ânus, coccígeo e obturador interno), gerando desvio ou dilatação retal (divertículo retal), tenesmo, disquezia, dor ao evacuar e fezes achatadas em formato de fita (fitiformes). Ocorre principalmente em cães machos inteiros com predisposição em raças como Shih Tzu, Boxer, Poodle e Pequenez de meia-idade a idosos. O aumento de volume perianal/perineal unilateral ou bilateral pode ser acompanhado de hiperestesia perineal de severa a moderada e pode haver encarceramento de bexiga ou próstata. O tratamento cirúrgico definitivo (rafia perineal ou transposição de músculo obturador interno) é altamente indicado."
   }
 ];
 
@@ -608,10 +615,10 @@ app.post('/api/generate-report', async (req, res) => {
       ## D (Diferenciais): Liste EXATAMENTE 3 diagnósticos diferenciais prováveis ranqueados em ordem de plausibilidade (1º, 2º, 3º). Para cada diagnóstico, retorne OBRIGATORIAMENTE nesta estrutura:
          - **[Nome da Patologia] - [Porcentagem de Assertividade, ex: 85%] de Probabilidade**
          - **Revisão Sistemática (RAG) / Por que esta causa?**: Uma revisão crítica detalhada e sistemática justificando clinicamente por que essa patologia é compatível com os exames e a anamnese fornecidos.
-         - **Embasamento Literário**: Forneça o embasamento literário e uma referência bibliográfica EXTREMAMENTE RASTREÁVEL e completamente CLICÁVEL em formato de link Markdown, utilizando o seguinte padrão:
-            - Para livros da base ou clássicos: \`[Nome do Livro (ex: Nelson - Medicina Interna de Pequenos Animais), Cap. X, pág. Y](https://scholar.google.com/scholar?q=Nelson+Internal+Medicine+Small+Animals+Chapter+X+Page+Y)\`
-            - Para artigos científicos ou consensos: \`[Título do Artigo/Consenso](https://scholar.google.com/scholar?q=Nome+do+Artigo+Ou+Consenso)\` ou se tiver DOI: \`[DOI: 10.xxxx/yyyy](https://doi.org/10.xxxx/yyyy)\`
-         Sempre certifique-se de que cada diagnóstico diferencial tenha pelo menos um link ativo para busca bibliográfica direta facilitando a verificação profissional pelo médico.
+         - **Embasamento Literário (Múltiplas Referências Cruzadas)**: Forneça OBRIGATORIAMENTE de 2 a 3 referências bibliográficas distintas, complementares e de alto impacto (cruzando livros clássicos integrados com artigos de consensos científicos ou periódicos relevantes). Cada uma deve ser EXTREMAMENTE RASTREÁVEL e completamente CLICÁVEL em formato de link Markdown, utilizando o seguinte padrão:
+            - Clássico de Referência (Tratado/Livro): \`[Nome do Livro (ex: Nelson - Medicina Interna de Pequenos Animais ou Fossum - Cirurgia de Pequenos Animais), Cap. X, pág. Y](https://scholar.google.com/scholar?q=Nelson+Internal+Medicine+Small+Animals+Chapter+X+Page+Y)\`
+            - Consenso Clínico ou Artigo Periódico Recente: \`[Título do Artigo/Consenso (ex: ACVIM Consensus Statement ou Journal of Veterinary Internal Medicine)](https://scholar.google.com/scholar?q=Nome+do+Artigo+Ou+Consenso)\` ou se houver DOI: \`[DOI: 10.xxxx/yyyy](https://doi.org/10.xxxx/yyyy)\`
+         Sempre certifique-se de que o médico possa confrontar a suspeita tanto por uma perspectiva clínica de tratado quanto por evidências científicas recentes em links clicáveis ativos.
       ## M (Métricas): Forneça os valores encontrados para FC (Freq. Cardíaca), FR (Freq. Respiratória), Temp (Temperatura), TRC (Tempo Repreenchimento Capilar) e a ORIGEM do cliente (Indicação, Instagram, Google, Facebook ou Outros) no formato JSON simple: {"fc": "valor", "fr": "valor", "temp": "valor", "trc": "valor", "origem": "valor"}. Se não encontrar a origem na anamnese, classifique como "Outros" ou tente deduzir pelo contexto.
 
       Regras:
@@ -619,6 +626,12 @@ app.post('/api/generate-report', async (req, res) => {
       2. Mantenha um tom clínico rigoroso e profissional. Responda em Português Brasileiro.
       3. Seja específico sobre a espécie (Canino/Felino/Outros).
       4. Na seção M, retorne APENAS o JSON entre chaves, sem markdown code blocks.
+      5. METODOLOGIA DE RACIOCÍNIO CLÍNICO E EVITAÇÃO DE VIÉS DE CONFIRMAÇÃO (MÉTODO ANTI-FECHAMENTO COGNITIVO):
+         Ao ponderar sobre os diagnósticos diferenciais, evite focar futilmente apenas nas queixas primárias ou causas estatísticas mais óbvias. Você deve OBRIGATORIAMENTE realizar uma varredura mental estruturada sob três eixos fisiopatológicos complementares antes de listar os diferenciais:
+         a) Eixo Funcional/Infeccioso/Inundatório: Processos inflamatórios locais, infecções agudas ou crônicas, e distúrbios de teor celular local (ex: saculites, colites, dermatites perianais).
+         b) Eixo Mecânico-Estrutural ou Obstrutivo Extrínseco: Alterações geométricas do canal, fraqueza ou ruptura de diafragmas musculares de suporte (hérnias, divertículos), compressões por órgãos adjacentes (ex: próstata aumentada comprimindo o reto, massas pélvicas, linfonodomegalias) ou estenoses cirúrgicas. Atente-se a alterações físicas de escoamento (como fezes fitiformes/em fita, disfagia, retenção urinária) como fortes indicativos mecânicos que exigem diferenciais mecânicos/cirúrgicos como Hérnia Perineal ou Prostatopatias.
+         c) Eixo de Correlação Epidemiológica (Idade, Sexo Inteiro, Raça): Cruze as predisposições hormonais e estruturais do paciente (ex: machos inteiros têm degeneração androgênica de diafragma pélvico e hiperplasia prostática; raças predispostas como Shih Tzu e Boxer apresentam padrões musculares e anatômicos próprios).
+         Isso garante que o copiloto permaneça clinicamente assertivo e holístico para qualquer sintomatologia apresentada.
 
       DIRETRIZES TÉCNICAS (CONCEITOS ADICIONAIS):
       ${currentGuidelines.map(g => `- ${g.topic}: ${g.content}`).join('\n')}
@@ -927,6 +940,161 @@ app.post('/api/literature-review', async (req, res) => {
 
     const details = errorMessage ? ` Detalhes: ${errorMessage}` : ' Tente novamente mais tarde.';
     res.status(500).json({ error: `Não foi possível sintetizar a literatura clínica neste momento.${details}` });
+  }
+});
+
+app.post('/api/generate-marketing-post', async (req, res) => {
+  try {
+    const { clinicalData, brandProfile } = req.body;
+
+    if (!clinicalData) {
+      return res.status(400).json({ error: 'Dados clínicos são necessários para a geração do post.' });
+    }
+
+    const { queixa = "", exames = "", tecnica = "", desfecho = "" } = clinicalData;
+    const { brandName = "Vetmind", specialty = "Medicina Veterinária", style = "Minimalista", font = "Inter", color = "#0047AB", handle = "" } = brandProfile || {};
+
+    let styleDescription = "";
+    if (style === "Acolhedor") {
+      styleDescription = "Use tom empático, caloroso, afetuoso e focado no cuidado humano. Prompts de imagem descrevem cenas iluminadas com luz suave, cores pastel quentes, ambientes veterinários convidativos e fofos.";
+    } else if (style === "Executivo") {
+      styleDescription = "Use tom altamente científico, sóbrio, formal e voltado à excelência cirúrgica de ponta. Prompts de imagem descrevem ambientes cirúrgicos impecáveis, alta tecnologia, tons azul/branco frios e sensação de extrema precisão.";
+    } else if (style === "Minimalista") {
+      styleDescription = "Use tom limpo, focado, direto e sofisticado. Prompts de imagem pedem composições em plano detalhado com iluminação neutra, fundo neutro ou desfocado, sombras suaves e muito espaço negativo intencional.";
+    } else { // Moderno
+      styleDescription = "Use tom inovador, vibrante, energético e tecnológico. Prompts de imagem pedem profundidade de campo muito curta, câmera de cinema, luzes volumétricas, cores contrastantes vibrantes e visual cinematográfico das cirurgias.";
+    }
+
+    const systemInstruction = `
+Você é um especialista em Copywriting e Marketing de alta autoridade clínica para Medicina Veterinária. Seu papel é transformar prontuários, pós-operatórios e dados clínicos brutos em conteúdos didáticos, éticos e envolvendo para redes sociais (Instagram e LinkedIn) e correspondência científica profissional (Carta ao Colega).
+
+Deverá respeitar rigorosamente as resoluções éticas de publicidade veterinária (CFMV: sem promessas absurdas, sem sensacionalismo, sem mencionar preços de procedimentos ou consultas, focando exclusivamente no aspecto educativo e de valorização profissional).
+
+Você deve produzir em Português Brasileiro (ou em inglês nos prompts de imagem) e retornar OBRIGATORIAMENTE um objeto JSON válido, sem qualquer quebra de linha inválida ou tags adicionais de markdown, com as seguintes chaves exatas:
+
+{
+  "carousel": [
+    {
+      "title": "Título de impacto do slide (máx 60 caracteres)",
+      "content": "Conteúdo altamente scannavel e persuasivo do slide (máx 150 caracteres). Adicione quebras de parágrafo curtas se necessário.",
+      "imagePrompt": "A highly detailed English prompt for an image generator (like gemini-2.5-flash-image) to generate a professional mockup corresponding to this slide. Must use the following style directions: ${styleDescription}. ONLY generate this for slide 1 (the cover hook) and the very last slide (call to action). ALL other intermediate slides MUST have a value of null."
+    }
+  ],
+  "instagramCaption": "Legenda estratégica completa em tom compatível com o estilo de marca '${style}'. Deve conter parágrafo inicial de gancho, explicação amigável do caso, dicas práticas de prevenção ou cuidados veterinários para os tutores, e hashtags relevantes.",
+  "linkedinText": "Estudo de caso clínico para médicos veterinários no LinkedIn. Tom sóbrio, técnico, acadêmico e de alta competência prática. Detalhe os achados de imagem/exames fictícios ou reais fornecidos, a discussão cirúrgica ou clínica, e o desfecho feliz do paciente.",
+  "letterText": "Carta formal e técnica de referência e contrarreferência para ser enviada a um colega veterinário ou médico veterinário que indicou o paciente. Deve ser formal, prestativa e usar termos de alto jargão profissional."
+}
+
+Mantenha a contagem de slides do carrossel entre 3 e 5 slides. Certifique-se de que cada slide ensina algo de forma direta.
+No slide final do carrossel, inclua sutilmente as informações da marca: ${brandName} - ${specialty} ${handle ? `(${handle})` : ""}.
+`;
+
+    const userPrompt = `
+DADOS CLÍNICOS DO CASO:
+- Queixa do Tutor: ${queixa}
+- Achados de Exames / Imagem: ${exames}
+- Técnica Cirúrgica / Procedimento Adotado: ${tecnica}
+- Desfecho / Resultado do Caso: ${desfecho}
+
+INFORMAÇÕES DA MARCA DO CLÍNICO:
+- Nome da Clínica/Hospital: ${brandName}
+- Especialidade Principal: ${specialty}
+- Estilo de Marca: ${style} (Tipografia: ${font}, Cor Destaque: ${color})
+- ID de Redes Sociais (@handle): ${handle}
+
+Gere todo o material no formato JSON solicitado.
+`;
+
+    console.log("[MARKETING IA] Calling Gemini 3.5-flash for text generation...");
+    const response = await generateContentWithFallback({
+      model: 'gemini-3.5-flash',
+      contents: [
+        { text: systemInstruction },
+        { text: userPrompt }
+      ],
+      config: {
+        responseMimeType: 'application/json'
+      }
+    });
+
+    const responseText = response.text;
+    let parsedData;
+    try {
+      parsedData = JSON.parse(responseText);
+    } catch (parseError) {
+      console.warn("[MARKETING IA] JSON parsing failed, clean block markdown...");
+      const jsonStart = responseText.indexOf('{');
+      const jsonEnd = responseText.lastIndexOf('}');
+      if (jsonStart !== -1 && jsonEnd !== -1) {
+        parsedData = JSON.parse(responseText.substring(jsonStart, jsonEnd + 1));
+      } else {
+        throw parseError;
+      }
+    }
+
+    const finalCarousel = [];
+    if (parsedData.carousel && Array.isArray(parsedData.carousel)) {
+      for (let i = 0; i < parsedData.carousel.length; i++) {
+        const slide = parsedData.carousel[i];
+        let imageUrl = null;
+        
+        if (slide.imagePrompt && typeof slide.imagePrompt === 'string') {
+          console.log(`[MARKETING IA] Generating image for slide ${i+1} using imagePrompt: ${slide.imagePrompt}`);
+          try {
+            const imgResponse = await ai.models.generateContent({
+              model: 'gemini-2.5-flash-image',
+              contents: [{ text: `${slide.imagePrompt}. Veterinary medicine high-resolution clinical photograph.` }],
+              config: {
+                imageConfig: {
+                  aspectRatio: "1:1"
+                }
+              }
+            });
+
+            let base64Image = "";
+            if (imgResponse?.candidates?.[0]?.content?.parts) {
+              for (const part of imgResponse.candidates[0].content.parts) {
+                if (part.inlineData) {
+                  base64Image = part.inlineData.data;
+                  break;
+                }
+              }
+            }
+            if (base64Image) {
+              imageUrl = `data:image/jpeg;base64,${base64Image}`;
+              console.log(`[MARKETING IA] Image generated successfully for slide ${i+1}`);
+            }
+          } catch (imgError: any) {
+            console.error(`[MARKETING IA] Failed to generate image for slide ${i+1}, using fallback:`, imgError.message || imgError);
+            if (style === "Acolhedor") {
+              imageUrl = "https://images.unsplash.com/photo-1517849845537-4d257902454a?w=800&auto=format&fit=crop";
+            } else if (style === "Executivo") {
+              imageUrl = "https://images.unsplash.com/photo-1584132967334-10e028bd69f7?w=800&auto=format&fit=crop";
+            } else if (style === "Minimalista") {
+              imageUrl = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop";
+            } else {
+              imageUrl = "https://images.unsplash.com/photo-1628009368231-7bb7cfcb0def?w=800&auto=format&fit=crop";
+            }
+          }
+        }
+        
+        finalCarousel.push({
+          ...slide,
+          imageUrl
+        });
+      }
+    }
+
+    res.json({
+      carousel: finalCarousel,
+      instagramCaption: parsedData.instagramCaption || "",
+      linkedinText: parsedData.linkedinText || "",
+      letterText: parsedData.letterText || ""
+    });
+
+  } catch (err: any) {
+    console.error("[MARKETING IA ERROR]:", err);
+    res.status(500).json({ error: "Erro ao criar posts para redes sociais. " + (err.message || "") });
   }
 });
 

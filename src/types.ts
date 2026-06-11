@@ -5,6 +5,8 @@ export interface Patient {
   breed: string;
   age: string;
   ownerId: string;
+  sex?: string;
+  weight?: string;
 }
 
 export interface Report {

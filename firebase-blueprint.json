@@ -30,6 +30,22 @@
         "feedbackComment": { "type": "string" }
       },
       "required": ["patientId", "soapContent", "ownerId"]
+    },
+    "Generation": {
+      "title": "Post de Marketing",
+      "description": "Conteúdo gerado para redes sociais e marketing",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "brandProfile": { "type": "object" },
+        "clinicalData": { "type": "object" },
+        "carousel": { "type": "array" },
+        "instagramCaption": { "type": "string" },
+        "linkedinText": { "type": "string" },
+        "letterText": { "type": "string" }
+      },
+      "required": ["ownerId", "createdAt", "carousel"]
     }
   },
   "firestore": {
@@ -40,6 +56,10 @@
     "/reports/{reportId}": {
       "schema": "Report",
       "description": "Registros de consultas e laudos"
+    },
+    "/generations/{generationId}": {
+      "schema": "Generation",
+      "description": "Banco de dados de postagens e material de marketing gerados"
     }
   }
 }
