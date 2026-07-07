@@ -96,7 +96,7 @@ export function BusinessIntelligence() {
     );
   }
 
-  const COLORS = ['#0047AB', '#007F4F', '#FFA500', '#FF4444', '#94a3b8'];
+  const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#94a3b8'];
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-32">
@@ -110,7 +110,7 @@ export function BusinessIntelligence() {
            <select 
              value={timeRange}
              onChange={(e) => setTimeRange(e.target.value)}
-             className="bg-white border border-slate-200 text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-clinical-blue"
+             className="bg-white border border-slate-200 text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-600"
            >
              <option value="7d">Últimos 7 dias</option>
              <option value="30d">Últimos 30 dias</option>
@@ -120,7 +120,7 @@ export function BusinessIntelligence() {
       </div>
 
       {/* Hero Insights IA */}
-      <div className="bg-[#003399] rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl">
+      <div className="bg-indigo-600 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl">
          <div className="relative z-10 space-y-6">
             <div className="flex items-center gap-2">
                <div className="bg-white/20 p-2 rounded-lg backdrop-blur-md">
@@ -135,11 +135,11 @@ export function BusinessIntelligence() {
             
             <div className="grid grid-cols-2 gap-4">
                <div className="bg-white/10 border border-white/10 rounded-2xl p-4 backdrop-blur-sm">
-                  <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest mb-1">Custo Adqu. (CAC)</p>
+                  <p className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest mb-1">Custo Adqu. (CAC)</p>
                   <p className="text-xl font-black">R$ 42,50 <span className="text-[10px] text-emerald-400">↓ 12%</span></p>
                </div>
                <div className="bg-white/10 border border-white/10 rounded-2xl p-4 backdrop-blur-sm">
-                  <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest mb-1">LTV (Lifetime Value)</p>
+                  <p className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest mb-1">LTV (Lifetime Value)</p>
                   <p className="text-xl font-black">R$ 1.840 <span className="text-[10px] text-emerald-400">↑ 8%</span></p>
                </div>
             </div>
@@ -155,7 +155,7 @@ export function BusinessIntelligence() {
         <div className="bg-white border border-slate-200 rounded-[2.5rem] p-10 shadow-sm hover:shadow-xl transition-shadow flex flex-col">
            <div className="flex items-center justify-between mb-10">
               <div className="flex items-center gap-4">
-                 <div className="bg-blue-50 p-3 rounded-2xl text-clinical-blue">
+                 <div className="bg-indigo-50 p-3 rounded-2xl text-indigo-600">
                     <DollarSign className="w-6 h-6" />
                  </div>
                  <div>
@@ -181,7 +181,7 @@ export function BusinessIntelligence() {
                       contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }}
                     />
                     <Bar dataKey="faturamento" fill="#f1f5f9" radius={[6, 6, 0, 0]} barSize={32} />
-                    <Bar dataKey="lucro" fill="#0047AB" radius={[6, 6, 0, 0]} barSize={32} />
+                    <Bar dataKey="lucro" fill="#4f46e5" radius={[6, 6, 0, 0]} barSize={32} />
                  </BarChart>
               </ResponsiveContainer>
            </div>
@@ -209,7 +209,7 @@ export function BusinessIntelligence() {
                       cursor={{ fill: 'transparent' }}
                       contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }}
                     />
-                    <Bar dataKey="value" fill="#0047AB" radius={[0, 8, 8, 0]} barSize={24} />
+                    <Bar dataKey="value" fill="#4f46e5" radius={[0, 8, 8, 0]} barSize={24} />
                  </BarChart>
               </ResponsiveContainer>
            </div>
@@ -217,8 +217,8 @@ export function BusinessIntelligence() {
 
         {/* Loyalty Mixed */}
         <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-           <div className="bg-white border border-slate-200 rounded-[2.5rem] p-10 shadow-sm flex flex-col justify-center items-center text-center group hover:border-clinical-blue transition-colors">
-              <Users className="w-10 h-10 text-blue-500 mb-4 group-hover:scale-110 transition-transform" />
+           <div className="bg-white border border-slate-200 rounded-[2.5rem] p-10 shadow-sm flex flex-col justify-center items-center text-center group hover:border-indigo-600 transition-colors">
+              <Users className="w-10 h-10 text-indigo-600 mb-4 group-hover:scale-110 transition-transform" />
               <p className="text-5xl font-black text-slate-900 leading-none">{reports.length}</p>
               <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] mt-4 leading-tight">Total de<br/>Atendimentos</p>
            </div>
@@ -229,10 +229,10 @@ export function BusinessIntelligence() {
               <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] mt-4 leading-tight">Taxa de<br/>Indicação</p>
            </div>
 
-           <div className="bg-[#0047AB] rounded-[2.5rem] p-10 flex flex-col justify-center items-center text-center text-white shadow-2xl shadow-blue-900/20">
-              <TrendingUp className="w-10 h-10 text-blue-200 mb-4" />
+           <div className="bg-indigo-600 rounded-[2.5rem] p-10 flex flex-col justify-center items-center text-center text-white shadow-2xl shadow-indigo-900/20">
+              <TrendingUp className="w-10 h-10 text-indigo-200 mb-4" />
               <p className="text-4xl font-black leading-none">+R$ 1.250</p>
-              <p className="text-[11px] font-black text-blue-200 uppercase tracking-[0.3em] mt-4 leading-tight">Aumento Médio<br/>por Recomendação</p>
+              <p className="text-[11px] font-black text-indigo-200 uppercase tracking-[0.3em] mt-4 leading-tight">Aumento Médio<br/>por Recomendação</p>
            </div>
         </div>
       </div>

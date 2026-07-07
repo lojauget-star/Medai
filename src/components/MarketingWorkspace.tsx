@@ -3,7 +3,8 @@ import {
   Sparkles, ArrowLeft, Send, Check, Copy, Download, RefreshCw, 
   Instagram, Linkedin, FileText, Palette, Sliders, Type, 
   CheckSquare, Image as ImageIcon, History, Trash, Calendar, 
-  Users, HelpCircle, ChevronLeft, ChevronRight, Share2, CornerDownRight 
+  Users, HelpCircle, ChevronLeft, ChevronRight, Share2, CornerDownRight,
+  Mic, Square, ChevronDown
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import html2canvas from 'html2canvas';
@@ -100,6 +101,13 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
 
+  // Voice & Simulator States
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTarget, setRecordingTarget] = useState<'queixa' | 'exames' | 'tecnica' | 'desfecho' | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [showPresets, setShowPresets] = useState(false);
+
   const slideRef = useRef<HTMLDivElement>(null);
   const dragConstraintRef = useRef<HTMLDivElement>(null);
 
@@ -178,10 +186,21 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
       });
 
       if (!response.ok) {
-        const errJson = await response.json();
-        throw new Error(errJson.error || 'Erro na geração de post.');
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const errJson = await response.json();
+          throw new Error(errJson.error || 'Erro na geração de post.');
+        } else {
+          const text = await response.text();
+          throw new Error(`Erro inesperado do servidor (${response.status}): ${text.substring(0, 100)}...`);
+        }
       }
 
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await response.text();
+        throw new Error(`Resposta inválida do servidor: ${text.substring(0, 100)}...`);
+      }
       const data = await response.json();
       
       const newPost: GeneratedPost = {
@@ -305,6 +324,77 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
     setRightTab('carousel');
   };
 
+  const handleStartRecording = async (target: 'queixa' | 'exames' | 'tecnica' | 'desfecho') => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+
+      recorder.ondataavailable = (e) => chunks.push(e.data);
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(chunks, { type: "audio/webm" });
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = async () => {
+          const base64Audio = (reader.result as string).split(",")[1];
+          await handleTranscribe(base64Audio, target);
+        };
+        stream.getTracks().forEach((track) => track.stop());
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+      setRecordingTarget(target);
+    } catch (err) {
+      console.error("Microphone access denied:", err);
+      alert("Acesso ao microfone negado ou não disponível.");
+    }
+  };
+
+  const handleStopRecording = () => {
+    if (mediaRecorder) {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      setRecordingTarget(null);
+    }
+  };
+
+  const handleTranscribe = async (base64Audio: string, target: 'queixa' | 'exames' | 'tecnica' | 'desfecho') => {
+    setIsTranscribing(true);
+    try {
+      const response = await fetch("/api/transcribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          audioData: base64Audio,
+          mimeType: "audio/webm",
+        }),
+      });
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const data = await response.json();
+        if (data.transcription) {
+          setClinicalData(prev => ({
+            ...prev,
+            [target]: prev[target] ? `${prev[target]} ${data.transcription}` : data.transcription
+          }));
+        }
+      }
+    } catch (err) {
+      console.error("Transcription error:", err);
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  const appendShortcut = (target: 'queixa' | 'exames' | 'tecnica' | 'desfecho', text: string) => {
+    setClinicalData(prev => ({
+      ...prev,
+      [target]: prev[target] ? `${prev[target]} ${text}.` : `${text}.`
+    }));
+  };
+
   // Contrast overlay style helper matching selected brand Style
   const getContrastOverlayStyles = () => {
     const style = brandProfile.style;
@@ -380,7 +470,7 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
               </span>
               <h1 className="text-xl font-black text-slate-900 tracking-tight">Estúdio de Marketing IA</h1>
             </div>
-            <p className="text-xs text-slate-400 mt-1 font-medium select-none">
+            <p className="text-xs text-slate-500 mt-1 font-medium select-none">
               Converta casos clínicos em posts educativos, estudos de caso estruturados e cartas didáticas.
             </p>
           </div>
@@ -392,7 +482,7 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
               setClinicalData({ queixa: '', exames: '', tecnica: '', desfecho: '' });
               setGeneratedPost(null);
             }}
-            className="flex-1 md:flex-none px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-50 active:scale-95 transition-all text-center"
+            className="flex-1 md:flex-none px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-xs text-slate-600 hover:text-slate-800 hover:bg-slate-50 active:scale-95 transition-all text-center shadow-sm"
           >
             Limpar Formulário
           </button>
@@ -410,13 +500,13 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* LEFT PANEL: Form Inputs / Profiling */}
         <section className="lg:col-span-5 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-          <div className="flex border-b border-slate-100 bg-slate-50/50 p-2 gap-1 shrink-0">
+          <div className="flex border-b border-slate-100 bg-slate-50 p-2 gap-1 shrink-0">
             <button
               onClick={() => setLeftTab('clinical')}
               className={`flex-1 py-3 text-xs font-black tracking-wider uppercase rounded-xl transition-all ${
                 leftTab === 'clinical' 
-                ? 'bg-white text-clinical-blue shadow-sm' 
-                : 'text-slate-400 hover:text-slate-600'
+                ? 'bg-white text-clinical-blue shadow-3xs border border-slate-100/50' 
+                : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               Exame Clínico
@@ -425,8 +515,8 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
               onClick={() => setLeftTab('brand')}
               className={`flex-1 py-3 text-xs font-black tracking-wider uppercase rounded-xl transition-all ${
                 leftTab === 'brand' 
-                ? 'bg-white text-clinical-blue shadow-sm' 
-                : 'text-slate-400 hover:text-slate-600'
+                ? 'bg-white text-clinical-blue shadow-3xs border border-slate-100/50' 
+                : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               Configuração Visual
@@ -440,50 +530,222 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
                   <span className="text-[10px] font-black tracking-widest text-[#003399] uppercase">Caso Prontuário</span>
                   <h3 className="text-sm font-black text-slate-800">DADOS DE ATENDIMENTO</h3>
                 </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="label-medical">1. Queixa Central do Tutor</label>
-                    <textarea
-                      rows={2}
-                      className="input-clinical text-xs"
-                      placeholder="Ex: Animal mordendo a pata, cansaço..."
-                      value={clinicalData.queixa}
-                      onChange={e => setClinicalData({ ...clinicalData, queixa: e.target.value })}
-                    />
+ 
+                <div className="space-y-5">
+                  {/* Field 1: Queixa */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">
+                        1. Queixa Central do Tutor
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => isRecording && recordingTarget === 'queixa' ? handleStopRecording() : handleStartRecording('queixa')}
+                        className={`px-2.5 py-1 rounded-full flex items-center gap-1 transition-all text-[9.5px] font-extrabold uppercase tracking-wider border cursor-pointer select-none ${
+                          isRecording && recordingTarget === 'queixa'
+                            ? "bg-red-500 border-red-500 text-white animate-pulse shadow-sm"
+                            : "bg-slate-50 text-slate-600 hover:text-clinical-blue border-slate-200 hover:border-clinical-blue/20 shadow-3xs"
+                        }`}
+                      >
+                        {isRecording && recordingTarget === 'queixa' ? (
+                          <Square className="w-2.5 h-2.5 text-white" />
+                        ) : (
+                          <Mic className="w-2.5 h-2.5 text-clinical-blue" />
+                        )}
+                        <span>{isRecording && recordingTarget === 'queixa' ? "Parar" : "Voz"}</span>
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <textarea
+                        rows={3}
+                        className="input-clinical text-sm min-h-[96px] resize-y"
+                        placeholder="Ex: Animal mordendo a pata, cansaço..."
+                        value={clinicalData.queixa}
+                        onChange={e => setClinicalData({ ...clinicalData, queixa: e.target.value })}
+                      />
+                      {isTranscribing && recordingTarget === 'queixa' && (
+                        <div className="absolute inset-0 bg-white/80 backdrop-blur-3xs rounded-xl flex items-center justify-center border border-slate-100 shadow-sm">
+                          <span className="text-[10px] text-clinical-blue font-black tracking-wider uppercase animate-pulse">
+                            Transcrevendo fala...
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    {/* Shortcuts Group 1 */}
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {["Apatia e vômito", "Sem comer há 2 dias", "Claudicação pélvica", "Coceira intensa"].map(shortcut => (
+                        <button
+                          key={shortcut}
+                          type="button"
+                          onClick={() => appendShortcut('queixa', shortcut)}
+                          className="px-2 py-0.5 rounded-md text-[9px] font-semibold border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer"
+                        >
+                          + {shortcut}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-
-                  <div>
-                    <label className="label-medical">2. Achados Principais / Exames de Imagem</label>
-                    <textarea
-                      rows={2}
-                      className="input-clinical text-xs"
-                      placeholder="Ex: Radiografia mostrou fratura distal..."
-                      value={clinicalData.exames}
-                      onChange={e => setClinicalData({ ...clinicalData, exames: e.target.value })}
-                    />
+ 
+                  {/* Field 2: Exames */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">
+                        2. Achados Principais / Exames de Imagem
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => isRecording && recordingTarget === 'exames' ? handleStopRecording() : handleStartRecording('exames')}
+                        className={`px-2.5 py-1 rounded-full flex items-center gap-1 transition-all text-[9.5px] font-extrabold uppercase tracking-wider border cursor-pointer select-none ${
+                          isRecording && recordingTarget === 'exames'
+                            ? "bg-red-500 border-red-500 text-white animate-pulse shadow-sm"
+                            : "bg-slate-50 text-slate-600 hover:text-clinical-blue border-slate-200 hover:border-clinical-blue/20 shadow-3xs"
+                        }`}
+                      >
+                        {isRecording && recordingTarget === 'exames' ? (
+                          <Square className="w-2.5 h-2.5 text-white" />
+                        ) : (
+                          <Mic className="w-2.5 h-2.5 text-clinical-blue" />
+                        )}
+                        <span>{isRecording && recordingTarget === 'exames' ? "Parar" : "Voz"}</span>
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <textarea
+                        rows={3}
+                        className="input-clinical text-sm min-h-[96px] resize-y"
+                        placeholder="Ex: Radiografia mostrou fratura distal..."
+                        value={clinicalData.exames}
+                        onChange={e => setClinicalData({ ...clinicalData, exames: e.target.value })}
+                      />
+                      {isTranscribing && recordingTarget === 'exames' && (
+                        <div className="absolute inset-0 bg-white/80 backdrop-blur-3xs rounded-xl flex items-center justify-center border border-slate-100 shadow-sm">
+                          <span className="text-[10px] text-clinical-blue font-black tracking-wider uppercase animate-pulse">
+                            Transcrevendo fala...
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    {/* Shortcuts Group 2 */}
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {["Hemograma normal", "RLCCr no Raio-X", "Ultrassom abdominal", "Altas enzimas"].map(shortcut => (
+                        <button
+                          key={shortcut}
+                          type="button"
+                          onClick={() => appendShortcut('exames', shortcut)}
+                          className="px-2 py-0.5 rounded-md text-[9px] font-semibold border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer"
+                        >
+                          + {shortcut}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-
-                  <div>
-                    <label className="label-medical">3. Método Cirúrgico / Procedimento Adotado (Se houver)</label>
-                    <textarea
-                      rows={2}
-                      className="input-clinical text-xs"
-                      placeholder="Ex: Realizada ráfia lateral e osteotomia..."
-                      value={clinicalData.tecnica}
-                      onChange={e => setClinicalData({ ...clinicalData, tecnica: e.target.value })}
-                    />
+ 
+                  {/* Field 3: Técnica */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">
+                        3. Método Cirúrgico / Procedimento Adotado (Se houver)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => isRecording && recordingTarget === 'tecnica' ? handleStopRecording() : handleStartRecording('tecnica')}
+                        className={`px-2.5 py-1 rounded-full flex items-center gap-1 transition-all text-[9.5px] font-extrabold uppercase tracking-wider border cursor-pointer select-none ${
+                          isRecording && recordingTarget === 'tecnica'
+                            ? "bg-red-500 border-red-500 text-white animate-pulse shadow-sm"
+                            : "bg-slate-50 text-slate-600 hover:text-clinical-blue border-slate-200 hover:border-clinical-blue/20 shadow-3xs"
+                        }`}
+                      >
+                        {isRecording && recordingTarget === 'tecnica' ? (
+                          <Square className="w-2.5 h-2.5 text-white" />
+                        ) : (
+                          <Mic className="w-2.5 h-2.5 text-clinical-blue" />
+                        )}
+                        <span>{isRecording && recordingTarget === 'tecnica' ? "Parar" : "Voz"}</span>
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <textarea
+                        rows={3}
+                        className="input-clinical text-sm min-h-[96px] resize-y"
+                        placeholder="Ex: Realizada ráfia lateral e osteotomia..."
+                        value={clinicalData.tecnica}
+                        onChange={e => setClinicalData({ ...clinicalData, tecnica: e.target.value })}
+                      />
+                      {isTranscribing && recordingTarget === 'tecnica' && (
+                        <div className="absolute inset-0 bg-white/80 backdrop-blur-3xs rounded-xl flex items-center justify-center border border-slate-100 shadow-sm">
+                          <span className="text-[10px] text-clinical-blue font-black tracking-wider uppercase animate-pulse">
+                            Transcrevendo fala...
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    {/* Shortcuts Group 3 */}
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {["TPLO de 2.0mm", "Castração cirúrgica", "Manejo clínico", "Ráfia lateral"].map(shortcut => (
+                        <button
+                          key={shortcut}
+                          type="button"
+                          onClick={() => appendShortcut('tecnica', shortcut)}
+                          className="px-2 py-0.5 rounded-md text-[9px] font-semibold border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer"
+                        >
+                          + {shortcut}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-
-                  <div>
-                    <label className="label-medical">4. Desfecho Clínico / Resultado do Caso</label>
-                    <textarea
-                      rows={2}
-                      className="input-clinical text-xs"
-                      placeholder="Ex: Alta em 15 dias, recuperação 100%..."
-                      value={clinicalData.desfecho}
-                      onChange={e => setClinicalData({ ...clinicalData, desfecho: e.target.value })}
-                    />
+ 
+                  {/* Field 4: Desfecho */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">
+                        4. Desfecho Clínico / Resultado do Caso
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => isRecording && recordingTarget === 'desfecho' ? handleStopRecording() : handleStartRecording('desfecho')}
+                        className={`px-2.5 py-1 rounded-full flex items-center gap-1 transition-all text-[9.5px] font-extrabold uppercase tracking-wider border cursor-pointer select-none ${
+                          isRecording && recordingTarget === 'desfecho'
+                            ? "bg-red-500 border-red-500 text-white animate-pulse shadow-sm"
+                            : "bg-slate-50 text-slate-600 hover:text-clinical-blue border-slate-200 hover:border-clinical-blue/20 shadow-3xs"
+                        }`}
+                      >
+                        {isRecording && recordingTarget === 'desfecho' ? (
+                          <Square className="w-2.5 h-2.5 text-white" />
+                        ) : (
+                          <Mic className="w-2.5 h-2.5 text-clinical-blue" />
+                        )}
+                        <span>{isRecording && recordingTarget === 'desfecho' ? "Parar" : "Voz"}</span>
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <textarea
+                        rows={3}
+                        className="input-clinical text-sm min-h-[96px] resize-y"
+                        placeholder="Ex: Alta em 15 dias, recuperação 100%..."
+                        value={clinicalData.desfecho}
+                        onChange={e => setClinicalData({ ...clinicalData, desfecho: e.target.value })}
+                      />
+                      {isTranscribing && recordingTarget === 'desfecho' && (
+                        <div className="absolute inset-0 bg-white/80 backdrop-blur-3xs rounded-xl flex items-center justify-center border border-slate-100 shadow-sm">
+                          <span className="text-[10px] text-clinical-blue font-black tracking-wider uppercase animate-pulse">
+                            Transcrevendo fala...
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    {/* Shortcuts Group 4 */}
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {["Excelente recuperação", "Alta médica", "Repouso de 15 dias", "Retorno para pontos"].map(shortcut => (
+                        <button
+                          key={shortcut}
+                          type="button"
+                          onClick={() => appendShortcut('desfecho', shortcut)}
+                          className="px-2 py-0.5 rounded-md text-[9px] font-semibold border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer"
+                        >
+                          + {shortcut}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -527,14 +789,14 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
                           className={`py-3 px-4 rounded-xl border text-xs font-bold text-center transition-all ${
                             brandProfile.style === st
                             ? 'border-clinical-blue bg-blue-50/50 text-clinical-blue'
-                            : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                           }`}
                         >
                           {st}
                         </button>
                       ))}
                     </div>
-                    <div className="text-[9px] text-slate-400 mt-1.5 px-1 font-medium">
+                    <div className="text-[9px] text-slate-500 mt-1.5 px-1 font-medium">
                       O estilo rege os prompts da ilustração médica e as cores dos gradientes de fundo.
                     </div>
                   </div>
@@ -623,13 +885,13 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
         <section className="lg:col-span-7 flex flex-col min-w-0">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full min-h-[600px]">
             {/* Output Navigation tabs */}
-            <div className="flex border-b border-slate-100 bg-slate-50/50 p-2 gap-1 overflow-x-auto shrink-0 custom-scrollbar">
+            <div className="flex border-b border-slate-100 bg-slate-50 p-2 gap-1 overflow-x-auto shrink-0 custom-scrollbar">
               <button
                 onClick={() => setRightTab('carousel')}
                 className={`py-3.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shrink-0 transition-colors ${
                   rightTab === 'carousel' 
-                  ? 'bg-white text-pink-600 shadow-sm' 
-                  : 'text-slate-400 hover:text-slate-600'
+                  ? 'bg-white text-pink-600 shadow-3xs border border-slate-100/50' 
+                  : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 <Instagram className="w-4 h-4" />
@@ -640,8 +902,8 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
                 onClick={() => setRightTab('caption')}
                 className={`py-3.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shrink-0 transition-colors ${
                   rightTab === 'caption' 
-                  ? 'bg-white text-purple-600 shadow-sm' 
-                  : 'text-slate-400 hover:text-slate-600'
+                  ? 'bg-white text-purple-600 shadow-3xs border border-slate-100/50' 
+                  : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 <Instagram className="w-4 h-4" />
@@ -652,8 +914,8 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
                 onClick={() => setRightTab('linkedin')}
                 className={`py-3.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shrink-0 transition-colors ${
                   rightTab === 'linkedin' 
-                  ? 'bg-white text-blue-700 shadow-sm' 
-                  : 'text-slate-400 hover:text-slate-600'
+                  ? 'bg-white text-blue-700 shadow-3xs border border-slate-100/50' 
+                  : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 <Linkedin className="w-4 h-4" />
@@ -664,8 +926,8 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
                 onClick={() => setRightTab('letter')}
                 className={`py-3.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shrink-0 transition-colors ${
                   rightTab === 'letter' 
-                  ? 'bg-white text-slate-700 shadow-sm' 
-                  : 'text-slate-400 hover:text-slate-600'
+                  ? 'bg-white text-slate-800 shadow-3xs border border-slate-100/50' 
+                  : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 <FileText className="w-4 h-4" />
@@ -676,7 +938,7 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
             {/* Main output representation body */}
             <div className="p-6 flex-grow overflow-y-auto max-h-[700px] custom-scrollbar flex flex-col justify-between relative">
               {generationError && (
-                <div className="absolute inset-0 z-55 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center p-8 text-center space-y-4">
+                <div className="absolute inset-0 z-55 bg-white/95 backdrop-blur-sm flex flex-col items-center justify-center p-8 text-center space-y-4">
                   <div className="w-16 h-16 bg-red-100 text-red-500 rounded-3xl flex items-center justify-center shadow-md">
                     <HelpCircle className="w-8 h-8" />
                   </div>
@@ -695,13 +957,13 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
 
               {!generatedPost ? (
                 <div className="flex-grow flex flex-col items-center justify-center text-center p-8 space-y-6 select-none opacity-85">
-                  <div className="w-20 h-20 bg-slate-50 border border-slate-100 text-slate-300 rounded-[2rem] flex items-center justify-center shadow-inner relative">
-                    <Sparkles className="w-10 h-10 animate-bounce text-slate-400/50" />
+                   <div className="w-20 h-20 bg-slate-50 border border-slate-200 text-slate-600 rounded-[2rem] flex items-center justify-center shadow-inner relative">
+                    <Sparkles className="w-10 h-10 animate-bounce text-slate-500/50" />
                   </div>
                   <div>
                     <h3 className="text-md font-black text-slate-700 uppercase tracking-wider">Aguardando seu Comando</h3>
-                    <p className="text-xs text-slate-400 max-w-sm mt-2 leading-relaxed">
-                      Preencha os dados do exame clínico e clique em <strong className="text-slate-600">"Gerar Post IA Completo"</strong> para que o modelo crie os slides, imagens e artigos automaticamente.
+                    <p className="text-xs text-slate-500 max-w-sm mt-2 leading-relaxed">
+                      Preencha os dados do exame clínico e clique em <strong className="text-slate-700">"Gerar Post IA Completo"</strong> para que o modelo crie os slides, imagens e artigos automaticamente.
                     </p>
                   </div>
                 </div>
@@ -712,7 +974,7 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
                     <div className="space-y-6 flex-grow flex flex-col">
                       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-slate-50 border border-slate-100 p-4 rounded-2xl">
                         <div className="flex items-center gap-3">
-                          <span className="text-xs text-slate-500 font-bold bg-white px-3 py-1.5 rounded-lg border border-slate-100 font-mono">
+                          <span className="text-xs text-slate-500 font-bold bg-white px-3 py-1.5 rounded-lg border border-slate-200 font-mono">
                             Slide {currentSlideIndex + 1} de {generatedPost.carousel.length}
                           </span>
                           <span className="hidden md:inline-block text-[10px] font-black uppercase text-trusted-green tracking-wider bg-emerald-50 px-2 py-1 rounded border border-emerald-100 select-none">
@@ -723,7 +985,7 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
                         <div className="flex gap-2">
                           <button
                             onClick={() => setShowOverrideSidebar(!showOverrideSidebar)}
-                            className="px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-[11px] text-slate-500 hover:text-slate-700 active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                            className="px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-[11px] text-slate-600 hover:text-slate-800 active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-3xs"
                           >
                             <Sliders className="w-4 h-4" />
                             Ajustar Estilo
@@ -828,7 +1090,7 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
                               className={`p-2.5 rounded-full border transition-all ${
                                 currentSlideIndex === 0 
                                 ? 'border-slate-100 text-slate-300 bg-slate-50 cursor-not-allowed' 
-                                : 'border-slate-200 text-slate-600 bg-white hover:bg-slate-50'
+                                : 'border-slate-200 text-slate-600 bg-white hover:bg-slate-50 hover:text-slate-850 shadow-3xs'
                               }`}
                             >
                               <ChevronLeft className="w-5 h-5" />
@@ -855,23 +1117,23 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
                               className={`p-2.5 rounded-full border transition-all ${
                                 currentSlideIndex === generatedPost.carousel.length - 1 
                                 ? 'border-slate-100 text-slate-300 bg-slate-50 cursor-not-allowed' 
-                                : 'border-slate-200 text-slate-600 bg-white hover:bg-slate-50'
+                                : 'border-slate-200 text-slate-600 bg-white hover:bg-slate-50 hover:text-slate-850 shadow-3xs'
                               }`}
                             >
                               <ChevronRight className="w-5 h-5" />
                             </button>
                           </div>
                           
-                          <div className="text-[10px] text-slate-400 mt-2 font-medium italic">
+                          <div className="text-[10px] text-slate-500 mt-2 font-medium italic">
                             💡 Arraste a caixa de texto sobre o slide para posicioná-la onde preferir!
                           </div>
                         </div>
 
                         {/* Adjust Style Quick Override Sidebar (Live styling override) */}
                         {showOverrideSidebar && (
-                          <div className="md:col-span-4 bg-slate-50 border border-slate-150 p-4 rounded-2xl flex flex-col space-y-4">
+                          <div className="md:col-span-4 bg-slate-50 border border-slate-200 p-4 rounded-2xl flex flex-col space-y-4">
                             <div className="border-b border-slate-200 pb-2">
-                              <h4 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-1.5">
+                              <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
                                 <Palette className="w-4 h-4" /> Design Expresso
                               </h4>
                             </div>
@@ -884,10 +1146,11 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
                                   className="h-8 w-8 cursor-pointer rounded-lg bg-white border border-slate-200"
                                   value={overrideColor}
                                   onChange={e => setOverrideColor(e.target.value)}
+                                  style={{ padding: '2px' }}
                                 />
                                 <input
                                   type="text"
-                                  className="flex-1 text-[11px] font-mono p-1 rounded-lg border border-slate-200"
+                                  className="flex-1 text-[11px] font-mono p-1 rounded-lg border border-slate-200 bg-white"
                                   value={overrideColor}
                                   onChange={e => setOverrideColor(e.target.value)}
                                 />
@@ -951,7 +1214,7 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
                         </div>
                         <button
                           onClick={() => handleCopy(generatedPost.instagramCaption, 'caption')}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 rounded-xl text-[10px] font-black uppercase text-clinical-blue hover:bg-slate-100 active:scale-95 transition-all text-center border border-slate-100"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-xl text-[10px] font-black uppercase text-clinical-blue hover:bg-slate-50 active:scale-95 transition-all text-center border border-slate-200 shadow-3xs"
                         >
                           {copiedText === 'caption' ? (
                             <>
@@ -983,7 +1246,7 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
                         </div>
                         <button
                           onClick={() => handleCopy(generatedPost.linkedinText, 'linkedin')}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 rounded-xl text-[10px] font-black uppercase text-clinical-blue hover:bg-slate-100 active:scale-95 transition-all text-center border border-slate-100"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-xl text-[10px] font-black uppercase text-clinical-blue hover:bg-slate-50 active:scale-95 transition-all text-center border border-slate-200 shadow-3xs"
                         >
                           {copiedText === 'linkedin' ? (
                             <>
@@ -1015,7 +1278,7 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
                         </div>
                         <button
                           onClick={() => handleCopy(generatedPost.letterText, 'letter')}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 rounded-xl text-[10px] font-black uppercase text-clinical-blue hover:bg-slate-100 active:scale-95 transition-all text-center border border-slate-100"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-xl text-[10px] font-black uppercase text-clinical-blue hover:bg-slate-50 active:scale-95 transition-all text-center border border-slate-200 shadow-3xs"
                         >
                           {copiedText === 'letter' ? (
                             <>
@@ -1081,7 +1344,7 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
                           <div
                             key={hist.id || index}
                             onClick={() => loadHistoryItem(hist)}
-                            className="bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-350 p-4 rounded-2xl cursor-pointer transition-all shadow-sm hover:shadow-md flex flex-col justify-between space-y-4 group"
+                            className="bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 p-4 rounded-2xl cursor-pointer transition-all shadow-3xs hover:shadow-2xs flex flex-col justify-between space-y-4 group"
                           >
                             <div className="flex items-start justify-between">
                               <div className="space-y-1">
@@ -1091,14 +1354,14 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
                                 <h4 className="text-xs font-black text-slate-800 line-clamp-1 uppercase group-hover:text-clinical-blue transition-colors">
                                   {firstSlide?.title || 'Slide Principal'}
                                 </h4>
-                                <p className="text-[10px] text-slate-400 line-clamp-2">
+                                <p className="text-[10px] text-slate-500 line-clamp-2">
                                   {hist.clinicalData?.queixa || hist.instagramCaption || 'Sem descrição clínica...'}
                                 </p>
                               </div>
                             </div>
 
                             <div className="flex items-center justify-between border-t border-slate-100 pt-3">
-                              <span className="text-[9px] font-bold text-slate-400 font-mono">
+                              <span className="text-[9px] font-bold text-slate-500 font-mono">
                                 {hist.carousel.length} slides • PNG
                               </span>
                               
@@ -1121,6 +1384,75 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
           </div>
         </section>
       </div>
+
+      {/* Discreet Simulation Presets section at the very end of the page */}
+      <div className="max-w-6xl mx-auto border-t border-slate-200 pt-6 pb-2 mt-4 flex flex-col items-center justify-center gap-2">
+        <button
+          type="button"
+          onClick={() => setShowPresets(!showPresets)}
+          className="text-slate-500 hover:text-slate-700 transition-colors text-[11px] font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer py-2 px-4 rounded-full border border-slate-200 bg-white hover:bg-slate-50 shadow-3xs hover:shadow-2xs"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-slate-500" />
+          <span>{showPresets ? "Ocultar Casos de Teste" : "Mostrar Casos de Teste (Simulação)"}</span>
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-250 ${showPresets ? "rotate-180" : ""}`} />
+        </button>
+        {showPresets && (
+          <div className="w-full max-w-2xl bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 mt-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <p className="text-[10px] text-[#003399] font-black uppercase tracking-widest text-center mb-3">
+              Selecione um caso de teste para simulação automática rápida de marketing
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              {clinicalPresets.map((preset, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    setClinicalData({
+                      queixa: preset.queixa,
+                      exames: preset.exames,
+                      tecnica: preset.tecnica,
+                      desfecho: preset.desfecho
+                    });
+                    setShowPresets(false);
+                  }}
+                  className="bg-white border border-slate-200 hover:border-[#003399]/40 hover:bg-[#003399]/5 rounded-xl p-3 text-left transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+                >
+                  <span className="font-bold text-[#001D62] text-[11.5px] group-hover:text-[#003399] transition-colors line-clamp-1">
+                    {preset.title}
+                  </span>
+                  <span className="text-[10px] text-indigo-600 font-extrabold uppercase mt-1 block leading-tight">
+                    Preencher Caso
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
+
+const clinicalPresets = [
+  {
+    title: "TPLO (Ruptura de Ligamento)",
+    queixa: "Paciente Yorkie com dor intensa e claudicação de grau IV em membro pélvico esquerdo há 2 semanas.",
+    exames: "Raio-X de joelho revelou efusão articular severa e sinal de gaveta positivo compatível com suspeita de RLCCr.",
+    tecnica: "Estabilização dinâmica via Osteotomia de Nivelamento do Platô Tibial (TPLO 2.0mm) com placa em L.",
+    desfecho: "Rápido apoio pós-cirúrgico. Reabilitação precoce com retorno de 100% da motricidade e massa magra."
+  },
+  {
+    title: "Piometra Canina (Urgente)",
+    queixa: "Apatia severa, polidipsia súbita e presença de secreção vaginal mucopurulenta sanguinolenta de odor fétido.",
+    exames: "Ultrassom evidenciou cornos uterinos de 3.5cm contendo líquido viscoso asseptizado. Leucocitose com desvio.",
+    tecnica: "Ovariohisterectomia de urgência em campo amplo asséptico com lavagem peritoneal.",
+    desfecho: "Alta assistida em 24h com antibioterapia pós-altas. Paciente brincalhona e cicatrização perfeita."
+  },
+  {
+    title: "Diabetes Felino (Fred)",
+    queixa: "Felino com de emagrecimento progressivo rápido na última quinzena, acompanhado de poliúria acentuada.",
+    exames: "Glicemia basal de 412 mg/dL correlacionada à dosagem urinária qualitativa positiva de corpos cetônicos.",
+    tecnica: "Terapia hormonal com insulina NPH e transição nutricional com redução drástica de carboidratos.",
+    desfecho: "Remissão clínica de cetose e estabilização da glicemia média. Animal alegre com energia restaurada."
+  }
+];

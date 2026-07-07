@@ -40,15 +40,53 @@ service cloud.firestore {
              (!('feedbackComment' in data) || (data.feedbackComment is string && data.feedbackComment.size() <= 10000));
     }
 
+    function isValidPatient(data) {
+      return data.keys().hasAll(['name', 'species', 'ownerId']) &&
+             data.name is string && data.name.size() <= 100 &&
+             data.species is string && data.species.size() <= 100 &&
+             data.ownerId == request.auth.uid;
+    }
+
+    function isValidAppointment(data) {
+      return data.keys().hasAll(['patientName', 'ownerName', 'type', 'time', 'date', 'ownerId']) &&
+             data.patientName is string && data.patientName.size() <= 100 &&
+             data.ownerName is string && data.ownerName.size() <= 100 &&
+             data.type is string && data.type.size() <= 50 &&
+             data.time is string && data.time.size() <= 10 &&
+             data.date is string && data.date.size() <= 20 &&
+             data.ownerId == request.auth.uid;
+    }
+
+    function isValidPrescription(data) {
+      return data.keys().hasAll(['patientName', 'patientSpecies', 'content', 'ownerId']) &&
+             data.patientName is string && data.patientName.size() <= 100 &&
+             data.patientSpecies is string && data.patientSpecies.size() <= 100 &&
+             data.content is string && data.content.size() <= 100000 &&
+             data.ownerId == request.auth.uid &&
+             (!('patientBreed' in data) || (data.patientBreed is string && data.patientBreed.size() <= 100)) &&
+             (!('patientAge' in data) || (data.patientAge is string && data.patientAge.size() <= 100)) &&
+             (!('patientSex' in data) || (data.patientSex is string && data.patientSex.size() <= 100)) &&
+             (!('patientWeight' in data) || (data.patientWeight is string && data.patientWeight.size() <= 100)) &&
+             (!('tutorName' in data) || (data.tutorName is string && data.tutorName.size() <= 100)) &&
+             (!('tutorPhone' in data) || (data.tutorPhone is string && data.tutorPhone.size() <= 100)) &&
+             (!('clinicalNotes' in data) || (data.clinicalNotes is string && data.clinicalNotes.size() <= 100000)) &&
+             (!('routeOfAdmin' in data) || (data.routeOfAdmin is string && data.routeOfAdmin.size() <= 100)) &&
+             (!('tutorMessage' in data) || (data.tutorMessage is string && data.tutorMessage.size() <= 100000));
+    }
+
     // 4. Matches
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
     match /guidelines/{guidelineId} {
-      allow read: if true;
-      allow write: if isSignedIn();
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.token.email == 'lojauget@gmail.com';
     }
 
     match /reports/{reportId} {
-      allow get: if isOwner(existing().ownerId) || (isSignedIn() && existing().rating != null);
-      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || resource.data.rating != null);
+      allow get: if isOwner(existing().ownerId) || (isSignedIn() && request.auth.token.email == 'lojauget@gmail.com' && existing().rating != null);
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || (request.auth.token.email == 'lojauget@gmail.com' && resource.data.rating != null));
       
       allow create: if isSignedIn() && 
                       isValidId(reportId) && 
@@ -77,6 +115,31 @@ service cloud.firestore {
                       resource.data.ownerId == request.auth.uid && 
                       incoming().ownerId == resource.data.ownerId &&
                       incoming().createdAt == resource.data.createdAt;
+    }
+
+    match /patients/{patientId} {
+      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid);
+      allow write: if isSignedIn() && (request.resource == null || request.resource.data.ownerId == request.auth.uid) && (resource == null || resource.data.ownerId == request.auth.uid);
+    }
+
+    match /appointments/{appointmentId} {
+      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid);
+      allow write: if isSignedIn() && (request.resource == null || request.resource.data.ownerId == request.auth.uid) && (resource == null || resource.data.ownerId == request.auth.uid);
+    }
+
+    match /prescriptions/{prescriptionId} {
+      allow get, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn() && 
+                      isValidId(prescriptionId) && 
+                      isValidPrescription(incoming()) && 
+                      incoming().createdAt == request.time;
+      allow update: if isSignedIn() && 
+                      resource.data.ownerId == request.auth.uid && 
+                      incoming().ownerId == resource.data.ownerId &&
+                      incoming().createdAt == resource.data.createdAt &&
+                      isValidPrescription(incoming()) &&
+                      incoming().diff(existing()).affectedKeys().hasOnly(['patientName', 'patientSpecies', 'patientBreed', 'patientAge', 'patientSex', 'patientWeight', 'tutorName', 'tutorPhone', 'clinicalNotes', 'routeOfAdmin', 'content', 'tutorMessage']);
     }
   }
 }

@@ -1,17 +1,50 @@
 {
   "entities": {
+    "UserProfile": {
+      "title": "Perfil do Usuário",
+      "description": "Dados do médico veterinário",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "crmv": { "type": "string" },
+        "specialty": { "type": "string" },
+        "email": { "type": "string" },
+        "plan": { "type": "string", "enum": ["free", "pro"] }
+      },
+      "required": ["name", "crmv"]
+    },
     "Patient": {
       "title": "Paciente",
-      "description": "Dados cadastrais do animal",
+      "description": "Dados cadastrais do animal e seu tutor",
       "type": "object",
       "properties": {
         "name": { "type": "string" },
         "species": { "type": "string" },
         "breed": { "type": "string" },
         "age": { "type": "string" },
+        "weight": { "type": "string" },
+        "sex": { "type": "string" },
+        "tutorName": { "type": "string" },
+        "tutorPhone": { "type": "string" },
         "ownerId": { "type": "string" }
       },
       "required": ["name", "species", "ownerId"]
+    },
+    "Appointment": {
+      "title": "Agendamento",
+      "description": "Compromissos e agendamentos de consultas",
+      "type": "object",
+      "properties": {
+        "patientName": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "type": { "type": "string" },
+        "time": { "type": "string" },
+        "date": { "type": "string" },
+        "status": { "type": "string", "enum": ["confirmed", "pending", "finished"] },
+        "species": { "type": "string", "enum": ["Canino", "Felino"] },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["patientName", "ownerName", "type", "time", "date", "ownerId"]
     },
     "Report": {
       "title": "Laudo/Prontuário",
@@ -46,9 +79,35 @@
         "letterText": { "type": "string" }
       },
       "required": ["ownerId", "createdAt", "carousel"]
+    },
+    "Prescription": {
+      "title": "Prescrição",
+      "description": "Prescrição / Receituário gerado pela IA",
+      "type": "object",
+      "properties": {
+        "patientName": { "type": "string" },
+        "patientSpecies": { "type": "string" },
+        "patientBreed": { "type": "string" },
+        "patientAge": { "type": "string" },
+        "patientSex": { "type": "string" },
+        "patientWeight": { "type": "string" },
+        "tutorName": { "type": "string" },
+        "tutorPhone": { "type": "string" },
+        "clinicalNotes": { "type": "string" },
+        "routeOfAdmin": { "type": "string" },
+        "content": { "type": "string" },
+        "tutorMessage": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["patientName", "patientSpecies", "content", "ownerId"]
     }
   },
   "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Perfil e dados cadastrais do médico veterinário"
+    },
     "/patients/{patientId}": {
       "schema": "Patient",
       "description": "Documentos dos pacientes"
@@ -60,6 +119,14 @@
     "/generations/{generationId}": {
       "schema": "Generation",
       "description": "Banco de dados de postagens e material de marketing gerados"
+    },
+    "/appointments/{appointmentId}": {
+      "schema": "Appointment",
+      "description": "Coleção de agendamentos de consultas"
+    },
+    "/prescriptions/{prescriptionId}": {
+      "schema": "Prescription",
+      "description": "Receituário e prescrições médicas arquivadas"
     }
   }
 }

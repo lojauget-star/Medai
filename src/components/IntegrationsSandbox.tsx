@@ -1,479 +1,1181 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Sparkles,
   Chrome,
-  ArrowRight,
-  Monitor,
-  Cpu,
   CheckCircle2,
   FileText,
   Copy,
   Zap,
   HelpCircle,
-  FileSpreadsheet,
   Layers,
   Check,
-  Building,
   Radio,
-  ExternalLink,
+  BookOpen,
+  MessageSquare,
+  Mic,
+  MicOff,
+  Trash2,
+  TrendingUp,
+  RefreshCw,
+  Database,
+  ArrowRight,
+  ChevronDown,
+  Volume2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import VetmindLogo from "./VetmindLogo";
 
-export default function IntegrationsSandbox() {
-  const [selectedPreset, setSelectedPreset] = useState<"otitis" | "urinary" | "custom">("otitis");
-  const [anamnesisText, setAnamnesisText] = useState(
-    "Paciente Golden Retriever, 4 anos, com queixa de prurido intenso em orelhas bilateralmente há 10 dias. Balança muito a cabeça. Ao exame físico: eritema acentuado em conduto auditivo externo esquerdo e direito, secreção ceruminosa marrom escura abundante com odor fétido. Dor à palpação do conduto. Membrana timpânica íntegra."
-  );
-  
-  const [extensionOpen, setExtensionOpen] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [injected, setInjected] = useState(false);
-  
-  // Results in the simulator
-  const [ehrReport, setEhrReport] = useState("");
-  const [ehrPrescription, setEhrPrescription] = useState("");
+// Types for the parsed/structured simulator data
+interface CaseData {
+  patientDetails: string;
+  soap: {
+    S: string;
+    S_rationale: string;
+    O: string;
+    O_rationale: string;
+    A: string;
+    A_rationale: string;
+    P: string;
+    P_rationale: string;
+  };
+  rag: {
+    title: string;
+    compatibility: string;
+    sourceName: string;
+    citation: string;
+    snippet: string;
+    highlightWord: string;
+    analysis: string;
+    time: string;
+  };
+  prescriptions: Array<{
+    name: string;
+    dosePerKg: number;
+    unit: string;
+    details: string;
+  }>;
+  whatsapp: string;
+}
 
-  const presets = {
+export default function IntegrationsSandbox() {
+  // Preset data loaded instantly for maximum "Disney/Lego" magic
+  const presets: Record<"piometra" | "otitis" | "urinary", CaseData> = {
+    piometra: {
+      patientDetails: "Brisa (Canina, Golden Retriever, 9 anos, Fêmea inteira, 32kg)",
+      soap: {
+        S: "Fêmea inteira de 9 anos com secreção vaginal purulenta abundante e aumento moderado de ingestão de água (polidipsia) observado após 6 semanas do último estro.",
+        S_rationale: "O cio ocorreu há aproximadamente 42 dias (6 semanas), período de máxima atividade de progesterona uterina, que predispõe à proliferação bacteriana.",
+        O: "Ao exame físico geral: desidratação estimada em 5%, temperatura retal de 39.1ºC (febre leve), abdômen distendido e doloroso à palpação profunda. Hemograma revela leucocitose acentuada com desvio à esquerda.",
+        O_rationale: "A febre e o abdômen doloroso confirmam processo inflamatório/infeccioso agudo sistêmico, correlacionado à leucocitose grave decorrente do acúmulo purulento uterino.",
+        A: "Forte suspeita clínica e laboratorial de Piometra Aberta (complexo hiperplasia endometrial cística-piometra). Os sinais de corrimento vaginal purulento e desvio à esquerda são altamente característicos.",
+        A_rationale: "O útero aberto permite a drenagem externa do exsudato, o que reduz o risco imediato de ruptura uterina mas perpetua a endotoxemia sistêmica e poliúria/polidipsia compensatória.",
+        P: "Indicação imediata para ultrassonografia abdominal para confirmação do diâmetro uterino e acúmulo de fluido. Estabilização hídrica com fluidoterapia e indicação cirúrgica de Ovariossalpingohisterectomia (OSH) de urgência. Terapia antibiótica sistêmica com Cefalotina e Metronidazol.",
+        P_rationale: "A cirurgia é o padrão-ouro definitivo para evitar septicemia. O suporte com fluidoterapia restabelece a perfusão renal afetada pelas toxinas bacterianas."
+      },
+      rag: {
+        title: "Piometra Aberta",
+        compatibility: "87% compatível",
+        sourceName: "Nelson & Couto (Medicina Interna)",
+        citation: "Nelson & Couto, Cap. 47 • Pág. 312",
+        snippet: "...corrimento vaginal purulento associado a leucocitose e polidipsia em fêmeas inteiras de meia-idade a idosas representa o quadro clínico clássico e inquestionável de piometra diagnóstica...",
+        highlightWord: "leucocitose e polidipsia",
+        analysis: "A fêmea inteira de 9 anos apresenta secreção vaginal drenando externamente + leucocitose confirmada + polidipsia informada na queixa principal.",
+        time: "1.2s"
+      },
+      prescriptions: [
+        { name: "Cefalotina Sódica", dosePerKg: 30, unit: "mg", details: "IV, a cada 8 horas por 7 dias. Antibioticoterapia profilática de amplo espectro." },
+        { name: "Metronidazol", dosePerKg: 15, unit: "mg", details: "IV, a cada 12 horas por 7 dias. Combate eficaz a microrganismos anaeróbios." },
+        { name: "Dipirona Monoidratada", dosePerKg: 25, unit: "mg", details: "SC ou VO, a cada 8 horas para controle térmico e álgico pós-operatório." }
+      ],
+      whatsapp: "Olá! Gostaria de passar uma atualização sobre a Brisa. Identificamos uma suspeita importante de Piometra Aberta (infecção uterina). Ela apresenta secreção vaginal e aumento de ingestão de água. O tratamento recomendado de escolha é cirúrgico (remoção do útero) com máxima urgência para garantir a total recuperação dela. Já iniciamos a fluidoterapia de suporte. Qualquer dúvida, estou à total disposição."
+    },
     otitis: {
-      title: "Otite Externa Bilateral",
-      text: "Paciente Golden Retriever, 4 anos, com queixa de prurido intenso em orelhas bilateralmente há 10 dias. Balança muito a cabeça. Ao exame físico: eritema acentuado em conduto auditivo externo esquerdo e direito, secreção ceruminosa marrom escura abundante com odor fétido. Dor à palpação do conduto. Membrana timpânica íntegra.",
-      resultReport: "MINUTA DE CONDUÇÃO CLÍNICA (SOAP)\n- S: Prurido em orelhas há 10 dias, head shaking frequente.\n- O: Eritema em conduto auditivo externo bilateral, exsudato ceruminoso marrom espesso abundante, dor moderada à palpação. Membranas timpânicas íntegras.\n- A: Otite externa eritêmato-ceruminosa bilateral (suspeita de etiologia fúngica/bacteriana por Malassezia ou Staphylococcus).\n- P: Limpeza com solução otológica cerumolítica e aplicação de otológico contendo corticoide, antifúngico e antibiótico. Recomendada citologia de ouvido.",
-      resultPrescription: "1. Oto Sana (ou similar) - Instilar 4 gotas em ambos os ouvidos a cada 12 horas por 10 dias.\n2. Limpeza auricular com Ots-Clean - Aplicar 2x por semana antes de medicar.\n3. Retorno em 14 dias para nova avaliação diagnóstica."
+      patientDetails: "Thor (Canino, Golden Retriever, 4 anos, Macho inteiro, 34kg)",
+      soap: {
+        S: "Prurido otológico severo bilateral há 10 dias. Tutor relata comportamento frequente de balançar a cabeça (head shaking) e coçar as orelhas com as patas traseiras.",
+        S_rationale: "Prurido intenso e agitação cefálica indicam desconforto agudo em conduto auditivo externo, comumente relacionado a hipersensibilidades alimentares ou atopia de base.",
+        O: "Eritema intenso em pavilhão auricular e conduto externo bilateral. Presença de exsudato ceruminoso espesso marrom escuro com odor fétido ativo. Dor moderada ao toque e palpação do conduto auditivo externo. Membrana timpânica íntegra bilateralmente.",
+        O_rationale: "O conduto íntegro possibilita o tratamento tópico direto e seguro, sem risco de ototoxicidade por medicamentos no ouvido médio.",
+        A: "Otite externa eritematoceruminosa bilateral de provável etiologia fúngica (Malassezia pachydermatis) ou bacteriana secundária a distúrbio de barreira cutânea.",
+        A_rationale: "O exsudato marrom-chocolate e o odor adocicado característico são marcas patognomônicas da infecção oportunista por Malassezia em cães.",
+        P: "Realizar exame citológico por swab auricular. Limpeza de conduto com cerumolítico suave. Prescrever solução otológica contendo antifúngico, antibacteriano e anti-inflamatório (ex: Oto Sana ou similar) por 10-14 dias. Retorno em 14 dias.",
+        P_rationale: "A limpeza auricular adequada remove o excesso de lipídeos celulares, permitindo que os princípios ativos da pomada penetrem e façam efeito de forma eficaz."
+      },
+      rag: {
+        title: "Otite Externa Ceruminosa",
+        compatibility: "92% compatível",
+        sourceName: "Fossum (Cirurgia de Pequenos Animais)",
+        citation: "Fossum, Cap. 22 • Pág. 418",
+        snippet: "...o acúmulo de exsudato ceruminoso marrom com eritema acentuado e prurido recorrente sugere proliferação de Malassezia pachydermatis, com indicação primária de terapia otológica tópica de amplo espectro...",
+        highlightWord: "exsudato ceruminoso marrom com eritema acentuado",
+        analysis: "Golden Retriever com prurido otológico agudo de 10 dias, head shaking ativo e exsudato fétido ceruminoso marrom bilateral com membrana timpânica preservada.",
+        time: "0.8s"
+      },
+      prescriptions: [
+        { name: "Oto Sana (Pomada Otológica)", dosePerKg: 0.2, unit: "ml (gotas)", details: "Instilar 6 gotas em cada conduto auditivo a cada 12 horas por 10 dias consecutivos." },
+        { name: "Ots-Clean (Limpador Auricular)", dosePerKg: 1.0, unit: "ml", details: "Aplicar no conduto 20 minutos antes do tratamento otológico, 2 vezes por semana." }
+      ],
+      whatsapp: "Olá! Passando para atualizar sobre a consulta do Thor. Ele foi diagnosticado com Otite Externa Bilateral (inflamação e infecção nos ouvidos), o que explica o incômodo e o hábito de balançar a cabeça. Prescrevi uma rotina de limpeza e gotas de tratamento local para ser aplicada duas vezes ao dia. O tratamento dura 10 dias e é fundamental segui-lo até o final."
     },
     urinary: {
-      title: "Obstrução Uretral Felina",
-      text: "Felino, SRD, 3 anos, macho castrado. Tutor relata estrangúria, hematúria e vocalização ao tentar usar a caixa de areia há 24h. Hoje apático e anoréxico. Ao exame físico: bexiga extremamente distendida, rígida e dolorosa à palpação abdominal (bexigoma). Desidratação estimada em 6%. FC: 190 bpm, T: 37.8°C.",
-      resultReport: "MINUTA DE CONDUÇÃO CLÍNICA (SOAP)\n- S: Disúria, estrangúria, hematúria e vocalização na caixa de areia há 24 horas. Prostração e hiporexia nas últimas horas.\n- O: Presença de volumoso e pétreo bexigoma doloroso à palpação abdominal. Desidratação 6%. Sinais vitais limítrofes.\n- A: Obstrução uretral felina (Dout/FLUTD). Risco iminente de injúria renal aguda e distúrbios de potássio.\n- P: Desobstrução uretral de urgência sob sedação profunda, sondagem de demora urinária (sonda Tom Cat), fluidoterapia de suporte (Ringer com Lactato) e monitoramento de débito.",
-      resultPrescription: "1. Internação imediata para desobstrução uretral e hidratação intravenosa.\n2. Cloridrato de Tramadol - 2 mg/kg SC para analgesia analgésica imediata.\n3. Cloridrato de Fenoxibenzamina - 0.5 mg/kg VO a cada 12 horas (após alta) para mitigar espasmos uretrais por 7 dias."
-    },
-    custom: {
-      title: "Nova Queixa Livre",
-      text: "Digite qualquer anotação clínica rápida que o Vetmind Copiloto preencherá de forma automatizada...",
-      resultReport: "MINUTA DE CONDUÇÃO CLÍNICA (SOAP)\n- S: Queixa clínica genérica informada pelo usuário em anotação simplificada.\n- O: Achados clínicos estruturados a partir das notas inseridas.\n- A: Avaliação preliminar de diagnóstico diferencial por evidências clínicas de suporte.\n- P: Plano terapêutico farmacológico básico sugerido para revisão profissional.",
-      resultPrescription: "1. Verifique as recomendações terapêuticas detalhadas geradas na extensão para aprovar."
+      patientDetails: "Garfield (Felino, SRD, 3 anos, Macho castrado, 4.5kg)",
+      soap: {
+        S: "Dificuldade severa para urinar (estrangúria), sangue na urina (hematúria) e gemidos de dor na caixa de areia há 24 horas. Tutor notou apatia profunda e recusa alimentar total no dia de hoje.",
+        S_rationale: "Frequência excessiva na caixa de areia com ausência de débito urinário real é sinal patognomônico de obstrução baixa em felinos machos castrados.",
+        O: "Prostração intensa, mucosas levemente pálidas. Ao exame físico abdominal, detecta-se bexigoma extremamente distendido, rígido (pétreo) e altamente doloroso. Desidratação estimada em 6%. FC: 190 bpm.",
+        O_rationale: "O bexigoma pétreo indica anúria pós-renal obstrutiva mecânica imediata. A FC elevada é decorrente do estresse doloroso e desidratação iminente.",
+        A: "Obstrução uretral aguda em felino (síndrome de FLUTD / DTUIF). Emergência clínica com alto risco de hipercalemia e injúria renal aguda pós-renal.",
+        A_rationale: "A incapacidade de escoamento urinário gera reabsorção renal de potássio, levando à cardiotoxicidade e distúrbios graves de ritmo, exigindo intervenção rápida.",
+        P: "Desobstrução uretral imediata sob sedação/anestesia geral (uso de sonda Tom Cat). Fluidoterapia endovenosa agressiva para correção eletrolítica e restabelecimento do débito urinário. Analgesia potente e monitoramento intensivo.",
+        P_rationale: "A sondagem alivia instantaneamente a pressão pós-renal retrograda, prevenindo a ruptura de bexiga e permitindo a reidratação endovenosa contínua do felino."
+      },
+      rag: {
+        title: "Obstrução Uretral Felina",
+        compatibility: "95% compatível",
+        sourceName: "Ettinger & Feldman (Internal Medicine)",
+        citation: "Ettinger & Feldman, Cap. 182 • Pág. 784",
+        snippet: "...a incapacidade de esvaziamento vesical por mais de 24 horas resulta em bexigoma rígido e doloroso, desencadeando azotemia pós-renal progressiva e distúrbios eletrolíticos fatais, exigindo desobstrução de urgência...",
+        highlightWord: "bexigoma rígido e doloroso",
+        analysis: "Paciente felino macho castrado apresentando bexigoma obstrutivo doloroso há 24h, com risco imediato de choque urêmico e parada cardíaca.",
+        time: "1.4s"
+      },
+      prescriptions: [
+        { name: "Cloridrato de Tramadol", dosePerKg: 2, unit: "mg", details: "SC, dose única para analgesia imediata do desconforto uretral intenso." },
+        { name: "Soro Ringer com Lactato", dosePerKg: 50, unit: "ml/kg/dia", details: "IV contínuo nas primeiras 24h para restabelecer a hidratação e eliminar escórias de potássio." }
+      ],
+      whatsapp: "Olá! Escrevo para informar que o Garfield deu entrada com um quadro urgente de Obstrução Uretral Felina. Ele não estava conseguindo urinar, o que gera acúmulo de toxinas no sangue e extrema dor. Ele já foi sedado com segurança e realizamos a desobstrução. Ele precisará ficar internado em observação com soro na veia para reidratar e garantir que volte a urinar normalmente."
     }
   };
 
-  const selectPreset = (key: "otitis" | "urinary" | "custom") => {
-    setSelectedPreset(key);
-    setAnamnesisText(presets[key].text);
-    setEhrReport("");
-    setEhrPrescription("");
-    setInjected(false);
+  // State
+  const [selectedCase, setSelectedCase] = useState<"piometra" | "otitis" | "urinary">(() => {
+    return (localStorage.getItem("vetmind_sandbox_selectedCase") as any) || "piometra";
+  });
+  const [inputText, setInputText] = useState(() => {
+    return localStorage.getItem("vetmind_sandbox_inputText") || 
+      "Fêmea inteira com corrimento vaginal purulento associado a desvio à esquerda e polidipsia moderada após 6 semanas do estro.";
+  });
+  
+  const [isInputtingText, setIsInputtingText] = useState(true);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordTimer, setRecordTimer] = useState(0);
+  
+  // Applet stage: idle, generating, results
+  const [stage, setStage] = useState<"idle" | "generating" | "results">(() => {
+    return (localStorage.getItem("vetmind_sandbox_stage") as any) || "idle";
+  });
+  const [activeSubTab, setActiveSubTab] = useState<"soap" | "rag" | "prescriptions" | "whatsapp">(() => {
+    return (localStorage.getItem("vetmind_sandbox_activeSubTab") as any) || "soap";
+  });
+  
+  // Custom generated case state if user edits input text and clicks generate
+  const [customCase, setCustomCase] = useState<CaseData | null>(() => {
+    const saved = localStorage.getItem("vetmind_sandbox_customCase");
+    try {
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // SOAP Accordions state
+  const [expandedSection, setExpandedSection] = useState<string | null>(() => {
+    return localStorage.getItem("vetmind_sandbox_expandedSection") || null;
+  });
+
+  // Interactive dose weight state
+  const [calcWeight, setCalcWeight] = useState<string>(() => {
+    return localStorage.getItem("vetmind_sandbox_calcWeight") || "10";
+  });
+
+  // Pricing states
+  const [isAnnual, setIsAnnual] = useState(true);
+
+  // Feedback states
+  const [copiedText, setCopiedText] = useState(false);
+
+  // Sync state to localStorage
+  useEffect(() => {
+    localStorage.setItem("vetmind_sandbox_selectedCase", selectedCase);
+    localStorage.setItem("vetmind_sandbox_inputText", inputText);
+    localStorage.setItem("vetmind_sandbox_stage", stage);
+    localStorage.setItem("vetmind_sandbox_activeSubTab", activeSubTab);
+    localStorage.setItem("vetmind_sandbox_customCase", customCase ? JSON.stringify(customCase) : "");
+    localStorage.setItem("vetmind_sandbox_expandedSection", expandedSection || "");
+    localStorage.setItem("vetmind_sandbox_calcWeight", calcWeight);
+  }, [selectedCase, inputText, stage, activeSubTab, customCase, expandedSection, calcWeight]);
+
+  // Simulated Voice recording effect
+  useEffect(() => {
+    let interval: any;
+    if (isRecording) {
+      interval = setInterval(() => {
+        setRecordTimer((prev) => {
+          if (prev >= 4) {
+            // Stop recording at 5s and pre-populate text dynamically based on the current selection!
+            setIsRecording(false);
+            if (selectedCase === "piometra") {
+              setInputText("Fêmea inteira com corrimento vaginal purulento associado a desvio à esquerda e polidipsia moderada após 6 semanas do estro.");
+            } else if (selectedCase === "otitis") {
+              setInputText("Paciente Golden Retriever, 4 anos, macho, com prurido intenso em orelhas bilateralmente há 10 dias. Balança muito a cabeça. Ao exame físico: eritema acentuado em conduto auditivo externo bilateral, secreção ceruminosa marrom abundante com odor fétido.");
+            } else {
+              setInputText("Felino, SRD, 3 anos, macho castrado. Tutor relata estrangúria, hematúria e vocalização ao tentar usar a caixa de areia há 24h. Hoje apático e anoréxico. Ao exame físico: bexiga extremamente distendida, rígida e dolorosa.");
+            }
+            return 0;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } else {
+      setRecordTimer(0);
+    }
+    return () => clearInterval(interval);
+  }, [isRecording, selectedCase]);
+
+  // Clean current input
+  const handleClear = () => {
+    setInputText("");
+    setStage("idle");
+    setCustomCase(null);
   };
 
-  const handleSimulateAnalysis = () => {
-    setIsProcessing(true);
-    setExtensionOpen(true);
-    setTimeout(() => {
-      setIsProcessing(false);
-    }, 1500);
+  // Change preset case
+  const handleSelectCase = (key: "piometra" | "otitis" | "urinary") => {
+    setSelectedCase(key);
+    setCustomCase(null);
+    setStage("idle");
+    if (key === "piometra") {
+      setInputText("Fêmea inteira com corrimento vaginal purulento associado a desvio à esquerda e polidipsia moderada após 6 semanas do estro.");
+    } else if (key === "otitis") {
+      setInputText("Paciente Golden Retriever, 4 anos, macho, com prurido intenso em orelhas bilateralmente há 10 dias. Balança muito a cabeça. Ao exame físico: eritema acentuado em conduto auditivo externo bilateral, secreção ceruminosa marrom abundante com odor fétido.");
+    } else {
+      setInputText("Felino, SRD, 3 anos, macho castrado. Tutor relata estrangúria, hematúria e vocalização ao tentar usar a caixa de areia há 24h. Hoje apático e anoréxico. Ao exame físico: bexiga extremamente distendida, rígida e dolorosa.");
+    }
   };
 
-  const handleInject = () => {
-    const currentPreset = presets[selectedPreset] || presets.custom;
-    setEhrReport(currentPreset.resultReport);
-    setEhrPrescription(currentPreset.resultPrescription);
-    setInjected(true);
-    setExtensionOpen(false);
+  // Run Simulated/Live analysis
+  const [currentStepLabel, setCurrentStepLabel] = useState("");
+  const handleAnalyse = async () => {
+    if (!inputText.trim()) return;
+
+    setStage("generating");
+    
+    // Check if user edited the preset text. If they edited, we can fetch real data or procedurally construct it.
+    const isCustomText = inputText.trim() !== presets[selectedCase].soap.S && 
+                         inputText.trim() !== presets[selectedCase].soap.O && 
+                         inputText.trim() !== presets[selectedCase].patientDetails &&
+                         !inputText.startsWith("Fêmea inteira") && !inputText.startsWith("Paciente Golden") && !inputText.startsWith("Felino");
+
+    // Disney: informational, calming steps
+    setCurrentStepLabel("Analisando sintomas clínicas e históricos...");
+    await new Promise((r) => setTimeout(r, 900));
+    
+    setCurrentStepLabel("Cruzando com literatura veterinária e consensos...");
+    await new Promise((r) => setTimeout(r, 900));
+    
+    setCurrentStepLabel("Montando diagnósticos e protocolos de tratamento...");
+    await new Promise((r) => setTimeout(r, 700));
+
+    if (isCustomText) {
+      try {
+        // Hit real backend dynamically for custom inputs!
+        const response = await fetch("/api/generate-report", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            anamnesis: inputText,
+            patient: { name: "Paciente", species: "Canino", breed: "SRD", age: "5", sex: "Fêmea inteira", weight: "12" },
+            examData: "Exame clínico geral."
+          }),
+        });
+
+        if (response.ok) {
+          const contentType = response.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            const data = await response.json();
+            // Let's parse the returned SOAP using the delimiters '##'
+            const sections = (data.soapContent || "").split("##");
+            let s_val = "", o_val = "", a_val = "", p_val = "";
+            
+            sections.forEach((sec: string) => {
+              const trimmed = sec.trim();
+              if (trimmed.startsWith("S (")) s_val = trimmed.replace(/^S \([^)]+\):?/, "").trim();
+              else if (trimmed.startsWith("O (")) o_val = trimmed.replace(/^O \([^)]+\):?/, "").trim();
+              else if (trimmed.startsWith("A (")) a_val = trimmed.replace(/^A \([^)]+\):?/, "").trim();
+              else if (trimmed.startsWith("P (")) p_val = trimmed.replace(/^P \([^)]+\):?/, "").trim();
+            });
+
+            // Fallback if split didn't find them perfectly
+            if (!s_val) s_val = inputText;
+            if (!o_val) o_val = "Exame geral executado. Sintomas condizentes com queixa subjetiva.";
+            if (!a_val) a_val = "Diagnóstico diferencial sob verificação do clínico responsável.";
+            if (!p_val) p_val = "Fluidoterapia de suporte e exames complementares imediatos.";
+
+          setCustomCase({
+            patientDetails: "Paciente (Canino, SRD, 5 anos, Fêmea, 12kg)",
+            soap: {
+              S: s_val.slice(0, 200),
+              S_rationale: "Análise processada a partir da anamnese informada pelo clínico.",
+              O: o_val.slice(0, 200),
+              O_rationale: "Achados extraídos via inferência linguística estruturada.",
+              A: a_val.slice(0, 200),
+              A_rationale: "Diagnóstico baseado em correlação de sintomas e consensos.",
+              P: p_val.slice(0, 200),
+              P_rationale: "Tratamento empírico inicial indicado para controle de sintomas."
+            },
+            rag: {
+              title: "Diferencial Identificado",
+              compatibility: "78% compatível",
+              sourceName: "Literatura Veterinária Ativa",
+              citation: "RAG • Diretrizes Gerais de Clínica",
+              snippet: "...a manifestação aguda do paciente requer exclusão de patologias infecciosas e mecânicas concomitantes...",
+              highlightWord: "manifestação aguda do paciente",
+              analysis: "Análise textual cruzou queixas clínicas com termos recorrentes em publicações científicas indexadas.",
+              time: "1.5s"
+            },
+            prescriptions: [
+              { name: "Terapia de Suporte Inicial", dosePerKg: 10, unit: "ml/kg/h", details: "Fluidoterapia com Ringer Lactato ou Soro Fisiológico para hidratação." },
+              { name: "Analgesia de Controle", dosePerKg: 2, unit: "mg/kg", details: "Administrar a critério médico veterinário conforme evolução da dor." }
+            ],
+            whatsapp: `Olá! Passando para atualizar sobre a consulta do seu pet. Analisamos os sintomas e iniciamos as primeiras condutas de suporte clínico. Prescrevi as medicações necessárias e o plano terapêutico inicial. Seguiremos acompanhando cada passo.`
+          });
+          } else {
+            setCustomCase(null);
+          }
+        } else {
+          setCustomCase(null);
+        }
+      } catch (err) {
+        console.error("Custom analysis error:", err);
+        setCustomCase(null);
+      }
+    }
+
+    setStage("results");
+    setActiveSubTab("soap");
+  };
+
+  // Get active rendering case data
+  const activeCaseData = customCase || presets[selectedCase];
+
+  // Helper to copy text to clipboard
+  const handleCopyText = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedText(true);
+    setTimeout(() => setCopiedText(false), 2000);
   };
 
   return (
-    <div className="space-y-10 max-w-7xl mx-auto px-4 sm:px-6">
+    <div className="space-y-16 max-w-7xl mx-auto px-4 sm:px-6">
+      {/* Dynamic Pulse Keyframes Style Block */}
+      <style>{`
+        @keyframes container-pulse {
+          0%, 100% {
+            border-color: rgba(99, 102, 241, 0.25);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 0 0 2px rgba(99, 102, 241, 0.04);
+          }
+          50% {
+            border-color: rgba(16, 185, 129, 0.45);
+            box-shadow: 0 20px 25px -5px rgba(99, 102, 241, 0.08), 0 10px 10px -5px rgba(16, 185, 129, 0.08), 0 0 0 4px rgba(16, 185, 129, 0.08);
+          }
+        }
+        .animate-container-pulse {
+          animation: container-pulse 4s infinite ease-in-out;
+        }
+      `}</style>
+
       {/* Visual Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b border-slate-200/60 pb-8">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b border-slate-200/65 pb-8">
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <span className="bg-blue-100 text-clinical-blue text-[9px] font-black uppercase tracking-wider px-3 py-1 rounded-full font-mono">
-              Fase 2 de Escala
+            <span className="bg-indigo-100 text-indigo-700 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full font-mono">
+              Vetmind Co-Pilot V2.8
             </span>
-            <span className="bg-amber-100 text-amber-800 text-[9px] font-black uppercase tracking-wider px-3 py-1 rounded-full font-mono">
-              Sandbox Tecnológico
+            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full font-mono">
+              Clinical Soft Aesthetic
             </span>
           </div>
-          <h1 className="text-4xl font-black text-slate-900 leading-none tracking-tight">
-            Navegador & Extensões Integradas
+          <h1 className="text-4xl font-extrabold text-slate-900 leading-none tracking-tight font-display">
+            Copiloto Clínico Integrado
           </h1>
-          <p className="text-sm font-semibold text-slate-500 max-w-xl">
-            Acabe com a barreira de entrada clínica. Nossa tecnologia permite simular a injeção do Vetmind Copilot diretamente dentro de qualquer prontuário eletrônico existente (SimplesVet, VetMax, etc.) via Extensão do Chrome.
+          <p className="text-sm font-medium text-slate-500 max-w-xl">
+            Experimente a perfeita simulação da injeção do Vetmind Copilot. Nossa inteligência opera como uma camada nativa agnóstica para qualquer prontuário eletrônico do mercado.
           </p>
         </div>
 
         {/* Info stats */}
-        <div className="flex items-center gap-4 bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
-          <div className="w-12 h-12 bg-blue-50 text-clinical-blue rounded-xl flex items-center justify-center">
+        <div className="flex items-center gap-4 bg-white border border-slate-150 rounded-2xl p-4 shadow-sm">
+          <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
             <Chrome className="w-6 h-6 animate-pulse" />
           </div>
           <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Status da Extensão</p>
-            <p className="text-sm font-bold text-slate-800 mt-1">Pronta para Deploy</p>
-            <p className="text-[9px] text-emerald-600 font-extrabold uppercase mt-0.5 tracking-wider">● 1-Click Injection Ativo</p>
+            <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest leading-none">Motor de Busca</p>
+            <p className="text-sm font-bold text-slate-800 mt-1">Conectado ao RAG</p>
+            <p className="text-[9px] text-emerald-600 font-extrabold uppercase mt-0.5 tracking-wider">● SISTEMA INTEGRADO ATIVO</p>
           </div>
         </div>
       </div>
 
-      {/* Conceptual Explanation Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white border border-slate-100 p-6 rounded-2xl space-y-3 shadow-xs">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-clinical-blue flex items-center justify-center">
-            <Layers className="w-5 h-5" />
-          </div>
-          <h3 className="font-extrabold text-sm text-slate-900">1. Fluxo sem Atrito</h3>
-          <p className="text-xs text-slate-500 leading-relaxed font-medium">
-            O veterinário não precisa copiar dados, abrir guias colaterais ou preencher cadastros duplicados. A inteligência opera como uma camada nativa do software atual dele.
-          </p>
+      {/* Preset case switcher buttons (Disney/Lego Perfect Alignment) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-3xl border border-slate-200/80 shadow-xs">
+        <div className="flex items-center gap-2">
+          <Database className="w-5 h-5 text-indigo-500" />
+          <span className="text-xs font-black uppercase text-slate-400 tracking-wider">Selecione um Caso Clínico de Exemplo:</span>
         </div>
-
-        <div className="bg-white border border-slate-100 p-6 rounded-2xl space-y-3 shadow-xs">
-          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-            <Zap className="w-5 h-5" />
-          </div>
-          <h3 className="font-extrabold text-sm text-slate-900">2. Identificação Inteligente</h3>
-          <p className="text-xs text-slate-500 leading-relaxed font-medium">
-            A extensão localiza os campos de anamnese na tela e injeta um pequeno botão Vetmind discreto e reativo ao lado ou dentro dos campos de texto (textarea).
-          </p>
-        </div>
-
-        <div className="bg-white border border-slate-100 p-6 rounded-2xl space-y-3 shadow-xs">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <Radio className="w-5 h-5" />
-          </div>
-          <h3 className="font-extrabold text-sm text-slate-900">3. Multi-Sistemas (EHR Agnostic)</h3>
-          <p className="text-xs text-slate-500 leading-relaxed font-medium">
-            Funciona nos maiores sistemas do mercado (SimplesVet, VetMax, ClinicCloud, Sisvet) injetando scripts customizados e seguros por XPath dinâmico.
-          </p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => handleSelectCase("piometra")}
+            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all border ${
+              selectedCase === "piometra" && !customCase
+                ? "bg-indigo-600 border-indigo-600 text-white shadow-sm shadow-indigo-600/20 scale-[1.02]"
+                : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            Caso 1: Piometra Aberta (Geral)
+          </button>
+          <button
+            onClick={() => handleSelectCase("otitis")}
+            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all border ${
+              selectedCase === "otitis" && !customCase
+                ? "bg-indigo-600 border-indigo-600 text-white shadow-sm shadow-indigo-600/20 scale-[1.02]"
+                : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            Caso 2: Otite Externa (Golden)
+          </button>
+          <button
+            onClick={() => handleSelectCase("urinary")}
+            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all border ${
+              selectedCase === "urinary" && !customCase
+                ? "bg-indigo-600 border-indigo-600 text-white shadow-sm shadow-indigo-600/20 scale-[1.02]"
+                : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            Caso 3: Bexigoma (Felino SRD)
+          </button>
         </div>
       </div>
 
-      {/* Main Interactive Stage Widget */}
-      <div className="bg-slate-900/5 border border-slate-200 rounded-[2.5rem] p-6 lg:p-10 space-y-8">
-        <div>
-          <h2 className="text-xl font-extrabold text-slate-900">Simulador de Extensão em Tempo Real</h2>
-          <p className="text-xs text-slate-500 mt-1 font-medium">
-            Experimente o comportamento do widget do Chrome rodando de forma fictícia em uma tela nativa do sistema da clínica do veterinário.
-          </p>
+      {/* MAIN DYNAMIC SIMULATOR PAINEL (Container Pulse Animated) */}
+      <div className="bg-white border border-slate-200 rounded-[2.5rem] overflow-hidden animate-container-pulse">
+        {/* Top bar mockup like OS Window */}
+        <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex gap-1.5">
+              <span className="w-3 h-3 rounded-full bg-rose-400" />
+              <span className="w-3 h-3 rounded-full bg-amber-400" />
+              <span className="w-3 h-3 rounded-full bg-emerald-400" />
+            </div>
+            <span className="text-[11px] font-black font-mono text-slate-400 uppercase tracking-widest">
+              VETMIND CO-PILOT V2.8
+            </span>
+          </div>
+          <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-wider rounded-full border border-emerald-200 flex items-center gap-1.5 animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            SISTEMA INTEGRADO
+          </span>
         </div>
 
-        {/* Step-by-Step interactive controller */}
-        <div className="flex flex-wrap items-center gap-2 bg-white/70 backdrop-blur-md p-2 rounded-2xl border border-slate-200/60 max-w-xl">
-          <span className="text-[10px] font-black uppercase text-slate-400 px-3 tracking-widest">Selecione um Caso Clínico:</span>
-          <button
-            onClick={() => selectPreset("otitis")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase transition-all ${
-              selectedPreset === "otitis" ? "bg-clinical-blue text-white" : "hover:bg-slate-100 text-slate-500"
-            }`}
-          >
-            Caso 1: Otite
-          </button>
-          <button
-            onClick={() => selectPreset("urinary")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase transition-all ${
-              selectedPreset === "urinary" ? "bg-clinical-blue text-white" : "hover:bg-slate-100 text-slate-500"
-            }`}
-          >
-            Caso 2: Bexigoma
-          </button>
-          <button
-            onClick={() => selectPreset("custom")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase transition-all ${
-              selectedPreset === "custom" ? "bg-clinical-blue text-white" : "hover:bg-slate-100 text-slate-500"
-            }`}
-          >
-            Livre (Custom)
-          </button>
-        </div>
-
-        {/* The visual simulator screen mockup */}
-        <div className="relative bg-slate-900 rounded-[2rem] border-4 border-slate-950 shadow-2xl overflow-hidden min-h-[580px] grid grid-cols-1 lg:grid-cols-12">
+        {/* Inner grid (Two Columns on Desktop) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2">
           
-          {/* Main Simulated Clinical CRM (representing the 3rd-party software) - 8 Cols */}
-          <div className="lg:col-span-8 p-6 flex flex-col justify-between bg-slate-100 text-slate-800 relative">
-            {/* Mock Header of SimplesVet */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-3.5 h-3.5 rounded-full bg-orange-500"></div>
-                  <span className="font-black text-xs uppercase tracking-widest text-[#E65F2B] font-mono">
-                    SimplesVet Cloud v8.4.1
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider font-mono">Prontuário Ativo</span>
-                </div>
-              </div>
-
-              {/* Patient Profile */}
-              <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs flex items-center justify-between">
-                <div>
-                  <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Identificação do Paciente</span>
-                  <p className="text-sm font-black text-slate-800 mt-0.5">
-                    {selectedPreset === "otitis" && "Thor (Golden Retriever, 4A, Macho)"}
-                    {selectedPreset === "urinary" && "Garfield (Felino SRD, 3A, Macho Castrado)"}
-                    {selectedPreset === "custom" && "Paciente Personalizado (Análise Livre)"}
-                  </p>
-                </div>
-                <span className="text-xs text-slate-500 font-bold bg-slate-100 px-2.5 py-1 rounded-lg">Ficha #29938</span>
-              </div>
-
-              {/* Patient Fields Form */}
-              <div className="space-y-4 mt-2">
+          {/* LEFT COLUMN: INPUT ZONE */}
+          <div className="p-6 lg:p-10 border-b lg:border-b-0 lg:border-r border-slate-200 flex flex-col justify-between space-y-8 bg-slate-50/40">
+            <div className="space-y-6">
+              {/* Header inside Column 1 */}
+              <div className="flex items-center justify-between">
+                <h3 className="font-extrabold text-slate-800 text-sm tracking-wider uppercase font-display">
+                  SINTOMAS E ANAMNESE
+                </h3>
                 
-                {/* Textarea containing Anamnesis with floating extension badge inside! */}
-                <div className="relative space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">
-                    Queixa Clínica, Exame Físico & Anotações de Consulta:
-                  </label>
-                  <div className="relative">
-                    <textarea
-                      value={anamnesisText}
-                      onChange={(e) => {
-                        if (selectedPreset !== "custom") {
-                          setSelectedPreset("custom");
-                        }
-                        setAnamnesisText(e.target.value);
-                      }}
-                      className="w-full min-h-[140px] pr-12 p-4 bg-white border border-slate-200 focus:outline-[#E65F2B] focus:border-transparent rounded-xl text-xs font-semibold leading-relaxed text-slate-700 shadow-inner"
-                      placeholder="Anote aqui as descrições em linguagem natural..."
-                    />
+                {/* Switcher: Voice or Text */}
+                <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+                  <button
+                    onClick={() => {
+                      setIsInputtingText(false);
+                      setIsRecording(true);
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-[11px] font-extrabold flex items-center gap-1.5 transition-all ${
+                      !isInputtingText || isRecording
+                        ? "bg-rose-100 text-rose-600 shadow-xs"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <Mic className={`w-3.5 h-3.5 ${isRecording ? "animate-bounce text-rose-600" : ""}`} />
+                    Gravar Voz
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsInputtingText(true);
+                      setIsRecording(false);
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-[11px] font-extrabold flex items-center gap-1.5 transition-all ${
+                      isInputtingText && !isRecording
+                        ? "bg-white text-indigo-600 shadow-xs border border-slate-200"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Digitar IA
+                  </button>
+                </div>
+              </div>
 
-                    {/* FLOATING VETMIND EXTENSION BADGE */}
+              {/* Input Area or Sound Wave Recording Box */}
+              <div className="relative bg-white rounded-3xl border border-slate-200 shadow-inner overflow-hidden min-h-[220px] flex flex-col justify-between p-6">
+                
+                {isRecording ? (
+                  // Sound Wave / Pulsating indicators (Pink-Rose)
+                  <div className="flex-1 flex flex-col items-center justify-center space-y-4 py-8">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-2.5 h-8 bg-rose-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-2.5 h-16 bg-rose-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-2.5 h-12 bg-rose-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      <span className="w-2.5 h-20 bg-rose-500 rounded-full animate-bounce" style={{ animationDelay: '450ms' }} />
+                      <span className="w-2.5 h-6 bg-rose-500 rounded-full animate-bounce" style={{ animationDelay: '600ms' }} />
+                      <span className="w-2.5 h-14 bg-rose-500 rounded-full animate-bounce" style={{ animationDelay: '750ms' }} />
+                      <span className="w-2.5 h-10 bg-rose-500 rounded-full animate-bounce" style={{ animationDelay: '900ms' }} />
+                    </div>
+                    
+                    <div className="text-center space-y-1.5">
+                      <p className="text-sm font-bold text-rose-600 flex items-center gap-2 justify-center">
+                        <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                        Gravando áudio clínico... (00:0{recordTimer})
+                      </p>
+                      <p className="text-[11px] text-slate-400 font-semibold uppercase">
+                        Fale os sintomas naturalmente. O Vetmind transcreverá em tempo real.
+                      </p>
+                    </div>
+
                     <button
-                      onClick={handleSimulateAnalysis}
-                      className="absolute bottom-3 right-3 p-2 bg-gradient-to-br from-[#003399] to-clinical-blue hover:from-clinical-blue hover:to-[#002266] text-white rounded-xl shadow-lg border border-white/20 hover:scale-110 active:scale-95 transition-all group pointer-events-auto"
-                      title="Analisar com Vetmind Copiloto"
+                      onClick={() => setIsRecording(false)}
+                      className="px-6 py-2 bg-rose-50 border border-rose-100 hover:bg-rose-100 text-rose-600 rounded-full text-xs font-bold transition-all uppercase tracking-wider"
                     >
-                      <div className="relative">
-                        <VetmindLogo showText={false} size={22} />
-                        <span className="absolute -top-1.5 -right-1.5 flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                        </span>
-                      </div>
+                      Concluir Gravação
                     </button>
                   </div>
-                </div>
-
-                {/* Sub-results filled automatically */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                      Laudo / Condução SOAP (Vetmind Auto-fill):
-                    </label>
+                ) : (
+                  // Normal Textarea with "limpar" inside
+                  <>
                     <textarea
-                      readOnly
-                      value={ehrReport}
-                      placeholder="Aguardando a injeção do Copiloto no sistema..."
-                      className={`w-full h-[120px] p-3 text-[11px] font-bold border rounded-lg bg-slate-50 leading-normal text-slate-600 outline-none transition-all ${
-                        injected ? "border-emerald-300 bg-emerald-50/20 text-slate-800" : "border-slate-200"
-                      }`}
+                      value={inputText}
+                      onChange={(e) => {
+                        setInputText(e.target.value);
+                        if (customCase) setCustomCase(null);
+                      }}
+                      placeholder="Descreva a queixa do tutor, histórico clínico e observações de exame físico do paciente..."
+                      className="w-full flex-1 border-none outline-none resize-none bg-transparent text-sm font-semibold text-slate-700 leading-relaxed placeholder:text-slate-400"
                     />
-                  </div>
+                    <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-3">
+                      <span className="text-[10px] font-bold text-slate-400 font-mono">
+                        {inputText.length} caracteres digitados
+                      </span>
+                      <button
+                        onClick={handleClear}
+                        className="px-3 py-1 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center gap-1.5"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        limpar
+                      </button>
+                    </div>
+                  </>
+                )}
 
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                      Prescrição Indicada (Vetmind Auto-fill):
-                    </label>
-                    <textarea
-                      readOnly
-                      value={ehrPrescription}
-                      placeholder="Aguardando a injeção do Copiloto no sistema..."
-                      className={`w-full h-[120px] p-3 text-[11px] font-bold border rounded-lg bg-slate-50 leading-normal text-slate-600 outline-none transition-all ${
-                        injected ? "border-emerald-300 bg-emerald-50/20 text-slate-800" : "border-slate-200"
-                      }`}
-                    />
-                  </div>
-                </div>
+              </div>
 
+              {/* Status information banner */}
+              <div className="p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl flex gap-3">
+                <Database className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-indigo-950 font-semibold leading-relaxed">
+                  <b>API Conectada:</b> O Vetmind correlaciona os dados informados com a <b>literatura veterinária nacional e internacional</b> para gerar os diferenciais sistemáticos.
+                </p>
               </div>
             </div>
 
-            {/* SimplesVet Footer Button */}
-            <div className="flex items-center justify-between border-t border-slate-200 pt-4 mt-4 shrink-0">
-              <span className="text-[10px] text-slate-400 font-bold uppercase font-mono">SimplesVet integration active</span>
+            {/* Bottom Giant CTA Action with grand gradient */}
+            <div className="pt-6">
               <button
-                disabled={!injected}
-                onClick={() => {
-                  alert("Dados da consulta salvos no prontuário eletrônico SimplesVet!");
-                  setEhrReport("");
-                  setEhrPrescription("");
-                  setInjected(false);
-                }}
-                className={`px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
-                  injected 
-                    ? "bg-[#E65F2B] text-white hover:bg-[#c24e20]" 
+                onClick={handleAnalyse}
+                disabled={!inputText.trim() || isRecording}
+                className={`w-full py-4 rounded-full font-bold text-sm tracking-wide text-white transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer ${
+                  inputText.trim() && !isRecording
+                    ? "bg-gradient-to-r from-indigo-600 to-emerald-500 hover:scale-[1.02] shadow-lg shadow-indigo-600/15"
                     : "bg-slate-200 text-slate-400 cursor-not-allowed"
                 }`}
               >
-                Salvar Prontuário Nativo
+                <Zap className="w-4 h-4 animate-bounce" />
+                ANALISAR CASO INTEGRADO
               </button>
             </div>
           </div>
 
-          {/* Chrome Extension Simulated Sidebar Panel Drawer (Locks Right) - 4 Cols */}
-          <div className="lg:col-span-4 bg-slate-850 p-5 flex flex-col justify-between text-white border-l border-slate-700 relative overflow-hidden">
+          {/* RIGHT COLUMN: OUTPUT ZONE */}
+          <div className="p-6 lg:p-10 flex flex-col justify-between min-h-[460px] bg-white">
             
-            {/* Background glowing aura */}
-            <div className="absolute top-0 right-0 w-44 h-44 bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />
-
-            {/* Extension Header */}
-            <div className="space-y-4 z-10 relative">
-              <div className="flex items-center justify-between border-b border-white/15 pb-3">
-                <div className="flex items-center gap-1.5">
-                  <div className="bg-white/10 p-1.5 rounded-lg border border-white/10">
-                    <VetmindLogo showText={false} size={18} />
-                  </div>
-                  <div>
-                    <h4 className="font-black text-[12px] text-white tracking-widest uppercase">
-                      Vetmind v2.0
-                    </h4>
-                    <p className="text-[8px] text-[#00E5FF] font-mono leading-none font-bold tracking-widest uppercase">
-                      Chrome Extension Widget
-                    </p>
-                  </div>
+            {stage === "idle" && (
+              // Case 1: Empty state placeholder (as requested in mockup)
+              <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4 max-w-sm mx-auto">
+                <div className="w-16 h-16 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center border border-slate-100 shadow-xs">
+                  <span className="text-2xl">🔍</span>
                 </div>
-                {extensionOpen && (
-                  <button
-                    onClick={() => setExtensionOpen(false)}
-                    className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-all"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
+                <div className="space-y-2">
+                  <h4 className="text-base font-extrabold text-slate-800 font-display">Aguardando entrada de dados</h4>
+                  <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                    Insira as anotações do paciente ou clique em <span className="text-indigo-600 font-bold">"Digitar IA"</span> e aperte <span className="text-emerald-500 font-bold">"Analisar Caso"</span> para assistir à IA estruturando o prontuário.
+                  </p>
+                </div>
               </div>
+            )}
 
-              {/* Status and instruction when waiting */}
-              {!extensionOpen && !isProcessing && (
-                <div className="py-16 text-center space-y-4">
-                  <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-slate-400">
-                    <Radio className="w-6 h-6 animate-pulse" />
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs font-bold text-slate-200">Aguardando gatilho...</p>
-                    <p className="text-[10px] text-slate-400 px-4 leading-normal">
-                      Clique no ícone flutuante do <span className="text-[#0052cc] font-black">Vetmind</span> dentro da caixa de texto da esquerda para abrir a análise automática do Copiloto.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Loading State */}
-              {isProcessing && (
-                <div className="py-20 text-center space-y-4">
+            {stage === "generating" && (
+              // Case 2: Nice loading state with informative progress (Lego/Disney standard)
+              <div className="flex-1 flex flex-col justify-center space-y-8 py-10">
+                <div className="space-y-4 text-center">
                   <div className="relative w-12 h-12 mx-auto">
-                    <div className="absolute inset-0 border-2 border-white/10 rounded-full"></div>
-                    <div className="absolute inset-0 border-2 border-t-clinical-blue rounded-full animate-spin"></div>
-                    <div className="absolute inset-2 bg-gradient-to-tr from-clinical-blue to-purple-600 rounded-full flex items-center justify-center font-bold text-[10px]">
+                    <div className="absolute inset-0 border-2 border-slate-100 rounded-full" />
+                    <div className="absolute inset-0 border-2 border-t-indigo-600 rounded-full animate-spin" />
+                    <div className="absolute inset-2 bg-gradient-to-tr from-indigo-600 to-emerald-500 rounded-full flex items-center justify-center font-bold text-[11px] text-white">
                       VM
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-xs font-black uppercase text-slate-200 tracking-wider">Lendo Prontuário...</p>
-                    <p className="text-[9px] text-slate-400 uppercase font-mono">Buscando consenso científico RAG</p>
+                    <p className="text-xs font-black uppercase text-indigo-900 tracking-wider">
+                      {currentStepLabel}
+                    </p>
+                    <p className="text-[10px] text-slate-400 font-semibold uppercase font-mono">
+                      Aguarde enquanto montamos a inteligência...
+                    </p>
                   </div>
                 </div>
-              )}
 
-              {/* Success Result in Extension Drawer */}
-              {extensionOpen && !isProcessing && (
-                <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
-                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 flex gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] font-black text-emerald-300 uppercase tracking-wide">Minuta Preparada</p>
-                      <p className="text-[9px] text-emerald-100 font-medium leading-normal">
-                        RAG analisou as queixas e exteve as melhores condutas e prescrições.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Sample Preview inside Extension Container */}
-                  <div className="space-y-3 bg-white/5 border border-white/15 p-3.5 rounded-xl text-slate-300 font-normal">
-                    <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
-                      <span className="text-[9px] font-black uppercase text-slate-400">Análise Estruturada</span>
-                      <span className="text-[8px] bg-blue-500 text-white px-1.5 py-0.5 rounded font-bold font-mono">SOAP Ok</span>
-                    </div>
-                    
-                    <div className="space-y-2 text-[9.5px] leading-relaxed select-all">
-                      <p><b>Subjetivo:</b> {selectedPreset === "otitis" ? "Prurido auditivo há 10d" : "Estrangúria felina"}</p>
-                      <p><b>Objetivo:</b> {selectedPreset === "otitis" ? "Eritema bilateral grave" : "Bexigoma pétreo doloroso"}</p>
-                      <p><b>Sugestão de Conduta:</b> Pronta para injeção direta.</p>
-                    </div>
-                  </div>
-
-                  {/* Warning inside Chrome widget */}
-                  <div className="p-2.5 rounded-lg bg-orange-500/5 border border-orange-500/20 text-orange-200 text-[8.5px] font-semibold leading-relaxed">
-                     ⚠️ <b>Aviso Legal:</b> Copiloto Vetmind não assume riscos civis de laudos. Cabe ao médico avaliar, modificar se achar necessário e assinar no sistema local.
+                {/* Simulated Shimmer Skeleton Card */}
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3 animate-pulse">
+                  <div className="h-3 bg-slate-200 rounded-full w-24" />
+                  <div className="space-y-2">
+                    <div className="h-2.5 bg-slate-200 rounded-full w-full" />
+                    <div className="h-2.5 bg-slate-200 rounded-full w-5/6" />
+                    <div className="h-2.5 bg-slate-200 rounded-full w-4/6" />
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
-            {/* Injetar button */}
-            <div className="space-y-2 pt-4 border-t border-white/10 z-10 relative">
-              <button
-                disabled={!extensionOpen || isProcessing}
-                onClick={handleInject}
-                className={`w-full py-3 rounded-xl font-extrabold text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                  extensionOpen && !isProcessing
-                    ? "bg-gradient-to-r from-clinical-blue to-blue-500 text-white shadow-xl hover:scale-[1.02] active:scale-95"
-                    : "bg-white/5 text-slate-600 border border-white/5 cursor-not-allowed"
-                }`}
-              >
-                <Zap className="w-4 h-4" />
-                Injetar Diretamente no SimplesVet
-              </button>
-              <p className="text-[8px] text-slate-500 text-center font-bold uppercase tracking-wider">
-                Injeta diagnósticos e prescrições por ID em 0.2s
-              </p>
-            </div>
-            
+            {stage === "results" && (
+              // Case 3: Tabs and structural ficha médica rendering
+              <div className="flex-1 flex flex-col justify-between h-full space-y-6">
+                
+                {/* Abas behavior: behavior like clean clinical cards */}
+                <div className="flex border-b border-slate-200 overflow-x-auto gap-2 scrollbar-none shrink-0">
+                  <button
+                    onClick={() => setActiveSubTab("soap")}
+                    className={`pb-3 px-3 text-xs font-extrabold uppercase transition-all shrink-0 cursor-pointer ${
+                      activeSubTab === "soap"
+                        ? "text-indigo-900 border-b-2 border-indigo-600 font-black scale-102"
+                        : "text-slate-400 hover:text-slate-600"
+                    }`}
+                  >
+                    Ficha SOAP
+                  </button>
+                  <button
+                    onClick={() => setActiveSubTab("rag")}
+                    className={`pb-3 px-3 text-xs font-extrabold uppercase transition-all shrink-0 cursor-pointer ${
+                      activeSubTab === "rag"
+                        ? "text-indigo-900 border-b-2 border-indigo-600 font-black scale-102"
+                        : "text-slate-400 hover:text-slate-600"
+                    }`}
+                  >
+                    Literatura Rastreável
+                  </button>
+                  <button
+                    onClick={() => setActiveSubTab("prescriptions")}
+                    className={`pb-3 px-3 text-xs font-extrabold uppercase transition-all shrink-0 cursor-pointer ${
+                      activeSubTab === "prescriptions"
+                        ? "text-indigo-900 border-b-2 border-indigo-600 font-black scale-102"
+                        : "text-slate-400 hover:text-slate-600"
+                    }`}
+                  >
+                    Prescrições
+                  </button>
+                  <button
+                    onClick={() => setActiveSubTab("whatsapp")}
+                    className={`pb-3 px-3 text-xs font-extrabold uppercase transition-all shrink-0 cursor-pointer ${
+                      activeSubTab === "whatsapp"
+                        ? "text-indigo-900 border-b-2 border-indigo-600 font-black scale-102"
+                        : "text-slate-400 hover:text-slate-600"
+                    }`}
+                  >
+                    WhatsApp Tutor
+                  </button>
+                </div>
+
+                {/* Tab content screens */}
+                <div className="flex-grow overflow-y-auto max-h-[340px] pr-1 custom-scrollbar">
+                  
+                  {/* TAB 1: SOAP */}
+                  {activeSubTab === "soap" && (
+                    <div className="space-y-4">
+                      <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/60 text-xs font-bold text-slate-700">
+                        <span className="text-[10px] uppercase font-black tracking-wider text-slate-400">Paciente Identificado</span>
+                        <p className="mt-0.5 text-indigo-950 font-extrabold">{activeCaseData.patientDetails}</p>
+                      </div>
+
+                      <div className="space-y-3">
+                        {/* S SECTION */}
+                        <div className="border border-slate-100 rounded-2xl overflow-hidden bg-white shadow-xs">
+                          <button
+                            onClick={() => setExpandedSection(expandedSection === "S" ? null : "S")}
+                            className="w-full px-4 py-3 bg-slate-50/50 hover:bg-slate-50 flex items-center justify-between transition-all"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-700 font-mono font-black text-xs flex items-center justify-center">S</span>
+                              <span className="text-xs font-bold text-slate-800">S — Subjetivo (Queixa e Histórico)</span>
+                            </div>
+                            <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${expandedSection === "S" ? "rotate-180" : ""}`} />
+                          </button>
+                          <AnimatePresence initial={false}>
+                            {(expandedSection === "S" || true) && (
+                              <motion.div
+                                initial={{ height: 0 }}
+                                animate={{ height: "auto" }}
+                                exit={{ height: 0 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="p-4 border-t border-slate-100 text-xs font-medium text-slate-650 leading-relaxed space-y-2 bg-white">
+                                  <p>{activeCaseData.soap.S}</p>
+                                  {expandedSection === "S" && (
+                                    <div className="p-2.5 bg-indigo-50/40 border border-indigo-100/50 rounded-xl text-[11px] text-indigo-850 mt-2 font-semibold">
+                                      💡 <b>Raciocínio Clínico:</b> {activeCaseData.soap.S_rationale}
+                                    </div>
+                                  )}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+
+                        {/* O SECTION */}
+                        <div className="border border-slate-100 rounded-2xl overflow-hidden bg-white shadow-xs">
+                          <button
+                            onClick={() => setExpandedSection(expandedSection === "O" ? null : "O")}
+                            className="w-full px-4 py-3 bg-slate-50/50 hover:bg-slate-50 flex items-center justify-between transition-all"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-700 font-mono font-black text-xs flex items-center justify-center">O</span>
+                              <span className="text-xs font-bold text-slate-800">O — Objetivo (Exame Físico/Exames)</span>
+                            </div>
+                            <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${expandedSection === "O" ? "rotate-180" : ""}`} />
+                          </button>
+                          <AnimatePresence initial={false}>
+                            {expandedSection === "O" && (
+                              <motion.div
+                                initial={{ height: 0 }}
+                                animate={{ height: "auto" }}
+                                exit={{ height: 0 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="p-4 border-t border-slate-100 text-xs font-medium text-slate-650 leading-relaxed space-y-2 bg-white">
+                                  <p>{activeCaseData.soap.O}</p>
+                                  <div className="p-2.5 bg-indigo-50/40 border border-indigo-100/50 rounded-xl text-[11px] text-indigo-850 mt-2 font-semibold">
+                                    💡 <b>Análise de Evidências:</b> {activeCaseData.soap.O_rationale}
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+
+                        {/* A SECTION */}
+                        <div className="border border-slate-100 rounded-2xl overflow-hidden bg-white shadow-xs">
+                          <button
+                            onClick={() => setExpandedSection(expandedSection === "A" ? null : "A")}
+                            className="w-full px-4 py-3 bg-slate-50/50 hover:bg-slate-50 flex items-center justify-between transition-all"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-700 font-mono font-black text-xs flex items-center justify-center">A</span>
+                              <span className="text-xs font-bold text-slate-800">A — Avaliação e Diferenciais</span>
+                            </div>
+                            <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${expandedSection === "A" ? "rotate-180" : ""}`} />
+                          </button>
+                          <AnimatePresence initial={false}>
+                            {expandedSection === "A" && (
+                              <motion.div
+                                initial={{ height: 0 }}
+                                animate={{ height: "auto" }}
+                                exit={{ height: 0 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="p-4 border-t border-slate-100 text-xs font-medium text-slate-650 leading-relaxed space-y-2 bg-white">
+                                  <p>{activeCaseData.soap.A}</p>
+                                  <div className="p-2.5 bg-indigo-50/40 border border-indigo-100/50 rounded-xl text-[11px] text-indigo-850 mt-2 font-semibold">
+                                    💡 <b>Fisiopatologia:</b> {activeCaseData.soap.A_rationale}
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+
+                        {/* P SECTION */}
+                        <div className="border border-slate-100 rounded-2xl overflow-hidden bg-white shadow-xs">
+                          <button
+                            onClick={() => setExpandedSection(expandedSection === "P" ? null : "P")}
+                            className="w-full px-4 py-3 bg-slate-50/50 hover:bg-slate-50 flex items-center justify-between transition-all"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-700 font-mono font-black text-xs flex items-center justify-center">P</span>
+                              <span className="text-xs font-bold text-slate-800">P — Plano Terapêutico e Conduta</span>
+                            </div>
+                            <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${expandedSection === "P" ? "rotate-180" : ""}`} />
+                          </button>
+                          <AnimatePresence initial={false}>
+                            {expandedSection === "P" && (
+                              <motion.div
+                                initial={{ height: 0 }}
+                                animate={{ height: "auto" }}
+                                exit={{ height: 0 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="p-4 border-t border-slate-100 text-xs font-medium text-slate-650 leading-relaxed space-y-2 bg-white">
+                                  <p>{activeCaseData.soap.P}</p>
+                                  <div className="p-2.5 bg-indigo-50/40 border border-indigo-100/50 rounded-xl text-[11px] text-indigo-850 mt-2 font-semibold">
+                                    💡 <b>Fundamentação:</b> {activeCaseData.soap.P_rationale}
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB 2: LITERATURA RASTREÁVEL (Matches Image 3 perfectly!) */}
+                  {activeSubTab === "rag" && (
+                    <div className="space-y-5 animate-in fade-in duration-200">
+                      
+                      {/* Badge and Citation metadata */}
+                      <div className="p-4 bg-slate-50 border border-slate-150 rounded-2xl space-y-3">
+                        <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                          <span className="text-[9px] font-black font-mono text-slate-400 uppercase tracking-widest">
+                            DIAGNÓSTICO PRINCIPAL • COMPROVAÇÃO DE DIAGNÓSTICO
+                          </span>
+                          <span className="text-[10px] font-mono text-indigo-600 font-black">{activeCaseData.rag.sourceName}</span>
+                        </div>
+
+                        {/* Title of Diagnosis */}
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-lg font-black text-slate-900 leading-none font-display">
+                            {activeCaseData.rag.title}
+                          </h4>
+                          <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[11px] font-bold uppercase rounded-full border border-emerald-200 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            {activeCaseData.rag.compatibility} ✓
+                          </span>
+                        </div>
+
+                        {/* Author/page locator */}
+                        <div className="inline-block bg-indigo-50 text-indigo-800 text-[10px] font-black uppercase tracking-widest font-mono px-3 py-1 rounded-lg border border-indigo-100">
+                          {activeCaseData.rag.citation}
+                        </div>
+                      </div>
+
+                      {/* Literal referenced Book Snippet with yellow-green marker highlighter */}
+                      <div className="p-4 bg-slate-50/70 border border-slate-150/80 rounded-2xl relative overflow-hidden">
+                        <span className="text-[14px] text-indigo-400 absolute top-2 right-4 font-mono select-none">“</span>
+                        <p className="text-xs text-slate-700 font-medium leading-relaxed italic pr-4 font-sans">
+                          {activeCaseData.rag.snippet.split(activeCaseData.rag.highlightWord)[0]}
+                          <span className="bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold px-1.5 py-0.5 rounded mx-1 text-xs select-all">
+                            {activeCaseData.rag.highlightWord}
+                          </span>
+                          {activeCaseData.rag.snippet.split(activeCaseData.rag.highlightWord)[1]}
+                        </p>
+                      </div>
+
+                      {/* Copilot Case analysis rationale */}
+                      <div className="p-4 bg-indigo-50/30 border border-indigo-100 rounded-2xl space-y-2">
+                        <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 leading-none">
+                          ANÁLISE DO CASO PELO COPILOTO
+                        </h5>
+                        <p className="text-xs text-slate-700 font-medium leading-normal">
+                          {activeCaseData.rag.analysis}
+                        </p>
+                      </div>
+
+                      {/* Footnotes */}
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 font-semibold uppercase tracking-wider px-1">
+                        <span>Verificado em {activeCaseData.rag.time}</span>
+                        <span className="text-emerald-600 flex items-center gap-1 font-bold">✓ Fonte científica verificada</span>
+                      </div>
+
+                    </div>
+                  )}
+
+                  {/* TAB 3: PRESCRIÇÕES & CALCULATOR */}
+                  {activeSubTab === "prescriptions" && (
+                    <div className="space-y-6">
+                      <div className="space-y-4">
+                        {activeCaseData.prescriptions.map((med, idx) => (
+                          <div key={idx} className="p-4 bg-slate-50 border border-slate-150 rounded-2xl space-y-1.5 shadow-xs">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wide">{idx + 1}. {med.name}</h4>
+                              <span className="text-[10px] font-mono text-slate-400 font-bold uppercase">{med.dosePerKg} {med.unit}/kg</span>
+                            </div>
+                            <p className="text-xs text-slate-500 font-medium">{med.details}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* SIMULAR DOSE POR PESO: Modal leve/Inline calculator (as requested by user_rules) */}
+                      <div className="p-5 bg-indigo-50/50 border border-indigo-100 rounded-3xl space-y-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">🧮</span>
+                          <h4 className="font-extrabold text-slate-900 text-xs uppercase tracking-wider font-display">Simular Dose por Peso</h4>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 block">Peso do Paciente (kg)</label>
+                            <input
+                              type="number"
+                              value={calcWeight}
+                              onChange={(e) => setCalcWeight(e.target.value)}
+                              className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+                              min="1"
+                              max="100"
+                            />
+                          </div>
+
+                          <div className="bg-white/80 p-3.5 rounded-xl border border-slate-100 flex flex-col justify-center">
+                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Resultado Calculado</span>
+                            <div className="space-y-1 mt-1.5">
+                              {activeCaseData.prescriptions.map((med, idx) => {
+                                const weightVal = parseFloat(calcWeight) || 0;
+                                const total = (weightVal * med.dosePerKg).toFixed(1);
+                                return (
+                                  <p key={idx} className="text-[11px] font-bold text-slate-800 flex justify-between">
+                                    <span className="truncate max-w-[120px]">{med.name}:</span>
+                                    <span className="text-indigo-700 font-black">{total} {med.unit} total</span>
+                                  </p>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  )}
+
+                  {/* TAB 4: WHATSAPP TUTOR */}
+                  {activeSubTab === "whatsapp" && (
+                    <div className="space-y-4 animate-in fade-in duration-200">
+                      <div className="bg-slate-50/70 p-4 rounded-2xl border border-slate-150 space-y-3">
+                        <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                          <div className="flex items-center gap-2">
+                            <MessageSquare className="w-4 h-4 text-emerald-500" />
+                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Mensagem para Tutor</span>
+                          </div>
+                          <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] font-bold rounded-full uppercase">Pronto para Enviar</span>
+                        </div>
+
+                        <p className="text-xs text-slate-700 font-medium leading-relaxed font-sans whitespace-pre-line bg-white p-3.5 rounded-xl border border-slate-100 shadow-inner">
+                          {activeCaseData.whatsapp}
+                        </p>
+                      </div>
+
+                      {/* Copy to Clipboard action */}
+                      <button
+                        onClick={() => handleCopyText(activeCaseData.whatsapp)}
+                        className={`w-full py-3 rounded-full font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                          copiedText
+                            ? "bg-emerald-500 text-white"
+                            : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/10"
+                        }`}
+                      >
+                        {copiedText ? (
+                          <>
+                            <Check className="w-4 h-4 animate-bounce" />
+                            Copiado com Sucesso!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4" />
+                            Copiar Mensagem de WhatsApp
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                </div>
+
+                {/* Footer status representing OS Window success injection */}
+                <div className="pt-4 border-t border-slate-150 shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  <span>Prontuário gerado em {activeCaseData.rag.time}</span>
+                  <button
+                    onClick={() => {
+                      alert("Injetado com sucesso no seu Prontuário Clínico!");
+                    }}
+                    className="px-4 py-2 bg-emerald-500 text-white rounded-full text-[10px] font-black uppercase tracking-wider hover:bg-emerald-600 shadow-md shadow-emerald-500/10 hover:scale-[1.02] cursor-pointer"
+                  >
+                    ✦ Injetar na Ficha do SimplesVet
+                  </button>
+                </div>
+
+              </div>
+            )}
+
           </div>
 
         </div>
       </div>
 
-      {/* Visual representation of why this scales */}
-      <div className="bg-gradient-to-br from-[#003399]/10 to-indigo-50/50 border border-[#003399]/10 rounded-[2rem] p-8 lg:p-10">
-        <h3 className="font-extrabold text-lg text-slate-900 leading-tight">Por que o Stage 2 é uma potência de escala comercial?</h3>
-        <p className="text-xs text-slate-500 mt-1 font-semibold">
-          Entender o fluxo de trabalho do veterinário elimina a maior objeção de vendas do SaaS do mercado.
-        </p>
+      {/* SECTION 4: TABELA DE PLANOS E PREÇOS (Pricing Model - Clinically Polished) */}
+      <div className="space-y-10 py-10">
+        
+        {/* Toggle Switch header */}
+        <div className="text-center space-y-4">
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight font-display">
+            Planos de Assinatura Simples e Transparentes
+          </h2>
+          <p className="text-sm font-semibold text-slate-500 max-w-md mx-auto leading-relaxed">
+            Escolha o plano ideal para a sua rotina e potencialize a segurança e agilidade dos seus atendimentos hoje mesmo.
+          </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
-          <div className="bg-white/80 p-5 rounded-xl border border-blue-100/40">
-            <h4 className="font-black text-rose-500 text-2xl leading-none">0%</h4>
-            <p className="text-[10px] font-black text-rose-500 uppercase mt-1 tracking-widest leading-none">MUDANÇA DE ROTINA</p>
-            <p className="text-xs text-slate-500 mt-2 font-medium">O veterinário continua logado no CRM habitual dele sem ter que abrir outro painel de software para copiar dados.</p>
+          {/* Monthly / Annual Toggle switch with 20% Discount emerald badge */}
+          <div className="inline-flex items-center bg-slate-100 p-1.5 rounded-full border border-slate-200 mt-4">
+            <button
+              onClick={() => setIsAnnual(false)}
+              className={`px-4 py-2 rounded-full text-xs font-extrabold transition-all ${
+                !isAnnual ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              Faturamento Mensal
+            </button>
+            <button
+              onClick={() => setIsAnnual(true)}
+              className={`px-4 py-2 rounded-full text-xs font-extrabold transition-all flex items-center ${
+                isAnnual ? "bg-white text-indigo-700 shadow-xs" : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              Faturamento Anual
+              <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] px-2 py-0.5 rounded-full font-black ml-2 animate-pulse">
+                -20% Off
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* 2-Column Elegant Pricing Grid (focused on Estudante and Veterinário Autônomo only!) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto items-stretch">
+          
+          {/* Plan 1: Estudante */}
+          <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 flex flex-col justify-between space-y-8 relative overflow-hidden shadow-sm hover:shadow-md transition-all">
+            <div className="space-y-6">
+              <div className="space-y-1">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono">Para Acadêmicos</span>
+                <h3 className="text-xl font-extrabold text-slate-900 font-display">Plano Estudante</h3>
+              </div>
+
+              {/* Price display */}
+              <div>
+                <p className="text-4xl font-black text-slate-900 font-display tracking-tight">
+                  R$ {isAnnual ? "95" : "119"}
+                  <span className="text-xs text-slate-400 font-semibold uppercase font-mono tracking-wider"> / mês</span>
+                </p>
+                <p className="text-[10px] text-slate-400 font-semibold mt-1">
+                  {isAnnual ? "Faturamento anual de R$ 1.140" : "Cancelamento flexível mensal"}
+                </p>
+              </div>
+
+              {/* Features list */}
+              <ul className="space-y-3 text-xs font-semibold text-slate-650">
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                  <span>Acesso integral ao Copiloto SOAP</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                  <span>Até 30 consultas / mês</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                  <span>Acesso à base de livros clássicos integrada</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                  <span>Suporte por e-mail comercial</span>
+                </li>
+              </ul>
+            </div>
+
+            <button
+              onClick={() => alert("Assinatura do Plano Estudante simulada com sucesso!")}
+              className="w-full py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-full text-xs font-extrabold uppercase tracking-widest transition-all cursor-pointer"
+            >
+              Começar Período Grátis
+            </button>
           </div>
 
-          <div className="bg-white/80 p-5 rounded-xl border border-blue-100/40">
-            <h4 className="font-black text-indigo-800 text-2xl leading-none">8.5 min</h4>
-            <p className="text-[10px] font-black text-indigo-800 uppercase mt-1 tracking-widest leading-none">POUPADOS POR LAUDO</p>
-            <p className="text-xs text-slate-500 mt-2 font-medium">O preenchimento automático em 1 clique do SOAP, anamnese e prescrições acelera a rotina absurdamente.</p>
+          {/* Plan 2: Veterinário Autônomo (FAVORITE / HIGHLIGHTED) */}
+          <div className="bg-white border-2 border-indigo-600 rounded-[2.5rem] p-8 flex flex-col justify-between space-y-8 relative overflow-hidden shadow-lg hover:shadow-xl transition-all scale-105">
+            {/* Top popular/recommendation badge ribbon */}
+            <div className="absolute top-0 right-0 bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest px-4 py-1.5 rounded-bl-2xl">
+              RECOMENDADO
+            </div>
+
+            <div className="space-y-6">
+              <div className="space-y-1">
+                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest font-mono">Mais Vendido de Todos</span>
+                <h3 className="text-xl font-extrabold text-indigo-950 font-display">Veterinário Autônomo</h3>
+              </div>
+
+              {/* Price display */}
+              <div>
+                <p className="text-4xl font-black text-indigo-950 font-display tracking-tight">
+                  R$ {isAnnual ? "199" : "249"}
+                  <span className="text-xs text-slate-400 font-semibold uppercase font-mono tracking-wider"> / mês</span>
+                </p>
+                <p className="text-[10px] text-slate-400 font-semibold mt-1">
+                  {isAnnual ? "Faturamento anual de R$ 2.388 (Economize R$ 600)" : "Cancelamento flexível mensal"}
+                </p>
+              </div>
+
+              {/* Features list */}
+              <ul className="space-y-3 text-xs font-semibold text-slate-700">
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                  <span>Consultas e Laudos <b>Ilimitados</b></span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                  <span>RAG com upload de PDFs ilimitado</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                  <span>Integração de 1 clique via Extensão Chrome</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                  <span>Envio automatizado de WhatsApp do Tutor</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                  <span>Suporte VIP 24h via WhatsApp</span>
+                </li>
+              </ul>
+            </div>
+
+            <button
+              onClick={() => alert("Assinatura do Plano Veterinário Autônomo simulada com sucesso!")}
+              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-xs font-extrabold uppercase tracking-widest transition-all shadow-md shadow-indigo-600/20 cursor-pointer"
+            >
+              Assinar Agora
+            </button>
           </div>
 
-          <div className="bg-white/80 p-5 rounded-xl border border-blue-100/40">
-            <h4 className="font-black text-[#6B4EFF] text-2xl leading-none">ILIMITADAS</h4>
-            <p className="text-[10px] font-black text-[#6B4EFF] uppercase mt-1 tracking-widest leading-none">SISTEMAS PARCEIROS</p>
-            <p className="text-xs text-slate-500 mt-2 font-medium">Não há necessidade de APIs ou integrações com os donos do sistema de prontuários. A extensão do Chrome injeta o conteúdo no Client-side.</p>
-          </div>
-
-          <div className="bg-white/80 p-5 rounded-xl border border-blue-100/40">
-            <h4 className="font-black text-emerald-600 text-2xl leading-none">ZERO</h4>
-            <p className="text-[10px] font-black text-emerald-600 uppercase mt-1 tracking-widest leading-none">RISCO JURÍDICO IA</p>
-            <p className="text-xs text-slate-500 mt-2 font-medium">A extensão só preenche campos secundários. O veterinário revisa na tela do próprio software e assina o atendimento, mantendo a inteira responsabilidade ética profissional.</p>
-          </div>
         </div>
       </div>
     </div>
-  );
-}
-
-// Inline simple SVG text-cross components
-function X(props: any) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
   );
 }
