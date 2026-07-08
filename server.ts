@@ -11,6 +11,19 @@ import * as pdfParseModule from 'pdf-parse';
 dotenv.config();
 
 const app = express();
+
+// Netlify serverless routing normalization middleware
+app.use((req: any, res: any, next: any) => {
+  // If the URL has the Netlify functions prefix, normalize it to /api
+  if (req.url.startsWith('/.netlify/functions/api')) {
+    req.url = req.url.replace('/.netlify/functions/api', '/api');
+  } else if (!req.url.startsWith('/api') && (process.env.NETLIFY || process.env.LAMBDA_TASK_ROOT)) {
+    // If we are in Netlify and the URL doesn't have /api prefix, prepend it
+    req.url = '/api' + (req.url.startsWith('/') ? req.url : '/' + req.url);
+  }
+  next();
+});
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -333,14 +346,25 @@ async function getAdminGuidelinesFiles(userQuery?: string, outConsulted?: any[],
 }
 
 // Gemini Initialization
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY as string,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    }
+let aiInstance: GoogleGenAI | null = null;
+
+function getGeminiAI(): GoogleGenAI {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("A chave GEMINI_API_KEY não foi encontrada no ambiente. Certifique-se de adicioná-la nas configurações do Netlify.");
   }
-});
+  if (!aiInstance) {
+    aiInstance = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
+  }
+  return aiInstance;
+}
 
 interface GenerateContentParams {
   model?: string;
@@ -377,7 +401,7 @@ async function generateContentWithFallback(params: GenerateContentParams): Promi
     for (let attempt = 1; attempt <= attempts; attempt++) {
       try {
         console.log(`[GEMINI] Attempt ${attempt}/${attempts} to generateContent with model: ${modelName}`);
-        const response = await ai.models.generateContent({
+        const response = await getGeminiAI().models.generateContent({
           ...params,
           model: modelName
         });
@@ -1559,7 +1583,7 @@ Gere todo o material no formato JSON solicitado.
           }
           console.log(`[MARKETING IA] Generating image for slide ${i+1} using imagePrompt: ${slide.imagePrompt}`);
           try {
-            const imgResponse = await ai.models.generateImages({
+            const imgResponse = await getGeminiAI().models.generateImages({
               model: 'imagen-3.0-generate-002',
               prompt: `${slide.imagePrompt}. Veterinary medicine high-resolution clinical photograph.`,
               config: {
