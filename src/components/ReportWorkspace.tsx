@@ -3035,13 +3035,13 @@ function MetricBox({
   color: string;
 }) {
   return (
-    <div className="bg-[#1c1c1e] border border-slate-150 rounded-xl p-3 flex items-center gap-2.5 shadow-2xs">
+    <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 flex items-center gap-2.5 shadow-2xs hover:bg-slate-100/50 transition-colors duration-155">
       <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${color}`}>
         <Icon className="w-4.5 h-4.5" />
       </div>
       <div className="overflow-hidden">
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">{label}</p>
-        <p className="text-xs font-black text-slate-850 mt-1 truncate">{value}</p>
+        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">{label}</p>
+        <p className="text-xs font-bold text-slate-800 mt-1 truncate">{value}</p>
       </div>
     </div>
   );
