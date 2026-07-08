@@ -5,7 +5,6 @@ import { GoogleGenAI } from '@google/genai';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, getDocs } from 'firebase/firestore';
 import dotenv from 'dotenv';
-import * as pdfParseModule from 'pdf-parse';
 
 dotenv.config();
 
@@ -79,6 +78,8 @@ function getPdfPageCount(filePath: string): number {
 }
 
 async function extractPdfTextWithPDFParse(buffer: Buffer): Promise<string> {
+  // Lazy-load to prevent top-level serverless deployment crashes due to pdf-parse dependencies
+  const pdfParseModule = await import('pdf-parse');
   const parser: any = new pdfParseModule.PDFParse(new Uint8Array(buffer));
   try {
     await parser.load();
@@ -659,6 +660,8 @@ Consistência integral verificada com as diretrizes do livro **Nelson & Couto (M
 
 // Firebase Server-Side Initialization
 let db: any = null;
+let globalCachedGuidelines: any[] | null = null;
+let globalCachedGuidelinesTime = 0;
 try {
   let firebaseConfig: any = null;
 
@@ -743,8 +746,20 @@ const MEDICAL_GUIDELINES = [
 async function getFullGuidelines() {
   const list = [...MEDICAL_GUIDELINES];
   if (!db) return list;
+
+  // Use memory cache to avoid querying Firestore on every serverless lambda invocation
+  if (globalCachedGuidelines && (Date.now() - globalCachedGuidelinesTime < 5 * 60 * 1000)) {
+    console.log(`[GUIDELINES CACHE] Returning cached guidelines (loaded ${Math.round((Date.now() - globalCachedGuidelinesTime) / 1000)}s ago)`);
+    return globalCachedGuidelines;
+  }
+
   try {
-    const querySnapshot = await getDocs(collection(db, 'guidelines'));
+    const firestorePromise = getDocs(collection(db, 'guidelines'));
+    const timeoutPromise = new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error("Firestore query timed out")), 1500)
+    );
+
+    const querySnapshot = await Promise.race([firestorePromise, timeoutPromise]);
     querySnapshot.forEach((docSnap) => {
       const data = docSnap.data();
       if (data.title && data.content) {
@@ -754,8 +769,16 @@ async function getFullGuidelines() {
         });
       }
     });
+
+    // Update global cache
+    globalCachedGuidelines = list;
+    globalCachedGuidelinesTime = Date.now();
   } catch (err) {
     console.warn("Could not load dynamic guidelines from firestore:", err);
+    if (globalCachedGuidelines) {
+      console.log("[GUIDELINES CACHE FALLBACK] Firestore failed or timed out. Returning expired cached guidelines.");
+      return globalCachedGuidelines;
+    }
   }
   return list;
 }
@@ -1171,7 +1194,19 @@ app.post('/api/chat-followup', async (req, res) => {
     res.json({ replyText });
   } catch (error: any) {
     console.error("Error in chat followup API:", error);
-    res.status(500).json({ error: "Ocorreu um erro ao processar a mensagem do chat no servidor." });
+    let errorMessage = error.message || '';
+    try {
+      if (errorMessage.startsWith('{') || errorMessage.includes('{"error"')) {
+        const jsonStart = errorMessage.indexOf('{');
+        const parsed = JSON.parse(errorMessage.substring(jsonStart));
+        if (parsed.error && parsed.error.message) {
+          errorMessage = parsed.error.message;
+        }
+      }
+    } catch (e) {}
+    
+    const details = errorMessage ? ` Detalhes: ${errorMessage}` : '';
+    res.status(500).json({ error: `Erro ao processar a mensagem do chat com IA.${details}` });
   }
 });
 

@@ -1070,7 +1070,14 @@ export default function ReportWorkspace({
       });
 
       if (!response.ok) {
-        throw new Error("Falha na comunicação com a API.");
+        let errMsg = "Falha na comunicação com a API.";
+        try {
+          const errData = await response.json();
+          if (errData && errData.error) {
+            errMsg = errData.error;
+          }
+        } catch (_) {}
+        throw new Error(errMsg);
       }
 
       const data = await response.json();
@@ -1084,15 +1091,25 @@ export default function ReportWorkspace({
           timestamp: new Date()
         }
       ]);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error in followup chat:", err);
-      // Fail gracefully: notify and fall back
+      const isConfigError = err.message && (
+        err.message.includes("GEMINI_API_KEY") || 
+        err.message.includes("chave") || 
+        err.message.includes("Key") ||
+        err.message.includes("API key")
+      );
+
+      const errorText = isConfigError
+        ? `⚠️ **Erro de Configuração no Netlify:**\n\n${err.message}\n\nOs sintomas clínicos foram salvos temporariamente no navegador. Por favor, acesse o painel de configurações do Netlify e certifique-se de definir a variável de ambiente \`GEMINI_API_KEY\` com uma chave de API do Gemini válida.`
+        : `📝 Sinais clínicos salvos no prontuário! Quando estiver pronto para a análise completa com geração de diagnósticos diferenciais sistemáticos e revisão RAG profunda, clique em **Analisar Caso**.`;
+
       setChatMessages((prev) => [
         ...prev,
         {
           id: "reply-err-" + Date.now() + "-" + Math.floor(Math.random() * 1000000),
           sender: "ai",
-          text: "📝 Sinais clínicos salvos no prontuário! Quando estiver pronto para a análise completa com geração de diagnósticos diferenciais sistemáticos e revisão RAG profunda, clique em **Analisar Caso**.",
+          text: errorText,
           timestamp: new Date()
         }
       ]);
