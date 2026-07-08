@@ -1,7 +1,6 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
-import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, getDocs } from 'firebase/firestore';
@@ -9,6 +8,8 @@ import dotenv from 'dotenv';
 import * as pdfParseModule from 'pdf-parse';
 
 dotenv.config();
+
+const safeDirname = typeof __dirname !== 'undefined' ? __dirname : '';
 
 const app = express();
 
@@ -677,9 +678,11 @@ try {
     // 2. Fallback to searching the config file in multiple paths
     const pathsToTry = [
       path.join(process.cwd(), 'firebase-applet-config.json'),
-      path.join(__dirname, 'firebase-applet-config.json'),
-      path.join(__dirname, '..', 'firebase-applet-config.json'),
-      path.join(__dirname, '..', '..', 'firebase-applet-config.json'),
+      ...(safeDirname ? [
+        path.join(safeDirname, 'firebase-applet-config.json'),
+        path.join(safeDirname, '..', 'firebase-applet-config.json'),
+        path.join(safeDirname, '..', '..', 'firebase-applet-config.json'),
+      ] : []),
       path.join(process.cwd(), '..', 'firebase-applet-config.json'),
       '/var/task/firebase-applet-config.json', // Netlify Function Root standard path
     ];
@@ -1657,6 +1660,7 @@ Gere todo o material no formato JSON solicitado.
 
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
