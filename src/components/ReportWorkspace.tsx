@@ -124,7 +124,10 @@ function parseClinicsDiferenciais(text: string): DifferentialDiagnosis[] {
         diagnoses.push(currentDiag as DifferentialDiagnosis);
       }
       const titleRaw = probMatch[1].replace(/^\*+/, "").replace(/\*+$/, "").trim();
-      const title = titleRaw.replace(/^[0-9]+[\.\-\s]+/, "").trim();
+      const title = titleRaw
+        .replace(/^[0-9]+[\.\-\s]+/, "")
+        .replace(/^[ºª\d\.\-\:\s]+/, "")
+        .trim();
       const prob = parseInt(probMatch[2]);
       currentDiag = {
         title: title,
