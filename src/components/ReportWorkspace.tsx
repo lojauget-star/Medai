@@ -1592,7 +1592,7 @@ export default function ReportWorkspace({
               type="button"
               onClick={() => {
                 if (!generatedReport) {
-                  alert("Por favor, digite as observações ou use um Preset e clique em 'Analisar Caso' para habilitar os resultados.");
+                  alert("Por favor, digite as observações e clique em 'Analisar Caso' para habilitar os resultados.");
                   return;
                 }
                 setMobileActiveTab('result');
@@ -1631,193 +1631,6 @@ export default function ReportWorkspace({
           {/* RIGHT PANEL (Desktop): Interactive WhatsApp-Style Clinical Chat */}
           <div className={`xl:col-span-5 flex flex-col h-full min-h-0 xl:order-2 bg-[#f8fafc]/80 relative overflow-hidden xl:border-l xl:border-slate-100 ${mobileActiveTab === 'chat' ? 'flex' : 'hidden xl:flex'}`}>
             
-            {/* 1. CHAT HEADER (Aesthetic & Minimalist - Hidden on Mobile) */}
-            <div className="hidden xl:flex bg-white border-b border-slate-100/50 px-5 py-3 items-center justify-between shrink-0 z-10">
-              <div className="flex items-center gap-2.5 text-left">
-                <div className="w-9 h-9 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-extrabold relative shrink-0">
-                  <PawPrint className="w-4 h-4" strokeWidth={1.2} />
-                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white animate-pulse" />
-                </div>
-                <div>
-                  <h4 className="font-extrabold text-slate-800 text-[11px] uppercase tracking-widest font-sans leading-none">Copiloto Clínico</h4>
-                  <span className="text-[9px] text-slate-400 font-bold block mt-1 leading-none">Análise SOAP & Literatura RAG</span>
-                </div>
-              </div>
-
-              {/* Header Right Actions */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowPresets(!showPresets);
-                    setShowReferencesSettings(false);
-                  }}
-                  className="px-3 py-1.5 bg-indigo-50/50 hover:bg-indigo-50 text-indigo-600 rounded-full text-[9.5px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer"
-                  title="Casos de teste"
-                >
-                  <Sparkles className="w-3 h-3 text-indigo-500 animate-pulse" strokeWidth={1.2} />
-                  <span>Presets</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowReferencesSettings(!showReferencesSettings);
-                    setShowPresets(false);
-                  }}
-                  className={`px-3 py-1.5 rounded-full text-[9.5px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer ${
-                    showReferencesSettings 
-                      ? "bg-indigo-600 text-white" 
-                      : "bg-indigo-50/50 hover:bg-indigo-50 text-indigo-600"
-                  }`}
-                  title="Referências clínicas"
-                >
-                  <BookOpen className="w-3 h-3" strokeWidth={1.2} />
-                  <span>Referências</span>
-                  {disabledReferences.length > 0 && (
-                    <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                  )}
-                </button>
-
-                {anamnesis && (
-                  <button
-                    type="button"
-                    onClick={handleClear}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-red-50 hover:text-red-650 text-slate-500 rounded-full text-[9.5px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer"
-                    title="Limpar prontuário"
-                  >
-                    <Trash2 className="w-3 h-3" strokeWidth={1.2} />
-                    <span>Limpar</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-
-
-            {/* Presets Overlay Box (Absolute within Left Panel) */}
-            <AnimatePresence>
-              {showPresets && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="absolute top-[58px] left-0 right-0 bg-white/95 backdrop-blur-md border-b border-slate-200 p-4 space-y-2.5 shadow-md z-30 overflow-hidden"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest block text-left">Selecione um caso clínico de teste para simular:</span>
-                    <button
-                      type="button"
-                      onClick={() => setShowPresets(false)}
-                      className="p-1.5 text-slate-400 hover:text-slate-650 hover:bg-slate-100 rounded-full transition-colors cursor-pointer flex items-center justify-center active:scale-90 duration-100"
-                      title="Fechar presets"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-1 gap-1.5 max-h-[160px] overflow-y-auto pr-1">
-                    {clinicalPresets.map((p) => (
-                      <button
-                        key={p.title}
-                        type="button"
-                        onClick={() => handleSelectPreset(p)}
-                        className="w-full text-left px-3.5 py-2 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/30 text-xs font-bold text-slate-700 flex items-center gap-2 transition-all cursor-pointer"
-                      >
-                        <span className="text-sm">{p.icon}</span>
-                        <span>{p.title}</span>
-                      </button>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* References Overlay Box (Absolute within Panel) */}
-            <AnimatePresence>
-              {showReferencesSettings && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="absolute top-[58px] left-0 right-0 bg-white/95 backdrop-blur-md border-b border-slate-200 p-4 space-y-3 shadow-md z-30 overflow-hidden text-left"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest block">Referências Clínicas RAG</span>
-                      <span className="text-[8.5px] text-gray-500 font-semibold mt-0.5 block leading-none">
-                        Ative/desative referências específicas para análise personalizada.
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setDisabledReferences([])}
-                        className="text-[9px] font-extrabold text-indigo-600 hover:underline cursor-pointer bg-transparent border-none p-0"
-                      >
-                        Ativar Todas
-                      </button>
-                      <span className="text-slate-300 text-[9px]">|</span>
-                      <button
-                        type="button"
-                        onClick={() => setDisabledReferences(uniqueReferences.map(r => r.id))}
-                        className="text-[9px] font-extrabold text-indigo-600 hover:underline cursor-pointer bg-transparent border-none p-0"
-                      >
-                        Desativar Todas
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowReferencesSettings(false)}
-                        className="p-1.5 text-slate-400 hover:text-slate-650 hover:bg-slate-100 rounded-full transition-colors cursor-pointer flex items-center justify-center ml-2 active:scale-90 duration-100"
-                        title="Fechar referências"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-1 max-h-[160px] overflow-y-auto pr-1">
-                    {uniqueReferences.map((ref) => {
-                      const isActive = !disabledReferences.includes(ref.id);
-                      return (
-                        <button
-                          key={ref.id}
-                          type="button"
-                          onClick={() => {
-                            setDisabledReferences(prev => 
-                              prev.includes(ref.id) 
-                                ? prev.filter(item => item !== ref.id) 
-                                : [...prev, ref.id]
-                            );
-                          }}
-                          className={`w-full text-left px-3 py-1.5 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
-                            isActive 
-                              ? "border-indigo-100 bg-indigo-50/20 text-slate-700 font-extrabold" 
-                              : "border-slate-150 bg-slate-50 text-slate-400"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 truncate">
-                            <span className="text-sm shrink-0">
-                              {ref.type === "static" ? "📚" : ref.type === "database" ? "🗄️" : "📄"}
-                            </span>
-                            <div className="truncate">
-                              <span className="text-[10px] font-bold block truncate">{ref.title}</span>
-                              <span className="text-[8.5px] font-semibold text-slate-400 block truncate">{ref.source}</span>
-                            </div>
-                          </div>
-                          
-                          <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${
-                            isActive ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-300"
-                          }`}>
-                            {isActive && <Check className="w-2.5 h-2.5 stroke-[3px]" />}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
             {/* 2. ACTIVE PATIENT BADGE / HERO BAR */}
             <div className="bg-white/60 backdrop-blur-md px-4 py-3 flex items-center justify-between shrink-0 border-b border-slate-100/50">
               <div className="flex items-center gap-3 text-left">
@@ -1834,38 +1647,37 @@ export default function ReportWorkspace({
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setShowPatientModal(true)}
-                className="px-3 py-1.5 bg-slate-100/80 hover:bg-slate-200/60 text-slate-700 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-3xs cursor-pointer"
-              >
-                <Edit3 className="w-3.5 h-3.5 text-indigo-500" />
-                <span>Identificação</span>
-              </button>
+              <div className="flex items-center gap-2">
+                {anamnesis && (
+                  <button
+                    type="button"
+                    onClick={handleClear}
+                    className="p-1.5 bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-550 rounded-full transition-all cursor-pointer flex items-center justify-center border border-slate-100/50"
+                    title="Limpar prontuário"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowPatientModal(true)}
+                  className="px-3 py-1.5 bg-slate-100/80 hover:bg-slate-200/60 text-slate-700 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-3xs cursor-pointer"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>Identificação</span>
+                </button>
+              </div>
             </div>
 
             {/* 3. SCROLLABLE CHAT MESSAGES PANEL */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-none scroll-smooth relative">
               
-              {/* Mobile Only: Inline utility bar for Presets, References and Clear */}
+              {/* Mobile Only: Inline utility bar for References and Clear */}
               <div className="flex lg:hidden items-center gap-1.5 pb-2 border-b border-white/5/60 mb-2 shrink-0 overflow-x-auto scrollbar-none">
                 <button
                   type="button"
                   onClick={() => {
-                    setShowPresets(!showPresets);
-                    setShowReferencesSettings(false);
-                  }}
-                  className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-100 rounded-full text-[9px] font-black uppercase tracking-wider flex items-center gap-1 shadow-3xs cursor-pointer active:scale-95 duration-100 shrink-0"
-                >
-                  <Sparkles className="w-2.5 h-2.5 animate-pulse text-indigo-500" />
-                  <span>Presets</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
                     setShowReferencesSettings(!showReferencesSettings);
-                    setShowPresets(false);
                   }}
                   className={`px-2.5 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider flex items-center gap-1 shadow-3xs cursor-pointer active:scale-95 duration-100 shrink-0 ${
                     showReferencesSettings 
@@ -2279,6 +2091,92 @@ export default function ReportWorkspace({
           {/* LEFT PANEL (Desktop): Live Interactive Multi-Tab Results Output */}
           <div className={`xl:col-span-7 p-4 sm:p-5 flex flex-col h-full min-h-0 justify-between overflow-hidden bg-white relative xl:order-1 ${mobileActiveTab === 'result' ? 'flex' : 'hidden xl:flex'}`}>
             
+            {/* References Overlay Box (Absolute within Left Panel) */}
+            <AnimatePresence>
+              {showReferencesSettings && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="absolute top-0 left-0 right-0 bg-white/95 backdrop-blur-md border-b border-slate-200 p-5 space-y-3 shadow-md z-30 overflow-hidden text-left"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest block">Referências Clínicas RAG</span>
+                      <span className="text-[8.5px] text-gray-500 font-semibold mt-0.5 block leading-none">
+                        Ative/desative referências específicas para análise personalizada.
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setDisabledReferences([])}
+                        className="text-[9px] font-extrabold text-indigo-600 hover:underline cursor-pointer bg-transparent border-none p-0"
+                      >
+                        Ativar Todas
+                      </button>
+                      <span className="text-slate-300 text-[9px]">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setDisabledReferences(uniqueReferences.map(r => r.id))}
+                        className="text-[9px] font-extrabold text-indigo-600 hover:underline cursor-pointer bg-transparent border-none p-0"
+                      >
+                        Desativar Todas
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowReferencesSettings(false)}
+                        className="p-1.5 text-slate-400 hover:text-slate-650 hover:bg-slate-100 rounded-full transition-colors cursor-pointer flex items-center justify-center ml-2 active:scale-90 duration-100"
+                        title="Fechar referências"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-1 max-h-[160px] overflow-y-auto pr-1">
+                    {uniqueReferences.map((ref) => {
+                      const isActive = !disabledReferences.includes(ref.id);
+                      return (
+                        <button
+                          key={ref.id}
+                          type="button"
+                          onClick={() => {
+                            setDisabledReferences(prev => 
+                              prev.includes(ref.id) 
+                                ? prev.filter(item => item !== ref.id) 
+                                : [...prev, ref.id]
+                            );
+                          }}
+                          className={`w-full text-left px-3 py-1.5 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
+                            isActive 
+                              ? "border-indigo-100 bg-indigo-50/20 text-slate-700 font-extrabold" 
+                              : "border-slate-150 bg-slate-50 text-slate-400"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 truncate">
+                            <span className="text-sm shrink-0">
+                              {ref.type === "static" ? "📚" : ref.type === "database" ? "🗄️" : "📄"}
+                            </span>
+                            <div className="truncate">
+                              <span className="text-[10px] font-bold block truncate">{ref.title}</span>
+                              <span className="text-[8.5px] font-semibold text-slate-400 block truncate">{ref.source}</span>
+                            </div>
+                          </div>
+                          
+                          <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${
+                            isActive ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-300"
+                          }`}>
+                            {isActive && <Check className="w-2.5 h-2.5 stroke-[3px]" />}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* IDLE STATE: Display Adaptive AI Chat Dashboard */}
             {step === "input" && !isGenerating && (
               <div className="flex-1 flex flex-col overflow-y-auto p-1 sm:p-2 space-y-6 text-left animate-in fade-in duration-350 scrollbar-none">
@@ -2286,16 +2184,38 @@ export default function ReportWorkspace({
                 {/* Vetmind Clinical Completeness Dashboard Card */}
                 <div className="p-6 rounded-[2rem] bg-gradient-to-br from-indigo-50/40 via-slate-50 to-white border border-slate-100 relative overflow-hidden shadow-3xs">
                   <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10 text-left">
-                    <div className="space-y-2.5 max-w-md">
-                      <div className="flex items-center gap-1.5">
-                        <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-[9px] font-extrabold uppercase tracking-widest rounded-full inline-block">
-                          Status do Prontuário
-                        </span>
-                        {getCompletenessScore() === 100 ? (
-                          <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[9px] font-extrabold uppercase tracking-widest rounded-full inline-flex items-center gap-1">
-                            <span className="w-1 h-1 bg-emerald-500 rounded-full animate-ping" /> Completo
+                    <div className="space-y-2.5 max-w-md w-full">
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-1.5">
+                          <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-[9px] font-extrabold uppercase tracking-widest rounded-full inline-block">
+                            Status do Prontuário
                           </span>
-                        ) : null}
+                          {getCompletenessScore() === 100 ? (
+                            <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[9px] font-extrabold uppercase tracking-widest rounded-full inline-flex items-center gap-1">
+                              <span className="w-1 h-1 bg-emerald-500 rounded-full animate-ping" /> Completo
+                            </span>
+                          ) : null}
+                        </div>
+
+                        {/* Discreet References Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowReferencesSettings(!showReferencesSettings);
+                          }}
+                          className={`px-2.5 py-1.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border ${
+                            showReferencesSettings 
+                              ? "bg-indigo-600 text-white border-indigo-600" 
+                              : "bg-slate-50 hover:bg-slate-100 text-slate-500 border-slate-200"
+                          }`}
+                          title="Configurar fontes de literatura"
+                        >
+                          <BookOpen className="w-3 h-3 text-indigo-500 shrink-0" />
+                          <span>Referências</span>
+                          {disabledReferences.length > 0 && (
+                            <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse shrink-0 ml-0.5" />
+                          )}
+                        </button>
                       </div>
                       <h3 className="text-2xl font-bold text-slate-900 tracking-tight font-sans">
                         Ficha do Paciente
@@ -2368,125 +2288,7 @@ export default function ReportWorkspace({
                   </div>
                 </div>
 
-                {/* Grid with 4 action cards */}
-                <div className="space-y-3">
-                  <h4 className="font-bold text-slate-800 text-sm font-display px-1 flex items-center gap-2">
-                    <span>⚡ Recursos Rápidos</span>
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Card 1: SOAP */}
-                    <div 
-                      onClick={() => setShowPatientModal(true)}
-                      className="p-5 rounded-2xl bg-white border border-slate-100 hover:border-indigo-200 hover:bg-slate-50/30 transition-all cursor-pointer shadow-3xs group flex flex-col justify-between space-y-4"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="w-9 h-9 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 border border-indigo-100">
-                          <ClipboardList className="w-4 h-4" />
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 transition-colors" />
-                      </div>
-                      <div>
-                        <h5 className="font-extrabold text-slate-800 text-xs uppercase tracking-wider font-display">Preencher Ficha SOAP</h5>
-                        <p className="text-[11px] text-slate-500 font-medium leading-relaxed mt-1">
-                          Identifique o paciente e escreva os sintomas para estruturar o prontuário completo.
-                        </p>
-                      </div>
-                    </div>
 
-                    {/* Card 2: RAG */}
-                    <div 
-                      onClick={() => {
-                        setCurrentMessageText("Quais as diretrizes clínicas e diagnósticos diferenciais mais recomendados para um paciente que apresenta ");
-                      }}
-                      className="p-5 rounded-2xl bg-white border border-slate-100 hover:border-emerald-200 hover:bg-slate-50/30 transition-all cursor-pointer shadow-3xs group flex flex-col justify-between space-y-4"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-100">
-                          <BookOpen className="w-4 h-4" />
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 transition-colors" />
-                      </div>
-                      <div>
-                        <h5 className="font-extrabold text-slate-800 text-xs uppercase tracking-wider font-display">Buscar Literatura RAG</h5>
-                        <p className="text-[11px] text-slate-500 font-medium leading-relaxed mt-1">
-                          Consulte diretamente as principais referências e consensos clínicos mundiais.
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Card 3: Dosagem */}
-                    <div 
-                      onClick={() => {
-                        setCurrentMessageText("Gostaria de simular a dosagem correta de suporte e protocolo posológico para o princípio ativo ");
-                      }}
-                      className="p-5 rounded-2xl bg-white border border-slate-100 hover:border-orange-200 hover:bg-slate-50/30 transition-all cursor-pointer shadow-3xs group flex flex-col justify-between space-y-4"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center text-orange-600 border border-orange-100">
-                          <Pill className="w-4 h-4" />
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-orange-600 transition-colors" />
-                      </div>
-                      <div>
-                        <h5 className="font-extrabold text-slate-800 text-xs uppercase tracking-wider font-display">Simular Doses Clínicas</h5>
-                        <p className="text-[11px] text-slate-500 font-medium leading-relaxed mt-1">
-                          Obtenha orientações de dosagem baseadas no peso informado do seu paciente.
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Card 4: Tutor Message */}
-                    <div 
-                      onClick={() => {
-                        setCurrentMessageText("Me ajude a formular uma mensagem humanizada para explicar ao tutor o tratamento de ");
-                      }}
-                      className="p-5 rounded-2xl bg-white border border-slate-100 hover:border-violet-200 hover:bg-slate-50/30 transition-all cursor-pointer shadow-3xs group flex flex-col justify-between space-y-4"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="w-9 h-9 rounded-full bg-violet-50 flex items-center justify-center text-violet-600 border border-violet-100">
-                          <MessageSquare className="w-4 h-4" />
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-violet-600 transition-colors" />
-                      </div>
-                      <div>
-                        <h5 className="font-extrabold text-slate-800 text-xs uppercase tracking-wider font-display">Fidelizar Tutor</h5>
-                        <p className="text-[11px] text-slate-500 font-medium leading-relaxed mt-1">
-                          Redija uma mensagem acolhedora, reduzindo a ansiedade do tutor no WhatsApp.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Presets Clinical Case Grid */}
-                <div className="space-y-3 pt-2">
-                  <div className="flex flex-col text-left px-1">
-                    <h4 className="font-bold text-slate-800 text-sm font-display">✨ Casos Clínicos para Testar Imediatamente</h4>
-                    <p className="text-[11px] text-slate-400 font-medium">Toque em qualquer caso real abaixo para preencher o prontuário e testar o SOAP e o RAG:</p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {clinicalPresets.map((p) => (
-                      <button
-                        key={p.title}
-                        type="button"
-                        onClick={() => handleSelectPreset(p)}
-                        className="p-4 rounded-xl bg-white border border-slate-100 hover:border-indigo-300 hover:bg-indigo-50/10 text-left transition-all cursor-pointer shadow-3xs flex flex-col justify-between group active:scale-[0.98]"
-                      >
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="w-7 h-7 rounded-lg bg-slate-50 flex items-center justify-center border border-slate-100 text-sm">{p.icon}</span>
-                          <span className="font-extrabold text-slate-800 text-[10.5px] uppercase tracking-wide truncate group-hover:text-indigo-600 transition-colors">{p.title.split(" (")[0]}</span>
-                        </div>
-                        <div className="text-[10px] text-slate-450 font-semibold space-y-0.5 mb-2.5">
-                          <p>Espécie: {p.species} • {p.breed}</p>
-                          <p>Idade: {p.age} • Peso: {p.weight}</p>
-                        </div>
-                        <p className="text-[10px] text-slate-500 line-clamp-2 leading-relaxed border-t border-slate-50 pt-2 font-medium">
-                          {p.anamnesis}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
 
               </div>
             )}
@@ -2540,38 +2342,60 @@ export default function ReportWorkspace({
             {step === "result" && generatedReport && (
               <div className="flex-1 min-h-0 flex flex-col justify-between space-y-6 animate-in fade-in duration-300">
                 
-                {/* Samsung Health Style Minimalist Tab Selector */}
-                <div className="flex border-b border-slate-100 overflow-x-auto shrink-0 scrollbar-none bg-white py-1">
-                  {[
-                    { id: "soap", label: "Ficha SOAP", icon: FileText },
-                    { id: "rag", label: "Diagnósticos RAG", icon: BookOpen },
-                    { id: "prescriptions", label: "Prescrições", icon: Pill },
-                    { id: "whatsapp", label: "Mensagem Tutor", icon: MessageSquare },
-                  ].map((tab) => {
-                    const isActive = activeSubTab === tab.id;
-                    const Icon = tab.icon;
-                    return (
-                      <button
-                        key={tab.id}
-                        onClick={() => setActiveSubTab(tab.id as any)}
-                        title={tab.label}
-                        className={`flex-1 py-3 px-2 text-xs flex flex-col md:flex-row items-center justify-center gap-2 cursor-pointer whitespace-nowrap transition-all duration-200 relative outline-none ${
-                          isActive 
-                            ? "text-indigo-600 font-bold" 
-                            : "text-slate-400 hover:text-slate-600 font-medium"
-                        }`}
-                      >
-                        <Icon className="w-4.5 h-4.5 shrink-0 text-slate-450" strokeWidth={1.2} />
-                        <span className="hidden md:inline text-[11px] tracking-wide">{tab.label}</span>
-                        {isActive && (
-                          <motion.span 
-                            layoutId="activeSubTabLine"
-                            className="absolute bottom-0 left-0 right-0 h-[2px] bg-indigo-600 rounded-full" 
-                          />
-                        )}
-                      </button>
-                    );
-                  })}
+                {/* Tab Selector & Discreet References Button */}
+                <div className="flex items-center justify-between border-b border-slate-100 bg-white py-1 gap-2 shrink-0">
+                  <div className="flex flex-1 overflow-x-auto shrink-0 scrollbar-none gap-1">
+                    {[
+                      { id: "soap", label: "Ficha SOAP", icon: FileText },
+                      { id: "rag", label: "Diagnósticos RAG", icon: BookOpen },
+                      { id: "prescriptions", label: "Prescrições", icon: Pill },
+                      { id: "whatsapp", label: "Mensagem Tutor", icon: MessageSquare },
+                    ].map((tab) => {
+                      const isActive = activeSubTab === tab.id;
+                      const Icon = tab.icon;
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => setActiveSubTab(tab.id as any)}
+                          title={tab.label}
+                          className={`flex-1 py-3 px-2 text-xs flex flex-col md:flex-row items-center justify-center gap-2 cursor-pointer whitespace-nowrap transition-all duration-200 relative outline-none ${
+                            isActive 
+                              ? "text-indigo-600 font-bold" 
+                              : "text-slate-400 hover:text-slate-600 font-medium"
+                          }`}
+                        >
+                          <Icon className="w-4.5 h-4.5 shrink-0 text-slate-450" strokeWidth={1.2} />
+                          <span className="hidden md:inline text-[11px] tracking-wide">{tab.label}</span>
+                          {isActive && (
+                            <motion.span 
+                              layoutId="activeSubTabLine"
+                              className="absolute bottom-0 left-0 right-0 h-[2px] bg-indigo-600 rounded-full" 
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Discreet References Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowReferencesSettings(!showReferencesSettings);
+                    }}
+                    className={`px-2.5 py-1.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border shrink-0 ${
+                      showReferencesSettings 
+                        ? "bg-indigo-600 text-white border-indigo-600" 
+                        : "bg-slate-50 hover:bg-slate-100 text-slate-500 border-slate-200"
+                    }`}
+                    title="Configurar fontes de literatura"
+                  >
+                    <BookOpen className="w-3 h-3 text-indigo-500 shrink-0" />
+                    <span className="hidden sm:inline">Referências</span>
+                    {disabledReferences.length > 0 && (
+                      <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse shrink-0 ml-0.5" />
+                    )}
+                  </button>
                 </div>
 
                 {/* Tab content scrollable container */}
