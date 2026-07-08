@@ -1132,7 +1132,28 @@ export default function ReportWorkspace({
 
   // Run RAG analysis
   const handleGenerate = async () => {
-    if (!anamnesis.trim() && uploadedFiles.length === 0) {
+    let activeAnamnesis = anamnesis;
+
+    // Se o usuário digitou algo mas não apertou Enviar, envia e anexa automaticamente
+    if (currentMessageText.trim()) {
+      const textToSend = currentMessageText.trim();
+      setCurrentMessageText(""); // Limpa o campo para feedback visual imediato
+
+      // Cria a mensagem do usuário no chat
+      const userMsg: ChatMessage = {
+        id: "msg-" + Date.now() + "-" + Math.floor(Math.random() * 1000000),
+        sender: "user",
+        text: textToSend,
+        timestamp: new Date()
+      };
+      setChatMessages((prev) => [...prev, userMsg]);
+
+      // Atualiza e vincula a anamnese
+      activeAnamnesis = activeAnamnesis ? `${activeAnamnesis}\n\n${textToSend}` : textToSend;
+      setAnamnesis(activeAnamnesis);
+    }
+
+    if (!activeAnamnesis.trim() && uploadedFiles.length === 0) {
       alert("Por favor, digite a anamnese ou selecione um caso de teste para analisar.");
       return;
     }
@@ -1148,7 +1169,7 @@ export default function ReportWorkspace({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           patient,
-          anamnesis,
+          anamnesis: activeAnamnesis,
           examData: examData || "Exame físico geral com queixas informadas pelo tutor.",
           files: uploadedFiles.map((f) => ({
             name: f.name,
@@ -1970,9 +1991,9 @@ export default function ReportWorkspace({
               <button
                 type="button"
                 onClick={handleGenerate}
-                disabled={isGenerating || (!anamnesis.trim() && uploadedFiles.length === 0)}
+                disabled={isGenerating || (!anamnesis.trim() && !currentMessageText.trim() && uploadedFiles.length === 0)}
                 className={`w-full py-3.5 text-xs font-bold uppercase tracking-wider text-white rounded-full flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-[1.01] active:scale-95 shadow-md ${
-                  (!anamnesis.trim() && uploadedFiles.length === 0) 
+                  (!anamnesis.trim() && !currentMessageText.trim() && uploadedFiles.length === 0) 
                     ? "bg-slate-200 text-slate-400 cursor-not-allowed opacity-50 shadow-none" 
                     : "bg-gradient-to-r from-indigo-600 to-indigo-500 shadow-indigo-600/15"
                 }`}
