@@ -76,7 +76,7 @@ service cloud.firestore {
 
     // 4. Matches
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if request.auth != null && (request.auth.uid == userId || request.auth.token.email == 'lojauget@gmail.com');
     }
 
     match /guidelines/{guidelineId} {
@@ -85,8 +85,8 @@ service cloud.firestore {
     }
 
     match /reports/{reportId} {
-      allow get: if isOwner(existing().ownerId) || (isSignedIn() && request.auth.token.email == 'lojauget@gmail.com' && existing().rating != null);
-      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || (request.auth.token.email == 'lojauget@gmail.com' && resource.data.rating != null));
+      allow get: if isOwner(existing().ownerId) || (isSignedIn() && request.auth.token.email == 'lojauget@gmail.com');
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || request.auth.token.email == 'lojauget@gmail.com');
       
       allow create: if isSignedIn() && 
                       isValidId(reportId) && 
@@ -123,13 +123,13 @@ service cloud.firestore {
     }
 
     match /appointments/{appointmentId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid);
+      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || request.auth.token.email == 'lojauget@gmail.com');
       allow write: if isSignedIn() && (request.resource == null || request.resource.data.ownerId == request.auth.uid) && (resource == null || resource.data.ownerId == request.auth.uid);
     }
 
     match /prescriptions/{prescriptionId} {
-      allow get, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
-      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow get, delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || request.auth.token.email == 'lojauget@gmail.com');
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || request.auth.token.email == 'lojauget@gmail.com');
       allow create: if isSignedIn() && 
                       isValidId(prescriptionId) && 
                       isValidPrescription(incoming()) && 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutGrid, PlusCircle, BookOpen, UserCircle, ClipboardList, Calendar as CalendarIcon, TrendingUp, Library as LibraryIcon, Menu, X, Star, Sparkles, Chrome, PenTool, Pin, LogOut, Lock } from 'lucide-react';
+import { LayoutGrid, PlusCircle, BookOpen, UserCircle, ClipboardList, Calendar as CalendarIcon, TrendingUp, Library as LibraryIcon, Menu, X, Star, Sparkles, Chrome, PenTool, Pin, LogOut, Lock, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import PremiumGateOverlay from './components/PremiumGateOverlay';
 import UpgradePlanModal from './components/UpgradePlanModal';
@@ -53,7 +53,7 @@ const menuGroups = [
     title: "Configurações & Painel",
     items: [
       { id: 'profile', icon: UserCircle, label: 'Meu Perfil' },
-      { id: 'feedbacks', icon: Star, label: 'Feedbacks Admin' }
+      { id: 'feedbacks', icon: Shield, label: 'Painel Admin (Métricas)' }
     ]
   }
 ];
