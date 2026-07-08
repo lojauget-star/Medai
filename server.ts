@@ -635,12 +635,50 @@ Consistência integral verificada com as diretrizes do livro **Nelson & Couto (M
 // Firebase Server-Side Initialization
 let db: any = null;
 try {
-  const firebaseConfigPath = path.join(process.cwd(), 'firebase-applet-config.json');
-  if (fs.existsSync(firebaseConfigPath)) {
-    const firebaseConfig = JSON.parse(fs.readFileSync(firebaseConfigPath, 'utf8'));
+  let firebaseConfig: any = null;
+
+  // 1. Check for individual environment variables first
+  if (process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID) {
+    firebaseConfig = {
+      projectId: process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID,
+      appId: process.env.FIREBASE_APP_ID || process.env.VITE_FIREBASE_APP_ID,
+      apiKey: process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY,
+      authDomain: process.env.FIREBASE_AUTH_DOMAIN || process.env.VITE_FIREBASE_AUTH_DOMAIN,
+      firestoreDatabaseId: process.env.FIREBASE_FIRESTORE_DATABASE_ID || process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID,
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET || process.env.VITE_FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    };
+    console.log("Firebase config loaded from server environment variables.");
+  } else {
+    // 2. Fallback to searching the config file in multiple paths
+    const pathsToTry = [
+      path.join(process.cwd(), 'firebase-applet-config.json'),
+      path.join(__dirname, 'firebase-applet-config.json'),
+      path.join(__dirname, '..', 'firebase-applet-config.json'),
+      path.join(__dirname, '..', '..', 'firebase-applet-config.json'),
+      path.join(process.cwd(), '..', 'firebase-applet-config.json'),
+      '/var/task/firebase-applet-config.json', // Netlify Function Root standard path
+    ];
+
+    for (const p of pathsToTry) {
+      if (fs.existsSync(p)) {
+        try {
+          firebaseConfig = JSON.parse(fs.readFileSync(p, 'utf8'));
+          console.log(`Firebase config successfully loaded from file: ${p}`);
+          break;
+        } catch (e) {
+          console.error(`Found config file at ${p} but failed to parse it:`, e);
+        }
+      }
+    }
+  }
+
+  if (firebaseConfig) {
     const firebaseApp = initializeApp(firebaseConfig);
     db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId || firebaseConfig.databaseId);
     console.log("Firebase initialized successfully on backend server.");
+  } else {
+    console.warn("No Firebase configuration found via environment variables or JSON file. Cloud storage fallback may be unavailable.");
   }
 } catch (err) {
   console.error("Failed to initialize Firebase on server:", err);
@@ -1613,4 +1651,10 @@ async function startServer() {
   });
 }
 
-startServer();
+const isNetlify = !!(process.env.NETLIFY || process.env.LAMBDA_TASK_ROOT);
+
+if (!isNetlify) {
+  startServer();
+}
+
+export { app };
