@@ -16,8 +16,7 @@ import {
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { db, auth } from '../lib/firebase';
-import { collection, query, where, getDocs, addDoc, deleteDoc, doc, updateDoc, orderBy, onSnapshot } from 'firebase/firestore';
+import { db, auth, collection, query, where, getDocs, addDoc, deleteDoc, doc, updateDoc, orderBy, onSnapshot } from '../lib/firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { Appointment } from '../types';
 

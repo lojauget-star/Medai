@@ -16,9 +16,7 @@ import {
   Calendar
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { db, auth } from "../lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { db, auth, onAuthStateChanged, doc, getDoc, setDoc } from "../lib/firebase";
 import { handleFirestoreError, OperationType } from "../lib/firestore-errors";
 
 export default function SignatureDashboard() {

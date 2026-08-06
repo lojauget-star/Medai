@@ -3,8 +3,7 @@ import {
   BookOpen, Plus, Trash2, Library, Sparkles, FileText, CheckCircle2, 
   Loader2, PlusCircle, AlertCircle, Info, Upload, FileUp
 } from 'lucide-react';
-import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
+import { db, auth, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, serverTimestamp } from '../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface Guideline {

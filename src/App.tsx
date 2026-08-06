@@ -8,9 +8,8 @@ import PrescriptionWorkspace from './components/PrescriptionWorkspace';
 import Dashboard from './components/Dashboard';
 import { Calendar } from './components/Calendar';
 import { BusinessIntelligence } from './components/BusinessIntelligence';
-import { auth, db } from './lib/firebase';
-import { signInAnonymously, onAuthStateChanged, User, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, db, signInAnonymously, onAuthStateChanged, signOut, doc, getDoc, setDoc } from './lib/firebase';
+import { User } from 'firebase/auth';
 import { handleFirestoreError, OperationType } from './lib/firestore-errors';
 import { Report, Patient } from './types';
 import VetmindQuiz from './components/VetmindQuiz';
@@ -59,7 +58,7 @@ const menuGroups = [
 ];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'workspace' | 'prescriptions' | 'dashboard' | 'profile' | 'calendar' | 'bi' | 'quiz' | 'guidelines' | 'feedbacks' | 'marketing' | 'integrations' | 'signature'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'workspace' | 'prescriptions' | 'dashboard' | 'profile' | 'calendar' | 'bi' | 'quiz' | 'guidelines' | 'feedbacks' | 'marketing' | 'integrations' | 'signature'>('workspace');
   const [isSidebarPinned, setIsSidebarPinned] = useState<boolean>(() => {
     const saved = localStorage.getItem('vetmind_sidebar_pinned');
     return saved !== null ? JSON.parse(saved) : true;

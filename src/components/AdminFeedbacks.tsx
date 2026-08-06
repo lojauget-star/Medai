@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  getDocs, collection, query, where, doc, getDoc, updateDoc, deleteDoc 
-} from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, getDocs, collection, query, where, doc, getDoc, updateDoc, deleteDoc } from '../lib/firebase';
 import { Report } from '../types';
 import { 
   Star, MessageSquare, Search, Filter, Calendar, LayoutGrid, 

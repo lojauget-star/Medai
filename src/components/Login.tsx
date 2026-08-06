@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Chrome, ShieldAlert, Sparkles, ArrowRight } from 'lucide-react';
-import { auth, db } from '../lib/firebase';
-import { GoogleAuthProvider, signInWithPopup, signInAnonymously } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, db, signInAnonymously, doc, getDoc, setDoc, activateLocalGuestMode } from '../lib/firebase';
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import VetmindLogo from './VetmindLogo';
 
 interface LoginProps {
@@ -26,20 +25,31 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       const user = result.user;
       
       if (user) {
+        console.log('User logged in, uid:', user.uid);
         // Check if user profile exists, create if not
         const docRef = doc(db, 'users', user.uid);
-        const docSnap = await getDoc(docRef);
-        
-        if (!docSnap.exists()) {
-          await setDoc(docRef, {
-            name: user.displayName || 'Médico Veterinário',
-            crmv: '',
-            specialty: 'Clínica Geral de Pequenos Animais',
-            isSigned: false,
-            email: user.email || '',
-            createdAt: new Date().toISOString()
-          });
+        try {
+          console.log('Fetching user doc...');
+          const docSnap = await getDoc(docRef);
+          console.log('User doc exists:', docSnap.exists());
+          
+          if (!docSnap.exists()) {
+            console.log('Setting user doc...');
+            await setDoc(docRef, {
+              name: user.displayName || 'Médico Veterinário',
+              crmv: '',
+              specialty: 'Clínica Geral de Pequenos Animais',
+              isSigned: false,
+              email: user.email || '',
+              createdAt: new Date().toISOString()
+            });
+            console.log('User doc set.');
+          }
+        } catch (innerErr: any) {
+          console.error('Error during getDoc/setDoc for users (ignoring to allow login):', innerErr);
         }
+        
+        console.log('Calling onLoginSuccess...');
         onLoginSuccess();
       }
     } catch (err: any) {
@@ -62,10 +72,8 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     setLoading(true);
     setError(null);
     try {
-      const result = await signInAnonymously(auth);
-      if (result.user) {
-        onLoginSuccess();
-      }
+      activateLocalGuestMode();
+      onLoginSuccess();
     } catch (err: any) {
       console.error('Anonymous Auth Error:', err);
       setError('Erro ao entrar no modo de demonstração.');

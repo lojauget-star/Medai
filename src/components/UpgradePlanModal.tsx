@@ -4,8 +4,7 @@ import {
   X, Sparkles, CheckCircle2, CreditCard, QrCode, ShieldCheck, 
   Loader2, PartyPopper, Check, Copy, ArrowRight 
 } from 'lucide-react';
-import { doc, setDoc } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
+import { db, auth, doc, setDoc } from '../lib/firebase';
 
 interface UpgradePlanModalProps {
   isOpen: boolean;

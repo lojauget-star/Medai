@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, ChevronRight, Filter, BookOpen, Calendar, Mail, FileDown, MoreVertical } from 'lucide-react';
 import { motion } from 'motion/react';
-import { db, auth } from '../lib/firebase';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { db, auth, collection, query, where, getDocs, orderBy } from '../lib/firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { Report } from '../types';
 
@@ -17,8 +16,7 @@ export default function Library({ onSelectReport }: { onSelectReport: (report: R
       try {
         const q = query(
           collection(db, 'reports'),
-          where('ownerId', '==', auth.currentUser.uid),
-          orderBy('createdAt', 'desc')
+          where('ownerId', '==', auth.currentUser.uid)
         );
         const snapshot = await getDocs(q).catch(err => {
           handleFirestoreError(err, OperationType.LIST, 'reports');
@@ -28,6 +26,11 @@ export default function Library({ onSelectReport }: { onSelectReport: (report: R
         if (!snapshot) return;
         
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Report));
+        data.sort((a, b) => {
+          const tA = (a.createdAt as any)?.seconds || 0;
+          const tB = (b.createdAt as any)?.seconds || 0;
+          return tB - tA;
+        });
         setReports(data);
       } catch (err) {
         console.error("Library fetch error:", err);

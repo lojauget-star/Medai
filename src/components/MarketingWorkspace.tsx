@@ -8,11 +8,10 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import html2canvas from 'html2canvas';
-import { db, auth } from '../lib/firebase';
 import { 
-  collection, addDoc, getDocs, query, where, orderBy, 
+  db, auth, collection, addDoc, getDocs, query, where, orderBy, 
   deleteDoc, doc, serverTimestamp, getDoc, updateDoc 
-} from 'firebase/firestore';
+} from '../lib/firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 interface BrandProfile {
@@ -138,8 +137,7 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
     try {
       const q = query(
         collection(db, 'generations'),
-        where('ownerId', '==', user.uid),
-        orderBy('createdAt', 'desc')
+        where('ownerId', '==', user.uid)
       );
       const snapshot = await getDocs(q);
       const fetched: GeneratedPost[] = [];
@@ -155,6 +153,11 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
           clinicalData: d.clinicalData,
           createdAt: d.createdAt
         });
+      });
+      fetched.sort((a, b) => {
+        const tA = (a.createdAt as any)?.seconds || 0;
+        const tB = (b.createdAt as any)?.seconds || 0;
+        return tB - tA;
       });
       setHistory(fetched);
     } catch (err) {

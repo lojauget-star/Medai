@@ -22,8 +22,7 @@ import {
   FileCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { db, auth } from '../lib/firebase';
-import { collection, addDoc, getDocs, query, where, orderBy, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { db, auth, collection, addDoc, getDocs, query, where, orderBy, deleteDoc, doc, serverTimestamp } from '../lib/firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 interface PastPrescription {
@@ -146,11 +145,15 @@ export default function PrescriptionWorkspace({
     try {
       const q = query(
         collection(db, "prescriptions"),
-        where("ownerId", "==", auth.currentUser.uid),
-        orderBy("createdAt", "desc")
+        where("ownerId", "==", auth.currentUser.uid)
       );
       const snap = await getDocs(q);
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as PastPrescription));
+      list.sort((a, b) => {
+        const tA = (a.createdAt as any)?.seconds || 0;
+        const tB = (b.createdAt as any)?.seconds || 0;
+        return tB - tA;
+      });
       setPastPrescriptions(list);
     } catch (err) {
       console.error("Error fetching prescriptions history:", err);
