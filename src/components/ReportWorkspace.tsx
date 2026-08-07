@@ -751,7 +751,11 @@ export default function ReportWorkspace({
     let updatedAnamnesis = anamnesis;
     if (textToSend) {
       parsePatientDetailsFromText(textToSend);
-      updatedAnamnesis = anamnesis ? `${anamnesis}\n\n[Atualização do Tutor/Clínica]: ${textToSend}` : textToSend;
+      if (anamnesis && textToSend !== anamnesis && !anamnesis.includes(textToSend)) {
+        updatedAnamnesis = `${anamnesis}\n\n[Atualização do Tutor/Clínica]: ${textToSend}`;
+      } else {
+        updatedAnamnesis = textToSend;
+      }
       setAnamnesis(updatedAnamnesis);
 
       const userMsg: ChatMessage = {
@@ -1123,14 +1127,12 @@ export default function ReportWorkspace({
     }
   };
 
-  // Compute effective combined anamnesis text so typed search/message text doesn't override base anamnesis
+  // Compute effective combined anamnesis text preserving exact user whitespace and empty state
   const effectiveAnamnesisText = useMemo(() => {
-    const base = (anamnesis || "").trim();
-    const extra = (currentMessageText || "").trim();
-    if (base && extra && extra !== base) {
-      return `${base}\n\n[Nova Informação / Dúvida]: ${extra}`;
+    if (anamnesis && currentMessageText && currentMessageText !== anamnesis) {
+      return `${anamnesis}\n\n[Nova Informação / Dúvida]: ${currentMessageText}`;
     }
-    return base || extra || "Consulta clínica geral.";
+    return anamnesis || currentMessageText || "";
   }, [anamnesis, currentMessageText]);
 
   // Full clean reset of active case
@@ -1429,7 +1431,7 @@ export default function ReportWorkspace({
                     onGoToEvidence={() => setActiveViewMode('evidence')}
                     onSaveCase={handleSaveReport}
                     onGoToPrescription={() => {
-                      const fallbackDiag = "Pancreatite / Gastroenterite Aguda";
+                      const fallbackDiag = anamnesis ? `Investigação Clínica (${patient.species || 'Canino'})` : `Diagnóstico e Prescrição para ${patient.species || 'Canino'}`;
                       if (chatMessages.length > 1) {
                         const lastAi = chatMessages.find((m) => m.sender === 'ai');
                         if (lastAi && lastAi.soap) {
@@ -1458,7 +1460,7 @@ export default function ReportWorkspace({
                     aiReportText={generatedReport || (chatMessages.length > 0 ? (chatMessages[chatMessages.length - 1]?.soap?.raw || chatMessages[chatMessages.length - 1]?.text) : undefined)}
                     sources={sources}
                     onOpenPrescription={() => {
-                      const fallbackDiag = "Pancreatite / Gastroenterite Aguda";
+                      const fallbackDiag = anamnesis ? `Investigação Clínica (${patient.species || 'Canino'})` : `Diagnóstico e Prescrição para ${patient.species || 'Canino'}`;
                       if (chatMessages.length > 1) {
                         const lastAi = chatMessages.find((m) => m.sender === 'ai');
                         if (lastAi && lastAi.soap) {

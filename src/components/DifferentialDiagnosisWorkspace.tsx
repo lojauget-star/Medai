@@ -809,7 +809,7 @@ export function generateClinicalData(anamnesisText: string, patient: Patient): D
   if (category === 'gastro') {
     const isFeline = lower.includes('felin') || lower.includes('gato') || lower.includes('cat') || species.toLowerCase().includes('felin') || species.toLowerCase().includes('gato');
     const isChronic = lower.includes('cronico') || lower.includes('crônico') || lower.includes('cronica') || lower.includes('crônica') || lower.includes('perda de peso') || lower.includes('emagrecimento');
-    const isPancreatitisMentioned = lower.includes('pancreatite') || lower.includes('gordura') || lower.includes('lipase') || lower.includes('dor abdominal');
+    const isPancreatitisMentioned = lower.includes('pancreatite') || lower.includes('cpl') || lower.includes('fpl') || lower.includes('spec cpl') || lower.includes('lipase pancreática');
 
     if (isFeline || isChronic) {
       const primaryTitle = isFeline 
@@ -973,9 +973,27 @@ export function generateClinicalData(anamnesisText: string, patient: Patient): D
   }
 
   const excerpt = text.length > 0 ? text.slice(0, 90) : 'Sintomatologia sob investigação clínica';
-  const customTitle = text.length > 0 
-    ? (lower.includes('vômito') || lower.includes('vomito') ? `Gastroenterite Aguda / Enteropatia em ${species}` : `Avaliação Clínica e Diagnóstico de ${species}`)
-    : `Avaliação Clínica e Diagnóstico de ${species}`;
+  
+  let customTitle = `Avaliação Clínica e Diagnóstico de ${species}`;
+  if (text.length > 0) {
+    if (lower.includes('otite') || lower.includes('orelha') || lower.includes('coceira') || lower.includes('prurido')) {
+      customTitle = `Otite Externa / Dermatopatia em ${species}`;
+    } else if (lower.includes('mancando') || lower.includes('pata') || lower.includes('joelho') || lower.includes('fratura')) {
+      customTitle = `Afecção Ortopédica / Claudicação Aguda em ${species}`;
+    } else if (lower.includes('tosse') || lower.includes('respirat') || lower.includes('engasgo')) {
+      customTitle = `Afecção Respiratória / Bronco-Pulmonar em ${species}`;
+    } else if (lower.includes('urina') || lower.includes('xixi') || lower.includes('cistite')) {
+      customTitle = `Cistite / Afecção do Trato Urinário em ${species}`;
+    } else if (lower.includes('carrapato') || lower.includes('febre') || lower.includes('mancha')) {
+      customTitle = `Suspeita de Hemoparasitose em ${species}`;
+    } else if (lower.includes('convuls') || lower.includes('paralis') || lower.includes('ataxia')) {
+      customTitle = `Síndrome Neurológica em ${species}`;
+    } else if (lower.includes('vômito') || lower.includes('vomito') || lower.includes('diarreia') || lower.includes('diarréia')) {
+      customTitle = `Gastroenterite Aguda / Enteropatia em ${species}`;
+    } else {
+      customTitle = `Quadro Sintomático em Investigação (${species})`;
+    }
+  }
 
   return {
     hypotheses: [

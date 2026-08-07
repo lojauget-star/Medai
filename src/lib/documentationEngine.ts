@@ -212,9 +212,12 @@ export function getCanonicalCaseForPatient(patient: Patient, anamnesisText?: str
 
   // Default General / Symptom-aware (Fallback when no specific category is matched)
   const isGastroMentioned = lower.includes('vômito') || lower.includes('vomito') || lower.includes('pancreatite') || lower.includes('diarreia') || lower.includes('lipase') || lower.includes('dor abdominal');
+  const isPancreatitisExplicit = lower.includes('pancreatite') || lower.includes('cpl') || lower.includes('fpl') || lower.includes('spec cpl');
   
-  const activeHypothesis = isGastroMentioned
-    ? `Gastroenterite Aguda / Suspeita de Pancreatite em ${species}`
+  const activeHypothesis = isPancreatitisExplicit
+    ? `Pancreatite Aguda / Enteropatia Inflamatória em ${species}`
+    : isGastroMentioned
+    ? `Gastroenterite Aguda / Indiscreção Alimentar em ${species}`
     : `Quadro Clínico em Investigação (${cleanText.slice(0, 35)}...) em ${species}`;
 
   return {
