@@ -15,7 +15,7 @@ import {
   Footprints
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { db, auth, collection, query, where, getDocs, orderBy } from '../lib/firebase';
+import { db, auth, getCurrentUser, collection, query, where, getDocs, orderBy } from '../lib/firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { Report } from '../types';
 
@@ -34,11 +34,12 @@ export default function Dashboard({
 
   useEffect(() => {
     const fetchReports = async () => {
-      if (!auth.currentUser) return;
+      const currentUser = getCurrentUser();
+      if (!currentUser) return;
       try {
         const q = query(
           collection(db, 'reports'),
-          where('ownerId', '==', auth.currentUser.uid)
+          where('ownerId', '==', currentUser.uid)
         );
         const snapshot = await getDocs(q).catch(err => {
           handleFirestoreError(err, OperationType.LIST, 'reports');

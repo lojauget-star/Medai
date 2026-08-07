@@ -69,8 +69,18 @@ function createMockUser() {
   });
 }
 
+export function getCurrentUser() {
+  if (isLocalGuestActive()) {
+    if (!localGuestUser) {
+      localGuestUser = createMockUser();
+    }
+    return localGuestUser;
+  }
+  return auth.currentUser;
+}
+
 function notifyAuthStateListeners() {
-  const currentUser = auth.currentUser;
+  const currentUser = getCurrentUser();
   authListeners.forEach(listener => {
     try {
       listener(currentUser);
@@ -109,38 +119,6 @@ export function isLocalGuestActive() {
   return !!localGuestUser || localStorage.getItem('vetmind_local_guest') === 'true';
 }
 
-// Intercept auth.currentUser property to transparently support mock user across all components
-const originalDescriptor = Object.getOwnPropertyDescriptor(
-  Object.getPrototypeOf(auth),
-  'currentUser'
-);
-const originalGetter = originalDescriptor?.get || (() => null);
-
-// TEMPORARIAMENTE DESATIVADO PARA DIAGNÓSTICO - permission-denied no Firestore
-// Object.defineProperty(auth, 'currentUser', {
-//   get() {
-//     if (localGuestUser) return localGuestUser;
-//     if (localStorage.getItem('vetmind_local_guest') === 'true') {
-//       if (!localGuestUser) {
-//         localGuestUser = createMockUser();
-//       }
-//       return localGuestUser;
-//     }
-//     return originalGetter.call(auth);
-//   },
-//   set(val) {
-//     const originalSetter = originalDescriptor?.set;
-//     if (originalSetter) {
-//       try {
-//         originalSetter.call(auth, val);
-//       } catch (e) {
-//         console.warn("Error calling original auth.currentUser setter:", e);
-//       }
-//     }
-//   },
-//   configurable: true
-// });
-
 // WRAPPED AUTH METHODS
 export async function signInAnonymously(authInstance: any) {
   try {
@@ -149,7 +127,7 @@ export async function signInAnonymously(authInstance: any) {
   } catch (error: any) {
     console.warn("Firebase signInAnonymously failed (network-request-failed or offline). Falling back to Local Guest Session.", error);
     activateLocalGuestMode();
-    return { user: auth.currentUser };
+    return { user: getCurrentUser() };
   }
 }
 
@@ -162,7 +140,7 @@ export const onAuthStateChanged = (authInstance: any, callback: (user: any) => v
   authListeners.add(callback);
   
   // Call immediately with the current state
-  callback(auth.currentUser);
+  callback(getCurrentUser());
 
   const unsubscribeOriginal = originalOnAuthStateChanged(authInstance, (user) => {
     if (!isLocalGuestActive()) {

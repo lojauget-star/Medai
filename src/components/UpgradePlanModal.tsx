@@ -4,7 +4,7 @@ import {
   X, Sparkles, CheckCircle2, CreditCard, QrCode, ShieldCheck, 
   Loader2, PartyPopper, Check, Copy, ArrowRight 
 } from 'lucide-react';
-import { db, auth, doc, setDoc } from '../lib/firebase';
+import { db, auth, getCurrentUser, doc, setDoc } from '../lib/firebase';
 
 interface UpgradePlanModalProps {
   isOpen: boolean;
@@ -49,7 +49,7 @@ export default function UpgradePlanModal({ isOpen, onClose, onUpgradeSuccess }: 
     
     // Simulating clinical payment validations (Disney: magic details!)
     setTimeout(async () => {
-      const user = auth.currentUser;
+      const user = getCurrentUser();
       if (user) {
         try {
           const userDocRef = doc(db, 'users', user.uid);

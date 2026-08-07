@@ -22,7 +22,7 @@ import {
   FileCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { db, auth, collection, addDoc, getDocs, query, where, orderBy, deleteDoc, doc, serverTimestamp } from '../lib/firebase';
+import { db, auth, getCurrentUser, collection, addDoc, getDocs, query, where, orderBy, deleteDoc, doc, serverTimestamp } from '../lib/firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 interface PastPrescription {
@@ -140,12 +140,13 @@ export default function PrescriptionWorkspace({
 
   // Fetch past prescriptions
   const fetchHistory = async () => {
-    if (!auth.currentUser) return;
+    const user = getCurrentUser();
+    if (!user) return;
     setLoadingHistory(true);
     try {
       const q = query(
         collection(db, "prescriptions"),
-        where("ownerId", "==", auth.currentUser.uid)
+        where("ownerId", "==", user.uid)
       );
       const snap = await getDocs(q);
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as PastPrescription));
@@ -263,7 +264,8 @@ export default function PrescriptionWorkspace({
   };
 
   const handleSaveToHistory = async () => {
-    if (!generatedPrescription || !auth.currentUser) return;
+    const user = getCurrentUser();
+    if (!generatedPrescription || !user) return;
     try {
       const pData = {
         patientName: name || "Paciente sem Nome",
@@ -278,7 +280,7 @@ export default function PrescriptionWorkspace({
         routeOfAdmin,
         content: generatedPrescription,
         tutorMessage: tutorMessage || "",
-        ownerId: auth.currentUser.uid,
+        ownerId: user.uid,
         createdAt: serverTimestamp()
       };
 

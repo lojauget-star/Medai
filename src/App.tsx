@@ -8,7 +8,7 @@ import PrescriptionWorkspace from './components/PrescriptionWorkspace';
 import Dashboard from './components/Dashboard';
 import { Calendar } from './components/Calendar';
 import { BusinessIntelligence } from './components/BusinessIntelligence';
-import { auth, db, signInAnonymously, onAuthStateChanged, signOut, doc, getDoc, setDoc, firebaseConfig } from './lib/firebase';
+import { auth, getCurrentUser, db, signInAnonymously, onAuthStateChanged, signOut, doc, getDoc, setDoc, firebaseConfig } from './lib/firebase';
 import { User } from 'firebase/auth';
 import { handleFirestoreError, OperationType } from './lib/firestore-errors';
 import { Report, Patient } from './types';
@@ -131,7 +131,7 @@ export default function App() {
           console.error('databaseId:', firebaseConfig?.firestoreDatabaseId);
           console.error('authDomain:', firebaseConfig?.authDomain);
           console.error('uid:', u?.uid);
-          console.error('auth.currentUser.uid:', auth.currentUser?.uid);
+          console.error('getCurrentUser().uid:', getCurrentUser()?.uid);
           console.error('error.code:', err?.code);
           console.error('error.message:', err?.message);
           console.error("Error loading user profile:", err);

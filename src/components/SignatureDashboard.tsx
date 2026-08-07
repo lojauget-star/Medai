@@ -16,7 +16,7 @@ import {
   Calendar
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { db, auth, onAuthStateChanged, doc, getDoc, setDoc } from "../lib/firebase";
+import { db, auth, getCurrentUser, onAuthStateChanged, doc, getDoc, setDoc } from "../lib/firebase";
 import { handleFirestoreError, OperationType } from "../lib/firestore-errors";
 
 export default function SignatureDashboard() {
@@ -114,7 +114,7 @@ export default function SignatureDashboard() {
     setSignerCrmv(uppercaseCrmv);
     saveToStorage(signerName, uppercaseCrmv, specialty, sigStyle, true, today, randomHash);
 
-    const currentUser = auth.currentUser;
+    const currentUser = getCurrentUser();
     if (currentUser) {
       try {
         const userDocRef = doc(db, "users", currentUser.uid);
@@ -141,7 +141,7 @@ export default function SignatureDashboard() {
       setIsSigned(false);
       localStorage.setItem("vetmind_signature_signed", "false");
 
-      const currentUser = auth.currentUser;
+      const currentUser = getCurrentUser();
       if (currentUser) {
         try {
           const userDocRef = doc(db, "users", currentUser.uid);

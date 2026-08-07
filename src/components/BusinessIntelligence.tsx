@@ -9,7 +9,7 @@ import {
   Target, Award, ChevronRight, Loader2, Users
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { db, auth, collection, query, where, getDocs, orderBy } from '../lib/firebase';
+import { db, auth, getCurrentUser, collection, query, where, getDocs, orderBy } from '../lib/firebase';
 import { Report } from '../types';
 
 export function BusinessIntelligence() {
@@ -19,12 +19,13 @@ export function BusinessIntelligence() {
 
   useEffect(() => {
     async function fetchData() {
-      if (!auth.currentUser) return;
+      const user = getCurrentUser();
+      if (!user) return;
       setLoading(true);
       try {
         const q = query(
           collection(db, 'reports'),
-          where('ownerId', '==', auth.currentUser.uid)
+          where('ownerId', '==', user.uid)
         );
         const snapshot = await getDocs(q);
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Report));

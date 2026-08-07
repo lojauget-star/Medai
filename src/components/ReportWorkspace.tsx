@@ -46,7 +46,7 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "motion/react";
-import { db, auth, collection, addDoc, serverTimestamp, doc, updateDoc, getDocs, query, orderBy, setDoc, where } from "../lib/firebase";
+import { db, auth, getCurrentUser, collection, addDoc, serverTimestamp, doc, updateDoc, getDocs, query, orderBy, setDoc, where } from "../lib/firebase";
 import { Patient, Report } from "../types";
 import VetmindLogo from "./VetmindLogo";
 import ClinicalNextStepsChecklist from "./ClinicalNextStepsChecklist";
@@ -527,12 +527,13 @@ export default function ReportWorkspace({
 
   // Load Saved Patients list
   useEffect(() => {
-    if (!auth.currentUser) return;
+    const user = getCurrentUser();
+    if (!user) return;
     const fetchSavedPatients = async () => {
       try {
         const q = query(
           collection(db, "patients"),
-          where("ownerId", "==", auth.currentUser.uid)
+          where("ownerId", "==", user.uid)
         );
         const snapshot = await getDocs(q);
         const list: Patient[] = [];
@@ -970,7 +971,8 @@ export default function ReportWorkspace({
 
   // Sync / Save report with Firebase
   const handleSaveReport = async () => {
-    if (!generatedReport || !auth.currentUser) return;
+    const user = getCurrentUser();
+    if (!generatedReport || !user) return;
     try {
       const reportData: any = {
         patientId: patient.name || "Paciente Anon",
@@ -985,7 +987,7 @@ export default function ReportWorkspace({
         prescription,
         sources: sources.map((s: any) => (typeof s === "object" ? s.topic : String(s))),
         uploadedExamFiles: uploadedExamFiles.map((f) => ({ name: f.name, size: f.size })),
-        ownerId: auth.currentUser.uid,
+        ownerId: user.uid,
         status: "finalized",
         createdAt: serverTimestamp(),
       };

@@ -3,7 +3,7 @@ import {
   BookOpen, Plus, Trash2, Library, Sparkles, FileText, CheckCircle2, 
   Loader2, PlusCircle, AlertCircle, Info, Upload, FileUp
 } from 'lucide-react';
-import { db, auth, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, serverTimestamp } from '../lib/firebase';
+import { db, auth, getCurrentUser, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, serverTimestamp } from '../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface Guideline {
@@ -33,7 +33,8 @@ const DEFAULT_GUIDELINES = [
 ];
 
 export default function GuidelinesManager() {
-  const isAdmin = auth.currentUser?.email === 'lojauget@gmail.com';
+  const currentUser = getCurrentUser();
+  const isAdmin = currentUser?.email === 'lojauget@gmail.com';
   const [guidelines, setGuidelines] = useState<Guideline[]>([]);
   const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState('');
@@ -60,9 +61,10 @@ export default function GuidelinesManager() {
   const fetchPdfFiles = async () => {
     try {
       setPdfLoading(true);
+      const user = getCurrentUser();
       const response = await fetch('/api/admin/guidelines-pdfs', {
         headers: {
-          'x-user-email': auth.currentUser?.email || ''
+          'x-user-email': user?.email || ''
         }
       });
       if (response.ok) {
@@ -107,12 +109,13 @@ export default function GuidelinesManager() {
         for (let i = 0; i < totalChunks; i++) {
           const start = i * chunkSize;
           const chunkData = base64.slice(start, start + chunkSize);
+          const user = getCurrentUser();
 
           const res = await fetch('/api/admin/upload-guideline-pdf-chunk', {
             method: 'POST',
             headers: { 
               'Content-Type': 'application/json',
-              'x-user-email': auth.currentUser?.email || ''
+              'x-user-email': user?.email || ''
             },
             body: JSON.stringify({
               uploadId,
@@ -160,10 +163,11 @@ export default function GuidelinesManager() {
     if (!confirm(`Tem certeza que deseja apagar o livro/artigo "${name}" da Base Geral?`)) return;
 
     try {
+      const user = getCurrentUser();
       const res = await fetch(`/api/admin/guidelines-pdfs/${encodeURIComponent(name)}`, {
         method: 'DELETE',
         headers: {
-          'x-user-email': auth.currentUser?.email || ''
+          'x-user-email': user?.email || ''
         }
       });
       if (res.ok) {

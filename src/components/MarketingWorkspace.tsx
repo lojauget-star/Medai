@@ -9,7 +9,7 @@ import {
 import { motion } from 'motion/react';
 import html2canvas from 'html2canvas';
 import { 
-  db, auth, collection, addDoc, getDocs, query, where, orderBy, 
+  db, auth, getCurrentUser, collection, addDoc, getDocs, query, where, orderBy, 
   deleteDoc, doc, serverTimestamp, getDoc, updateDoc 
 } from '../lib/firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
@@ -131,7 +131,7 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
   }, [initialClinicalData]);
 
   const fetchHistory = async () => {
-    const user = auth.currentUser;
+    const user = getCurrentUser();
     if (!user) return;
     setIsLoadingHistory(true);
     try {
@@ -233,7 +233,7 @@ export default function MarketingWorkspace({ initialClinicalData, onBack }: Mark
   };
 
   const saveOutputToDatabase = async (postToSave: GeneratedPost) => {
-    const user = auth.currentUser;
+    const user = getCurrentUser();
     if (!user) return;
 
     setIsSaving(true);

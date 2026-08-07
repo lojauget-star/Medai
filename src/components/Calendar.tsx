@@ -16,7 +16,7 @@ import {
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { db, auth, collection, query, where, getDocs, addDoc, deleteDoc, doc, updateDoc, orderBy, onSnapshot } from '../lib/firebase';
+import { db, auth, getCurrentUser, collection, query, where, getDocs, addDoc, deleteDoc, doc, updateDoc, orderBy, onSnapshot } from '../lib/firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { Appointment } from '../types';
 
@@ -62,11 +62,12 @@ export function Calendar({ onStartConsultation }: CalendarProps) {
 
   // Load appointments in real-time
   useEffect(() => {
-    if (!auth.currentUser) return;
+    const currentUser = getCurrentUser();
+    if (!currentUser) return;
 
     const q = query(
       collection(db, 'appointments'),
-      where('ownerId', '==', auth.currentUser.uid)
+      where('ownerId', '==', currentUser.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -104,7 +105,8 @@ export function Calendar({ onStartConsultation }: CalendarProps) {
       return;
     }
 
-    if (!auth.currentUser) {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
       alert("Você precisa estar autenticado.");
       return;
     }
@@ -119,7 +121,7 @@ export function Calendar({ onStartConsultation }: CalendarProps) {
         date: aptDate,
         status: 'pending' as const,
         species: patSpecies,
-        ownerId: auth.currentUser.uid
+        ownerId: currentUser.uid
       };
 
       await addDoc(collection(db, 'appointments'), newAptData);

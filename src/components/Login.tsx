@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Chrome, ShieldAlert, Sparkles, ArrowRight } from 'lucide-react';
-import { auth, db, signInAnonymously, doc, getDoc, setDoc, activateLocalGuestMode, firebaseConfig } from '../lib/firebase';
+import { auth, getCurrentUser, db, signInAnonymously, doc, getDoc, setDoc, activateLocalGuestMode, firebaseConfig } from '../lib/firebase';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import VetmindLogo from './VetmindLogo';
 
@@ -58,7 +58,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           console.error('databaseId:', firebaseConfig?.firestoreDatabaseId);
           console.error('authDomain:', firebaseConfig?.authDomain);
           console.error('uid:', user?.uid);
-          console.error('auth.currentUser.uid:', auth.currentUser?.uid);
+          console.error('getCurrentUser().uid:', getCurrentUser()?.uid);
           console.error('document:', docRef?.path);
           console.error('error.code:', innerErr?.code);
           console.error('error.message:', innerErr?.message);
