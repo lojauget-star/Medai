@@ -274,10 +274,8 @@ export const MOCK_EVIDENCE_DATABASE: Record<string, HypothesisEvidenceGroup[]> =
 /**
  * Retrieves hypotheses and associated evidence list for a given patient condition.
  */
-export function getEvidenceGroupsForPatient(symptomsText?: string, species?: string): HypothesisEvidenceGroup[] {
+export function getEvidenceGroupsForPatient(symptomsText?: string, _species?: string): HypothesisEvidenceGroup[] {
   const lower = (symptomsText || '').toLowerCase().trim();
-  const speciesLower = (species || '').toLowerCase().trim();
-  const isFeline = speciesLower.includes('gato') || speciesLower.includes('felin') || speciesLower.includes('cat') || lower.includes('gato') || lower.includes('felino') || lower.includes('felina');
 
   if (!lower || lower.length < 5) {
     return [];
@@ -426,8 +424,12 @@ export function getEvidenceGroupsForPatient(symptomsText?: string, species?: str
     ];
   }
 
-  // Default Gastrointestinal Database (Species Aware)
-  return isFeline ? MOCK_EVIDENCE_DATABASE.felineGastro : MOCK_EVIDENCE_DATABASE.default;
+  // Default Gastrointestinal Evidence based on anamnesis text
+  if (lower.includes('triadite') || lower.includes('lipidose') || lower.includes('spec fpl')) {
+    return [...MOCK_EVIDENCE_DATABASE.felineGastro, ...MOCK_EVIDENCE_DATABASE.default];
+  }
+
+  return MOCK_EVIDENCE_DATABASE.default;
 }
 
 /**

@@ -204,104 +204,56 @@ export function getCanonicalCaseForPatient(patient: Patient, anamnesisText?: str
     };
   }
 
-  // Default Gastro / General (Species-aware)
-  const isFeline = species.toLowerCase().includes('gato') || species.toLowerCase().includes('felin') || species.toLowerCase().includes('cat') || lower.includes('gato') || lower.includes('felin');
-
-  if (isFeline) {
-    return {
-      patient: { name, species, breed, age, weight: weightStr, tutorName, tutorPhone, ownerId: 'owner-current' },
-      activeHypothesis: `Pancreatite Aguda Felina / Tríade Felina em ${species}`,
-      medications: [
-        {
-          name: 'Citrato de Maropitant (1 mg/kg)',
-          dose: weightVal > 0 ? `1 mg/kg (${(weightVal * 1).toFixed(1)} mg SC)` : '1 mg/kg',
-          frequency: 'A cada 24 horas',
-          duration: '3 a 5 dias',
-          route: 'Subcutânea / Oral',
-          notes: 'Antiemético e visceral para controle de náuseas em felinos.'
-        },
-        {
-          name: 'Buprenorfina (0,01 mg/kg) - Analgésico Opioide Felino',
-          dose: weightVal > 0 ? `${(weightVal * 0.01).toFixed(2)} mg` : '0,01 mg/kg',
-          frequency: 'A cada 8 a 12 horas',
-          duration: '3 dias',
-          route: 'Sublingual / Subcutânea',
-          notes: 'Analgesia de escolha para dor pancreática visceral em felinos.'
-        },
-        {
-          name: 'Ringer com Lactato (Fluidoterapia IV)',
-          dose: weightVal > 0 ? `50 a 60 mL/kg/dia (${Math.round(weightVal * 55)} mL/dia)` : '50 mL/kg/dia',
-          frequency: 'Contínuo IV',
-          duration: '24 a 48 horas',
-          route: 'Intravenosa',
-          notes: 'Suporte volumétrico para manutenção de microcirculação pancreática.'
-        }
-      ],
-      requestedExams: [
-        'Dosagem de Spec fPL (Lipase Pancreática Específica Felina)',
-        'Ultrassonografia Abdominal Focada (Pâncreas, Ducto Biliar e Parede Intestinal)',
-        'Hemograma Completo + Perfil Bioquímico Hepático (ALT, FA, GGT e Bilirrubinas)'
-      ],
-      careGoals: [
-        'Controle ágil de dor e náusea em até 24h para reintrodução alimentar',
-        'Prevenção de Lipidose Hepática secundária via nutrição enteral precoce',
-        'Reidratação e perfusão pancreática/biliar'
-      ],
-      tutorInstructions: [
-        `Oferecer alimentação fresca e palatável para ${name} em pequenas porções assim que liberado.`,
-        'Monitorar aceitação de alimento — reportar imediatamente se houver recusa alimentar >24h.',
-        'Administrar as medicações nos horários exatos para garantir analgesia contínua.'
-      ],
-      anamnesisSummary: cleanText,
-      version: 1
-    };
-  }
+  // Default Gastro / General (Symptom-aware)
+  const isPancreatitisMentioned = lower.includes('pancreatite') || lower.includes('lipase') || lower.includes('gordura') || lower.includes('dor abdominal');
+  const activeHypothesis = isPancreatitisMentioned
+    ? `Pancreatite Aguda / Enteropatia Inflamatória em ${species}`
+    : `Gastroenterite Aguda / Indiscreção Alimentar em ${species}`;
 
   return {
     patient: { name, species, breed, age, weight: weightStr, tutorName, tutorPhone, ownerId: 'owner-current' },
-    activeHypothesis: `Gastroenterite / Pancreatite Canina em ${species}`,
+    activeHypothesis,
     medications: [
       {
         name: 'Maropitant (Citrato de Maropitant)',
-        dose: weightVal > 0 ? `1 mg/kg (${Math.round(weightVal * 1)} mg via SC ou Oral)` : '1 mg/kg',
+        dose: weightVal > 0 ? `1 mg/kg (${(weightVal * 1).toFixed(1)} mg)` : '1 mg/kg',
         frequency: 'A cada 24 horas',
         duration: '3 a 5 dias',
-        route: 'Oral / Subcutânea',
-        notes: 'Antiemético potente antagonista NK-1 para controle de vômitos.'
-      },
-      {
-        name: 'Ringer com Lactato (Fluidoterapia de Suporte)',
-        dose: weightVal > 0 ? `50 a 60 mL/kg/dia (${Math.round(weightVal * 55)} mL/dia)` : '50 mL/kg/dia',
-        frequency: 'Contínuo',
-        duration: '24 a 48 horas',
-        route: 'Intravenosa / Subcutânea',
-        notes: 'Manutenção de hidratação e reposição eletrolítica.'
+        route: 'Subcutânea ou Oral',
+        notes: 'Antiemético e visceral para controle de emese e náusea.'
       },
       {
         name: 'Dipirona Sódica (25 mg/kg)',
         dose: weightVal > 0 ? `${Math.round(weightVal * 25)} mg` : '25 mg/kg',
         frequency: 'A cada 8 horas',
-        duration: '3 dias',
-        route: 'Oral / IV',
-        notes: 'Alívio da dor visceral e desconforto abdominal.'
+        duration: '3 a 5 dias',
+        route: 'Oral ou IV/SC',
+        notes: 'Analgesia visceral para alívio de desconforto abdominal.'
+      },
+      {
+        name: 'Ringer com Lactato (Fluidoterapia IV/SC)',
+        dose: weightVal > 0 ? `50 a 60 mL/kg/dia (${Math.round(weightVal * 50)} mL/dia)` : '50 mL/kg/dia',
+        frequency: 'Contínuo ou fracionado',
+        duration: '24 a 48 horas',
+        route: 'Intravenosa / Subcutânea',
+        notes: 'Manutenção da hidratação e reidratação de perdas volêmicas.'
       }
     ],
     requestedExams: [
-      'Dosagem de Spec cPL (Lipase Pancreática Específica Canina)',
+      'Dosagem de Lipase Pancreática Específica (Spec cPL / Spec fPL)',
       'Ultrassonografia Abdominal Focada em Trato Gastrointestinal',
       'Hemograma Completo + Proteína Plasmática Total',
       'Painel Bioquímico (ALT, FA, Uréia, Creatinina e Eletrólitos)'
     ],
     careGoals: [
-      'Cessação total de sintomas agudos em 24h',
-      'Reidratação e equilíbrio eletrolítico',
-      'Analgesia efetiva e aceitação de dieta leve'
+      'Cessação da êmese e da náusea em até 24 horas',
+      'Ressuscitação volêmica e restauração da hidratação corporal',
+      'Controle efetivo do desconforto e dor visceral abdominal'
     ],
     tutorInstructions: [
-      `Oferecer água fresca para ${name} em pequenas quantidades fracionadas.`,
-      'Fornecer dieta leve de fácil digestão dividida em porções pequenas.',
-      'Administrar as medicações nos horários exatos prescritos.',
-      'Retornar imediatamente em caso de sintomas persistentes, apatia ou fezes com sangue.'
+      `Oferecer água limpa e fresca em pequenas quantidades para ${name}.`,
+      'Oferecer dieta leve e altamente digestível assim que liberado pelo médico veterinário.',
+      'Acompanhar de perto a frequência de episódios de vômito e fezes, e comunicar qualquer alteração.'
     ],
     anamnesisSummary: cleanText,
     version: 1

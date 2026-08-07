@@ -889,14 +889,10 @@ function createInitialSession(customPatient?: any): any {
         },
         {
           id: 'hyp-2',
-          title: (patient.species || '').toLowerCase().includes('gato') || (patient.species || '').toLowerCase().includes('felin') || (patient.species || '').toLowerCase().includes('cat')
-            ? 'Pancreatite Aguda Felina / Tríade Felina'
-            : 'Pancreatite Aguda Canina',
+          title: `Pancreatite Aguda / Inflamação Pancreática em ${patient.species || 'Paciente'}`,
           confidence: 65,
           probability: 'Moderada',
-          justification: (patient.species || '').toLowerCase().includes('gato') || (patient.species || '').toLowerCase().includes('felin') || (patient.species || '').toLowerCase().includes('cat')
-            ? 'Inapetência, êmese e sensibilidade abdominal em felino com risco de pancreatite e triadite felina.'
-            : 'Sensibilidade em abdome cranial/mesogástrio associada a êmese e inapetência.',
+          justification: 'Sensibilidade em abdome cranial/mesogástrio associada a êmese e inapetência relatadas na anamnese.',
           favorableFindings: ['Sensibilidade à palpação', 'Apatia', 'Vômito / Inapetência'],
           unfavorableFindings: ['Ausência de dor extrema em prece'],
           status: 'active'

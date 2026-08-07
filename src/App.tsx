@@ -577,7 +577,7 @@ export default function App() {
                                 Liberar Plano VetMind Pro!
                               </h3>
                               <p className="text-xs text-indigo-100 max-w-md leading-relaxed">
-                                Tenha acesso irrestrito ao Inteligência de Negócios (BI) e ao Estúdio de Marketing para engajar tutores, além de IA sem limitações.
+                                Tenha acesso irrestrito à Inteligência de Negócios (BI), relatórios financeiros avançados e análises completas para o seu consultório.
                               </p>
                             </div>
                             <button
@@ -756,21 +756,13 @@ export default function App() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
                     >
-                      {userPlan === 'pro' ? (
-                        <MarketingWorkspace 
-                          initialClinicalData={marketingPrefill}
-                          onBack={() => {
-                            setActiveTab('dashboard');
-                            setMarketingPrefill(null);
-                          }} 
-                        />
-                      ) : (
-                        <PremiumGateOverlay 
-                          featureName="Estúdio de Marketing & IA"
-                          description="Gere posts para redes sociais, carrosséis para Instagram estruturados para engajar tutores, textos para LinkedIn e cartas para parceiros veterinários a partir dos seus laudos clínicos."
-                          onUpgrade={() => setIsUpgradeModalOpen(true)}
-                        />
-                      )}
+                      <MarketingWorkspace 
+                        initialClinicalData={marketingPrefill}
+                        onBack={() => {
+                          setActiveTab('dashboard');
+                          setMarketingPrefill(null);
+                        }} 
+                      />
                     </motion.div>
                   )}
                   {activeTab === 'integrations' && (

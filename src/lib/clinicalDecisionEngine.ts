@@ -208,47 +208,15 @@ export function generateCarePlanForHypothesis(context: ClinicalDecisionContext):
   }
 
   if (isPancreatitis) {
-    const isFeline = context.patient?.species?.toLowerCase().includes('gato') || context.patient?.species?.toLowerCase().includes('felin') || context.patient?.species?.toLowerCase().includes('cat') || combined.includes('gato') || combined.includes('felin');
-
-    if (isFeline) {
-      const goals: ClinicalGoal[] = [
-        { id: 'goal-1', title: 'Controlar Êmese e Prevenir Lipidose Hepática Felina', priority: 'Alta', justification: 'Gatos anoréxicos por mais de 24-48h desenvolvem rápida mobilização de gordura e lipidose hepática.', status: 'Aceito' },
-        { id: 'goal-2', title: 'Restabelecer Volemia e Perfusão Pancreática / Ducto Biliar', priority: 'Alta', justification: 'A hipovolemia agrava a lesão parenquimatosa e diminui a circulação na Tríade Felina.', status: 'Aceito' },
-        { id: 'goal-3', title: 'Analgesia Efetiva Multimodal (Buprenorfina)', priority: 'Alta', justification: 'Felinos mascaram a dor visceral, exigindo analgesia contínua para prevenir íleo paralítico.', status: 'Aceito' }
-      ];
-
-      const recommended_tests: RecommendedTestItem[] = [
-        { id: 'test-1', name: 'Dosagem de Lipase Pancreática Específica Felina (Spec fPL / v-fPL)', motive: 'Padrão-ouro com alta sensibilidade e especificidade para inflamação pancreática em felinos.', confirmationGoal: 'Confirma pancreatite felina e diferencia de gastroenterite simples.', urgency: 'Alta', guidelineSource: 'ISFM Consensus Guidelines 2024', status: 'Aceito' },
-        { id: 'test-2', name: 'Ultrassonografia Abdominal Focada (Pâncreas, Ducto Biliar e Duodeno)', motive: 'Identificar hipoecogenocidade pancreática e espessamento duodenal (Tríade Felina).', confirmationGoal: 'Avalia pâncreas e afasta corpo estranho linear.', urgency: 'Alta', guidelineSource: 'ISFM / AAFP Guidelines', status: 'Aceito' },
-        { id: 'test-3', name: 'Perfil Bioquímico Hepático (ALT, FA, GGT e Bilirrubinas)', motive: 'Avaliar estase biliar ou colangiohepatite concomitante.', confirmationGoal: 'Mapeia a extensão da Tríade Felina.', urgency: 'Alta', guidelineSource: 'AAFP Guidelines', status: 'Aceito' }
-      ];
-
-      const recommended_interventions: RecommendedInterventionItem[] = [
-        { id: 'rx-1', description: 'Analgesia com Buprenorfina (0.01-0.02 mg/kg sublingual/SC a cada 8h).', justification: 'Opioide de eleição para dor visceral em felinos com excelente tolerabilidade.', reference: 'ISFM Feline Pain Management Guidelines 2024', guidelineSource: 'ISFM 2024', status: 'Aceito' },
-        { id: 'rx-2', description: 'Antiemético Citrato de Maropitant (1 mg/kg SC a cada 24h) + Fluidoterapia com Ringer Lactato.', justification: 'Cessa episódios de emese, combate a náusea e restaura o fluxo microvascular.', reference: 'Steiner J.M. et al. JFMS 2024', guidelineSource: 'ISFM Guidelines', status: 'Aceito' },
-        { id: 'rx-3', description: 'Suporte Nutricional Enteral Precoce (Sonda Nasoesofágica em anorexia >24h).', justification: 'Interrompe a lipólise periférica prevenindo a lipidose hepática secundária.', reference: 'Center S.A. JFMS 2023', guidelineSource: 'AAFP Nutritional Guidelines', status: 'Aceito' }
-      ];
-
-      const monitoring: MonitoringParamItem[] = [
-        { id: 'mon-1', parameter: 'Ingestão Calórica e Escore de Dor (Feline Grimace Scale)', frequency: 'A cada 4 horas', reason: 'Avaliar alívio da dor e aceitação alimentar espontânea', status: 'Aceito' }
-      ];
-
-      const alerts: ClinicalAlertItem[] = [
-        { id: 'alert-1', title: 'Alerta de Anorexia Felina', message: 'Se o felino permanecer em anorexia por > 24 horas, passar sonda nasoesofágica para iniciar suporte enteral.', severity: 'alerta' }
-      ];
-
-      return { goals, recommended_tests, recommended_interventions, monitoring, alerts, supporting_references: ['ISFM Consensus Guidelines on Feline Pancreatitis and Triaditis (2024)', 'AAFP Guidelines on Feline Anorexia and Lipidosis'] };
-    }
-
     const goals: ClinicalGoal[] = [
-      { id: 'goal-1', title: 'Controlar Êmese e Prevenir Aspirativo', priority: 'Alta', justification: 'O vômito agrava desidratação e risco de pneumonia aspirativa.', status: 'Aceito' },
-      { id: 'goal-2', title: 'Restabelecer Volemia e Perfusão Pancreática', priority: 'Alta', justification: 'A hipovolemia reduz a microcirculação pancreática acelerando necrose.', status: 'Aceito' },
-      { id: 'goal-3', title: 'Alívio Efetivo da Dor Abdominal Cranial', priority: 'Alta', justification: 'A dor intensa induz resposta ao estresse simpático e íleo paralítico.', status: 'Aceito' }
+      { id: 'goal-1', title: 'Controlar Êmese e Prevenir Desidratação / Aspirativo', priority: 'Alta', justification: 'O vômito contínuo agrava a perda de eletrólitos e o risco de desidratação e estresse visceral.', status: 'Aceito' },
+      { id: 'goal-2', title: 'Restabelecer Volemia e Perfusão Pancreática', priority: 'Alta', justification: 'A hipovolemia reduz a microcirculação pancreática e acentua a resposta inflamatória.', status: 'Aceito' },
+      { id: 'goal-3', title: 'Alívio Efetivo da Dor Abdominal Visceral', priority: 'Alta', justification: 'A dor intensa induz resposta ao estresse e íleo paralítico, exigindo analgesia contínua.', status: 'Aceito' }
     ];
 
     const recommended_tests: RecommendedTestItem[] = [
-      { id: 'test-1', name: 'Dosagem de Lipase Pancreática Específica Canina (Spec cPL / v-cPL)', motive: 'Sensibilidade de 88% e especificidade de 92% para inflamação pancreática em cães.', confirmationGoal: 'Confirma pancreatite e diferencia de gastroenterite simples.', urgency: 'Alta', guidelineSource: 'ACVIM Consensus Statement 2024', status: 'Aceito' },
-      { id: 'test-2', name: 'Ultrassonografia Abdominal Focada (Pâncreas e Duodeno)', motive: 'Identificar edema pancreático e afastar corpo estranho obstrutivo.', confirmationGoal: 'Avalia alteração pancreática e área adjacente.', urgency: 'Alta', guidelineSource: 'ACVIM / EVECC Guidelines', status: 'Aceito' }
+      { id: 'test-1', name: 'Dosagem de Lipase Pancreática Específica (Spec cPL / Spec fPL)', motive: 'Sensibilidade e especificidade elevadas para inflamação do pâncreas.', confirmationGoal: 'Confirma pancreatite e diferencia de gastroenterite simples.', urgency: 'Alta', guidelineSource: 'ACVIM / ISFM Consensus Statement 2024', status: 'Aceito' },
+      { id: 'test-2', name: 'Ultrassonografia Abdominal Focada (Pâncreas, Duodeno e Fígado)', motive: 'Identificar edema pancreático, efusão e afastar corpo estranho obstrutivo.', confirmationGoal: 'Avalia alteração pancreática e parênquima adjacente.', urgency: 'Alta', guidelineSource: 'ACVIM / WSAVA Guidelines', status: 'Aceito' }
     ];
 
     const recommended_interventions: RecommendedInterventionItem[] = [

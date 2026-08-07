@@ -466,138 +466,85 @@ export function generateClinicalData(anamnesisText: string, patient: Patient): D
   }
 
   if (category === 'gastro') {
-    const isFeline = species.toLowerCase().includes('gato') || species.toLowerCase().includes('felin') || species.toLowerCase().includes('cat') || lower.includes('gato') || lower.includes('felin');
+    const isPancreatitisMentioned = lower.includes('pancreatite') || lower.includes('gordura') || lower.includes('lipase') || lower.includes('dor abdominal');
+    const primaryTitle = isPancreatitisMentioned
+      ? `Pancreatite Aguda / Enteropatia Inflamatória em ${species}`
+      : `Gastroenterite Aguda / Indiscreção Alimentar em ${species}`;
 
-    if (isFeline) {
-      return {
-        hypotheses: [
-          {
-            id: 'dx_1',
-            title: `Pancreatite Aguda Felina / Síndrome da Tríade Felina`,
-            probability: 'Alta',
-            confidence: 84,
-            justification: [
-              `Queixa de inapetência, prostração, êmese e/ou desconforto abdominal relatada na anamnese de ${name}`,
-              `A anatomia felina (junção do ducto pancreático e colédoco no duodeno) favorece a Tríade Felina (Pancreatite + Colangite + DII)`,
-              `Inapetência/anorexia em felinos exige intervenção ágil para prevenir Lipidose Hepática secundária`,
-            ],
-            supportingFindings: [`Inapetência / Anorexia`, `Prostração / Apatia`, `Êmese / Vômito Bilioso`, `Sensibilidade Abdominal Cranial`],
-            contradictoryFindings: [`Ausência de icterícia descompensada grave no momento`],
-            recommendedTests: [
-              { name: 'Dosagem de Spec fPL (Lipase Pancreática Específica Felina)', priority: 'Alta', reason: 'Exame de escolha com alta sensibilidade e especificidade para pancreatite em gatos' },
-              { name: 'Ultrassonografia Abdominal Focada (Pâncreas, Ducto Biliar e Duodeno)', priority: 'Alta', reason: 'Avaliar hipoecogenocidade pancreática e espessamento de parede duodenal' },
-              { name: 'Perfil Bioquímico Hepático (ALT, GGT, FA e Bilirrubinas)', priority: 'Alta', reason: 'Descartar colangiohepatite concomitante e estase biliar' },
-            ],
-            relatedDiagnoses: ['Lipidose Hepática Felina', 'Corpo Estranho Linear', 'Doença Inflamatória Intestinal (DII)'],
-            conduct: [
-              { id: 'c1', label: 'Analgesia com Buprenorfina (0.01 a 0.02 mg/kg SC ou Sublingual) a cada 8h', checked: true },
-              { id: 'c2', label: 'Antiemético Citrato de Maropitant (1 mg/kg SC) a cada 24h', checked: true },
-              { id: 'c3', label: 'Fluidoterapia IV com Ringer com Lactato para reidratação e perfusão pancreática', checked: true },
-              { id: 'c4', label: 'Sonda Nasoesofágica para suporte enteral se anorexia > 24-48 horas', checked: false },
-            ],
-            prognosis: 'Reservado',
-          },
-          {
-            id: 'dx_2',
-            title: `Lipidose Hepática Felina Secundária`,
-            probability: 'Moderada',
-            confidence: 62,
-            justification: [
-              `Anorexia/inapetência descrita para ${name}, gerando rápida mobilização lipídica hepática`,
-              `Perda de peso e prostração associadas a quadro gastrointestinal primário`,
-            ],
-            supportingFindings: [`Inapetência prolongada`, `Prostração severa`],
-            contradictoryFindings: [`Ausência de icterícia de mucosas evidente no exame inicial`],
-            recommendedTests: [
-              { name: 'Perfil Bioquímico Completo (FA, GGT, ALT, Bilirrubinas)', priority: 'Alta', reason: 'Avaliar hepatopatia vacuolar lipidótica (FA desproporcionalmente alta)' },
-            ],
-            relatedDiagnoses: ['Pancreatite Felina', 'Colangiohepatite Felina'],
-            conduct: [
-              { id: 'c1', label: 'Suporte nutricional enteral precoce obrigatório para estancar acúmulo de gordura hepática', checked: true },
-            ],
-            prognosis: 'Reservado',
-          },
-        ],
-        references: [
-          {
-            id: 'ref_1',
-            title: 'ISFM Consensus Guidelines on Diagnosing and Managing Feline Pancreatitis & Triaditis',
-            authors: 'Steiner J.M., Forman M.A., Armstrong P.J.',
-            year: 2024,
-            journal: 'Journal of Feline Medicine and Surgery (JFMS)',
-            evidenceType: 'Consenso',
-            level: 'Alta Evidência',
-            doi: '10.1177/1098612X24115082',
-            summary: 'Consenso atualizado do ISFM preconizando a dosagem de Spec fPL e ultrassonografia como padrão-ouro para pancreatite felina, ressaltando o suporte nutricional precoce e analgesia.',
-          },
-        ],
-        clinicalTags,
-        decisionNodes: {
-          node1Title: 'Inapetência & Êmese em Felino',
-          node1Subtitle: `Sinais descritos para ${name} (${species}, ${breed})`,
-          node2Consensus: 'Consenso ISFM / AAFP 2024',
-          node2Title: 'Spec fPL & Ultrassom de Pâncreas/Fígado',
-          node2Subtitle: 'Diagnóstico de Pancreatite Aguda Felina / Tríade Felina e prevenção de Lipidose Hepática',
-          node3Title: `Pancreatite Aguda Felina / Tríade Felina (84%)`,
-          node3Subtitle: 'Iniciar Buprenorfina, Maropitant, Ringer Lactato e suporte enteral',
+    return {
+      hypotheses: [
+        {
+          id: 'dx_1',
+          title: primaryTitle,
+          probability: 'Alta',
+          confidence: 85,
+          justification: [
+            `Queixa de êmese, prostração e/ou alteração gastrointestinal relatada na anamnese de ${name}`,
+            `Sintomatologia clínica compatível com inflamação de mucosa gastrointestinal ou parênquima pancreático`,
+            `Necessidade de controle imediato de perda de fluidos, náusea e dor visceral`,
+          ],
+          supportingFindings: clinicalTags.length > 0 ? clinicalTags : [`Êmese / Vômito`, `Apatia / Prostração`, `Desconforto Abdominal`],
+          contradictoryFindings: [`Ausência de choque hipovolêmico descompensado agudo na triagem`],
+          recommendedTests: [
+            { name: 'Dosagem de Lipase Pancreática Específica (Spec cPL / Spec fPL)', priority: 'Alta', reason: 'Padrão-ouro com alta sensibilidade para inflamação pancreática' },
+            { name: 'Ultrassonografia Abdominal Focada em TGI e Pâncreas', priority: 'Alta', reason: 'Avaliar espessamento de alças, peristaltismo, pâncreas e líquido livre' },
+            { name: 'Hemograma Completo + Perfil Bioquímico (ALT, FA, Uréia, Creatinina)', priority: 'Alta', reason: 'Mapeamento de hemoconcentração e função renal/hepática' },
+          ],
+          relatedDiagnoses: ['Gastroenterite Aguda Hemorrágica (AHDS)', 'Obstrução por Corpo Estranho', 'Sensibilidade Alimentar / Disbiose'],
+          conduct: [
+            { id: 'c1', label: 'Antiemético Citrato de Maropitant (1 mg/kg SC ou VO) a cada 24 horas', checked: true },
+            { id: 'c2', label: 'Fluidoterapia IV/SC com Ringer Lactato para reidratação e manutenção microvascular', checked: true },
+            { id: 'c3', label: 'Analgesia visceral (Dipirona, Tramadol ou Buprenorfina conforme intensidade da dor)', checked: true },
+            { id: 'c4', label: 'Suporte nutricional precoce assim que o vômito for controlado', checked: false },
+          ],
+          prognosis: 'Favorável',
         },
-        tutorExplanation: `O(A) ${name} apresenta sinais de inflamação abdominal/pancreática (Pancreatite / Tríade Felina). Em felinos, o controle da dor e da náusea é fundamental para restabelecer a alimentação rapidamente e proteger o fígado contra a lipidose.`,
-      };
-    } else {
-      return {
-        hypotheses: [
-          {
-            id: 'dx_1',
-            title: `Pancreatite Aguda Canina / Gastroenterite Aguda em ${species}`,
-            probability: 'Alta',
-            confidence: 84,
-            justification: [
-              `Quadro de êmese, prostração e dor abdominal cranial informado na anamnese de ${name}`,
-              `Sensibilidade em abdome cranial e/ou desidratação secundária à perda de fluidos`,
-              `Incompatibilidade com dieta recente ou estresse metabólico pancreático`,
-            ],
-            supportingFindings: [`Êmese / Vômito`, `Prostração / Apatia`, `Dor Abdominal Cranial`],
-            contradictoryFindings: [`Ausência de prostração severa sem pulso na triagem`],
-            recommendedTests: [
-              { name: 'Dosagem de Spec cPL (Lipase Pancreática Específica Canina)', priority: 'Alta', reason: 'Padrão-ouro com alta sensibilidade para inflamação pancreática em cães' },
-              { name: 'Ultrassonografia Abdominal Total', priority: 'Alta', reason: 'Avaliar hipoecogenocidade do pâncreas e hiperecogenocidade de gordura peripancreática' },
-              { name: 'Hemograma Completo & Bioquímico (ALT, FA, Uréia, Creatinina)', priority: 'Alta', reason: 'Mapeamento de hemoconcentração e lesão parenquimatosa' },
-            ],
-            relatedDiagnoses: ['Síndrome da Gastroenterite Aguda Hemorrágica (AHDS)', 'Corpo Estranho Gastrointestinal'],
-            conduct: [
-              { id: 'c1', label: 'Antiemético Maropitant (1 mg/kg SC ou VO) a cada 24h', checked: true },
-              { id: 'c2', label: 'Fluidoterapia IV com Ringer Lactato para reposição hídrica e microcirculação pancreática', checked: true },
-              { id: 'c3', label: 'Analgesia visceral com Dipirona ou Tramadol conforme necessidade', checked: true },
-            ],
-            prognosis: 'Favorável',
-          },
-        ],
-        references: [
-          {
-            id: 'ref_1',
-            title: 'ACVIM Consensus Statement on Diagnosing Canine Acute Pancreatitis',
-            authors: 'Steiner J.M., Xenoulis P.G., Forman M.A.',
-            year: 2024,
-            journal: 'Journal of Veterinary Internal Medicine (JVIM)',
-            evidenceType: 'Consenso',
-            level: 'Alta Evidência',
-            doi: '10.1111/jvim.16822',
-            summary: 'Consenso do ACVIM estabelecendo a dosagem de Spec cPL e ultrassonografia como padrão-ouro para diagnóstico de pancreatite em cães.',
-          },
-        ],
-        clinicalTags,
-        decisionNodes: {
-          node1Title: 'Vômito + Dor Abdominal Cranial',
-          node1Subtitle: `Sinais informados para ${name} (${species}, ${breed})`,
-          node2Consensus: 'Consenso ACVIM Pancreatite 2024',
-          node2Title: 'Spec cPL & Ultrassom Abdominal',
-          node2Subtitle: 'Diagnóstico de Pancreatite Aguda Canina e fluidoterapia agressiva',
-          node3Title: `Pancreatite Aguda Canina em ${species} (84%)`,
-          node3Subtitle: 'Iniciar Maropitant, Ringer Lactato e analgesia visceral',
+        {
+          id: 'dx_2',
+          title: `Obstrução por Corpo Estranho ou Enteropatia Obstrutiva`,
+          probability: 'Moderada',
+          confidence: 60,
+          justification: [
+            `Sintomatologia de vômitos e inapetência em ${name} requer exclusão de obstrução mecânica luminal`,
+            `Necessidade de avaliação de peristaltismo e diâmetro de alças intestinais por imagem`,
+          ],
+          supportingFindings: [`Êmese / Vômito repetitivo`, `Sensibilidade abdominal`],
+          contradictoryFindings: [`Ausência de massa palpável evidente no exame físico inicial`],
+          recommendedTests: [
+            { name: 'Radiografia Abdominal Simples e Contrastada', priority: 'Alta', reason: 'Pesquisa de padrão obstrutivo, corpo estranho e gás em alças' },
+          ],
+          relatedDiagnoses: ['Intussuscepção Intestinal', 'Corpo Estranho Linear'],
+          conduct: [
+            { id: 'c1', label: 'Jejum absoluto inicial até confirmação por exame radiográfico ou ultrassonográfico', checked: true },
+          ],
+          prognosis: 'Reservado',
         },
-        tutorExplanation: `O(A) ${name} apresenta sinais de pancreatite / gastroenterite aguda. Faremos o exame de lipase específica e um ultrassom abdominal para confirmar o diagnóstico, além de iniciar o soro e medicações para enjoo e dor.`,
-      };
-    }
+      ],
+      references: [
+        {
+          id: 'ref_1',
+          title: 'ACVIM & WSAVA Guidelines on Diagnosing Acute Gastrointestinal & Pancreatitis Disorders in Small Animals',
+          authors: 'Steiner J.M., Xenoulis P.G., Mansfield C.S. et al.',
+          year: 2024,
+          journal: 'Journal of Veterinary Internal Medicine (JVIM)',
+          evidenceType: 'Consenso',
+          level: 'Alta Evidência',
+          doi: '10.1111/jvim.16822',
+          summary: 'Consenso internacional estabelecendo a dosagem de lipase pancreática específica e a ultrassonografia como padrão-ouro para diagnóstico gastrointestinal em pequenos animais.',
+        },
+      ],
+      clinicalTags,
+      decisionNodes: {
+        node1Title: 'Sinais Abdominais / Gastrointestinais',
+        node1Subtitle: `Queixas relatadas na anamnese de ${name} (${species}, ${breed})`,
+        node2Consensus: 'Consenso ACVIM / WSAVA 2024',
+        node2Title: 'Lipase Específica & Ultrassom Abdominal',
+        node2Subtitle: 'Identificação precisa de pancreatite x enteropatia simples',
+        node3Title: `${primaryTitle} (85%)`,
+        node3Subtitle: 'Iniciar Maropitant, Ringer Lactato e analgesia sintomática',
+      },
+      tutorExplanation: `O(A) ${name} apresenta sinais gastrointestinais/abdominais. Iniciaremos o soro para reidratação e medicações para enjoo e dor, além de realizar a dosagem de lipase e o ultrassom abdominal para confirmar o diagnóstico e garantir uma recuperação rápida e segura.`,
+    };
   }
 
   const excerpt = text.length > 0 ? text.slice(0, 90) : 'Sintomatologia sob investigação clínica';
