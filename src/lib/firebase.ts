@@ -427,7 +427,13 @@ export async function getDocs(queryOrRef: any) {
     const docSnaps = list.map((item: any) => new MockDocSnap(item.id, item, collectionName));
     return new MockQuerySnap(docSnaps);
   }
-  return await originalGetDocs(queryOrRef);
+  try {
+    return await originalGetDocs(queryOrRef);
+  } catch (err: any) {
+    console.warn("Firestore getDocs failed, falling back to local guest mode:", err?.message || err);
+    activateLocalGuestMode();
+    return await getDocs(queryOrRef);
+  }
 }
 
 export function onSnapshot(queryOrRef: any, onNext: any, onError?: any) {
@@ -455,7 +461,17 @@ export function onSnapshot(queryOrRef: any, onNext: any, onError?: any) {
       listeners.delete(update);
     };
   }
-  return originalOnSnapshot(queryOrRef, onNext, onError);
+  try {
+    return originalOnSnapshot(queryOrRef, onNext, (err: any) => {
+      console.warn("Firestore onSnapshot stream error, switching to local guest mode:", err?.message || err);
+      activateLocalGuestMode();
+      if (onError) onError(err);
+    });
+  } catch (err: any) {
+    console.warn("Firestore onSnapshot setup failed, switching to local mode:", err);
+    activateLocalGuestMode();
+    return () => {};
+  }
 }
 
 export function serverTimestamp() {

@@ -376,20 +376,13 @@ interface GenerateContentParams {
 
 // Robust fallback and retry wrapper to safely route queries when a specific model experiences transient high demand
 async function generateContentWithFallback(params: GenerateContentParams): Promise<any> {
-  let initialModel = params.model || 'gemini-3.5-flash';
-  if (
-    initialModel === 'gemini-2.0-flash' ||
-    initialModel === 'gemini-1.5-flash' ||
-    initialModel === 'gemini-2.5-flash'
-  ) {
-    initialModel = 'gemini-3.5-flash';
-  }
+  let initialModel = params.model || 'gemini-2.5-flash';
 
   const modelsToTry = [
     initialModel,
-    'gemini-3.5-flash',
-    'gemini-3.1-flash-lite',
-    'gemini-3.1-pro-preview'
+    'gemini-2.5-flash',
+    'gemini-2.5-pro',
+    'gemini-1.5-flash'
   ];
   
   const uniqueModels = Array.from(new Set(modelsToTry));
@@ -397,8 +390,8 @@ async function generateContentWithFallback(params: GenerateContentParams): Promi
   const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
   
   for (const modelName of uniqueModels) {
-    let attempts = 3;
-    let attemptDelay = 800; // start with 800ms
+    let attempts = 2;
+    let attemptDelay = 500;
     
     for (let attempt = 1; attempt <= attempts; attempt++) {
       try {
@@ -422,11 +415,9 @@ async function generateContentWithFallback(params: GenerateContentParams): Promi
           
         if (isFatal) {
           console.error(`[GEMINI] Got fatal error, skipping retries and fallback models.`);
-          break; // Break the attempt loop for this model, and we'll fall back to our high-fidelity local generator
+          break;
         }
         
-        // Quota exceeded / resource exhausted is NOT retryable immediately since daily or rate limit is depleted.
-        // It's much faster to break immediately and try a fallback model than waiting for retries.
         const isQuotaExceeded = 
           err.status === 'RESOURCE_EXHAUSTED' || 
           err.code === 429 || 
@@ -436,10 +427,9 @@ async function generateContentWithFallback(params: GenerateContentParams): Promi
           
         if (isQuotaExceeded) {
           console.log(`[GEMINI] Quota exceeded on "${modelName}". Breaking immediately to try next fallback model...`);
-          break; // Break and fall back to next model immediately to avoid unnecessary user delay
+          break;
         }
         
-        // If it's a transient server overload error (503, UNAVAILABLE), wait and retry
         const isRetryable = 
           err.status === 'UNAVAILABLE' || 
           err.code === 503 || 
@@ -782,6 +772,387 @@ async function getFullGuidelines() {
   }
   return list;
 }
+
+// ==========================================
+// VETMIND CLINICAL SESSION PERSISTENCE & API
+// ==========================================
+const SESSIONS_FILE = path.join('/tmp', 'clinical_sessions.json');
+
+function loadSessionsFromDisk(): Record<string, any> {
+  try {
+    if (fs.existsSync(SESSIONS_FILE)) {
+      const data = fs.readFileSync(SESSIONS_FILE, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.error('Error reading sessions from disk:', err);
+  }
+  return {};
+}
+
+function saveSessionsToDisk(sessions: Record<string, any>) {
+  try {
+    fs.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2), 'utf8');
+  } catch (err) {
+    console.error('Error saving sessions to disk:', err);
+  }
+}
+
+const activeSessions: Record<string, any> = loadSessionsFromDisk();
+
+function createInitialSession(customPatient?: any): any {
+  const caseId = `case-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  const patientId = `patient-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  const ownerId = `owner-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  const reasoningId = `reasoning-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  const evidenceId = `evidence-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  const timelineId = `timeline-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+  const nowStr = new Date().toLocaleDateString('pt-BR');
+  const timeStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+  const patient = customPatient || {
+    id: patientId,
+    name: '',
+    species: 'Canino',
+    breed: '',
+    age: '',
+    weight: '',
+    ownerId: ownerId,
+    sex: 'Macho Inteiro',
+    tutorName: '',
+    tutorPhone: ''
+  };
+
+  const newSession = {
+    case_id: caseId,
+    patient_id: patient.id || patientId,
+    patient,
+    owner: {
+      id: ownerId,
+      name: patient.tutorName || '',
+      phone: patient.tutorPhone || '',
+      email: ''
+    },
+    anamnesis: {
+      chiefComplaint: '',
+      history: '',
+      currentMedications: '',
+      vaccinationStatus: '',
+      environment: '',
+      diet: '',
+      evolutionTime: '',
+      painLevel: '',
+      clinicalSigns: []
+    },
+    physicalExam: {
+      temperature: '39.1 °C',
+      fc: '110 bpm',
+      fr: '28 mpm',
+      tpc: '2 segundos',
+      mucosas: 'Normocatóricas, discretamente ressecadas',
+      hydration: 'Desidratação moderada (6%)',
+      palpation: 'Desconforto sutil em mesogástrio',
+      neurological: 'Alerta, sem déficits neurológicos',
+      respiratory: 'Eupneico, campos pulmonares limpos',
+      cardiovascular: 'Ritmo sinusal, bulhas normofonéticas',
+      digestive: 'Sensibilidade à palpação profunda em mesogástrio',
+      locomotor: 'Sem queixas funcionais de locomoção',
+      dermatological: 'Turgor cutâneo levemente reduzido'
+    },
+    laboratory: {
+      hemogram: 'Aguardando laudo impresso',
+      biochemical: 'Aguardando painel renal/hepático',
+      urinalysis: 'Não realizada',
+      otherExams: ''
+    },
+    imaging: {
+      xray: '',
+      ultrasound: '',
+      ctScan: ''
+    },
+    attachments: [],
+    clinicalFindings: ['Prostração há 48h', 'Êmese x2', 'Desidratação 6%', 'Sensibilidade abdominal'],
+    reasoning: {
+      reasoning_id: reasoningId,
+      activeHypothesisId: 'hyp-1',
+      differentials: [
+        {
+          id: 'hyp-1',
+          title: 'Gastroenterite Aguda / Indiscreção Alimentar',
+          confidence: 82,
+          probability: 'Alta',
+          justification: 'Início agudo de êmese e prostração em jovem adulto com histórico de acesso a quintal.',
+          favorableFindings: ['Apatia', 'Êmese recente', 'Sensibilidade abdominal leve'],
+          unfavorableFindings: ['Ausência de hematêmese grave'],
+          status: 'active'
+        },
+        {
+          id: 'hyp-2',
+          title: (patient.species || '').toLowerCase().includes('gato') || (patient.species || '').toLowerCase().includes('felin') || (patient.species || '').toLowerCase().includes('cat')
+            ? 'Pancreatite Aguda Felina / Tríade Felina'
+            : 'Pancreatite Aguda Canina',
+          confidence: 65,
+          probability: 'Moderada',
+          justification: (patient.species || '').toLowerCase().includes('gato') || (patient.species || '').toLowerCase().includes('felin') || (patient.species || '').toLowerCase().includes('cat')
+            ? 'Inapetência, êmese e sensibilidade abdominal em felino com risco de pancreatite e triadite felina.'
+            : 'Sensibilidade em abdome cranial/mesogástrio associada a êmese e inapetência.',
+          favorableFindings: ['Sensibilidade à palpação', 'Apatia', 'Vômito / Inapetência'],
+          unfavorableFindings: ['Ausência de dor extrema em prece'],
+          status: 'active'
+        },
+        {
+          id: 'hyp-3',
+          title: 'Corpo Estranho Gastrointestinal',
+          confidence: 42,
+          probability: 'Baixa',
+          justification: 'Raça Golden Retriever com acesso a quintal, porém sem episódios prévios de picacismo relato.',
+          favorableFindings: ['Acesso a quintal', 'Sensibilidade abdominal'],
+          unfavorableFindings: ['Exame de palpação sem massa palpável evidente'],
+          status: 'active'
+        }
+      ],
+      updatedAt: new Date().toISOString()
+    },
+    evidence: {
+      evidence_id: evidenceId,
+      articles: []
+    },
+    carePlan: {
+      goals: [
+        { id: 'goal-1', title: 'Cessação dos vômitos em 24h', priority: 'Alta', justification: 'Prevenir desidratação severa', status: 'Aceito' },
+        { id: 'goal-2', title: 'Restabelecimento da volemia e hidratação', priority: 'Alta', justification: 'Desidratação estimada em 6%', status: 'Aceito' }
+      ],
+      recommended_tests: [
+        { id: 'test-1', name: 'Ultrassonografia Abdominal Total', motive: 'Descartar corpo estranho ou intussuscepção', confirmationGoal: 'Avaliar alças intestinais e pâncreas', urgency: 'Alta', guidelineSource: 'Consenso Gastroenterologia Vet', status: 'Aceito' },
+        { id: 'test-2', name: 'Hemograma Completo + ALT/FA/Uréia/Creatinina', motive: 'Avaliar grau de hemoconcentração e lesão orgânica', confirmationGoal: 'Descartar insuficiência renal/hepática', urgency: 'Alta', guidelineSource: 'Guidelines Medicina Interna', status: 'Aceito' }
+      ],
+      recommended_interventions: [
+        { id: 'interv-1', description: 'Fluidoterapia com Ringer com Lactato (50 mL/kg/dia)', justification: 'Reposição volêmica e manutenção', reference: 'Guidelines Fluidoterapia AAHA', guidelineSource: 'AAHA Fluid Therapy', status: 'Aceito' },
+        { id: 'interv-2', description: 'Citrato de Maropitant (1 mg/kg SC a cada 24h)', justification: 'Controle neurogênico de emese', reference: 'Farmacologia Veterinária Plumb', guidelineSource: 'Plumb 9th Ed', status: 'Aceito' }
+      ],
+      monitoring: [
+        { id: 'mon-1', parameter: 'Frequência Cardíaca e TRC', frequency: 'A cada 4 horas', reason: 'Avaliar perfusão tecidual', status: 'Aceito' }
+      ],
+      alerts: [
+        { id: 'alert-1', title: 'Atenção com Hidratação', message: 'Turgor cutâneo levemente reduzido; manter fluidoterapia', severity: 'atencao' }
+      ],
+      supporting_references: ['Nelson - Medicina Interna de Pequenos Animais', 'Guidelines AAHA Fluidoterapia']
+    },
+    documents: [],
+    timeline: [
+      {
+        timeline_id: timelineId,
+        date: nowStr,
+        time: timeStr,
+        type: 'consultation',
+        title: 'Sessão Clínica Iniciada',
+        summary: `Atendimento registrado para ${patient.name} (${patient.species} - ${patient.breed}).`,
+        details: 'Anamnese inicial e achados de triagem cadastrados.'
+      }
+    ],
+    history: ['Sessão iniciada'],
+    notes: '',
+    favorite: false,
+    status: 'active',
+    metadata: {
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      vetName: 'Dr. Roberto Silva (CRMV-SP 14892)',
+      clinicName: 'Vetmind Clinical Studio'
+    }
+  };
+
+  activeSessions[caseId] = newSession;
+  activeSessions['current'] = newSession; // Pointer to current active session
+  saveSessionsToDisk(activeSessions);
+  return newSession;
+}
+
+// Get or initialize active session
+app.get('/api/clinical-session/current', (req, res) => {
+  try {
+    let current = activeSessions['current'];
+    if (!current) {
+      current = createInitialSession();
+    }
+    res.json(current);
+  } catch (err: any) {
+    console.error('Error fetching current session:', err);
+    res.status(500).json({ error: 'Erro ao carregar a sessão clínica atual.' });
+  }
+});
+
+app.get('/api/clinical-session/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const session = activeSessions[id] || activeSessions['current'];
+    if (!session) {
+      return res.status(404).json({ error: 'Sessão clínica não encontrada.' });
+    }
+    res.json(session);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Erro ao obter sessão clínica.' });
+  }
+});
+
+app.post('/api/clinical-session', (req, res) => {
+  try {
+    const { patient } = req.body;
+    const newSession = createInitialSession(patient);
+    res.json(newSession);
+  } catch (err: any) {
+    console.error('Error creating new session:', err);
+    res.status(500).json({ error: 'Erro ao criar nova sessão clínica.' });
+  }
+});
+
+app.patch('/api/clinical-session/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    let session = activeSessions[id] || activeSessions['current'];
+    if (!session) {
+      session = createInitialSession();
+    }
+
+    const updates = req.body;
+    const previousWeight = session.patient?.weight;
+    const previousHypothesis = session.reasoning?.activeHypothesisId;
+
+    // Merge updates recursively
+    if (updates.patient) {
+      session.patient = { ...session.patient, ...updates.patient };
+      if (session.owner) {
+        session.owner.name = session.patient.tutorName || session.owner.name;
+        session.owner.phone = session.patient.tutorPhone || session.owner.phone;
+      }
+    }
+    if (updates.anamnesis) {
+      session.anamnesis = { ...session.anamnesis, ...updates.anamnesis };
+    }
+    if (updates.physicalExam) {
+      session.physicalExam = { ...session.physicalExam, ...updates.physicalExam };
+    }
+    if (updates.laboratory) {
+      session.laboratory = { ...session.laboratory, ...updates.laboratory };
+    }
+    if (updates.imaging) {
+      session.imaging = { ...session.imaging, ...updates.imaging };
+    }
+    if (updates.attachments && Array.isArray(updates.attachments)) {
+      session.attachments = updates.attachments;
+    }
+    if (updates.reasoning) {
+      session.reasoning = { ...session.reasoning, ...updates.reasoning };
+    }
+    if (updates.carePlan) {
+      session.carePlan = { ...session.carePlan, ...updates.carePlan };
+    }
+    if (updates.documents) {
+      session.documents = updates.documents;
+    }
+    if (updates.clinicalFindings) {
+      session.clinicalFindings = updates.clinicalFindings;
+    }
+    if (updates.status) {
+      session.status = updates.status;
+    }
+
+    session.metadata.updatedAt = new Date().toISOString();
+
+    // Auto-generate Timeline Event if weight changed
+    if (updates.patient?.weight && updates.patient.weight !== previousWeight) {
+      const nowStr = new Date().toLocaleDateString('pt-BR');
+      const timeStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const newEv = {
+        timeline_id: `timeline-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        date: nowStr,
+        time: timeStr,
+        type: 'evolution',
+        title: 'Peso do Paciente Atualizado',
+        summary: `Peso do paciente ${session.patient.name} alterado de ${previousWeight || 'N/I'} kg para ${updates.patient.weight} kg.`,
+        details: 'Doses de medicamentos e planos terapêuticos recalculados automaticamente.'
+      };
+      session.timeline = [newEv, ...(session.timeline || [])];
+    }
+
+    // Auto-generate Timeline Event if active hypothesis changed
+    if (updates.reasoning?.activeHypothesisId && updates.reasoning.activeHypothesisId !== previousHypothesis) {
+      const activeHyp = session.reasoning.differentials.find((d: any) => d.id === updates.reasoning.activeHypothesisId);
+      if (activeHyp) {
+        const nowStr = new Date().toLocaleDateString('pt-BR');
+        const timeStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const newEv = {
+          timeline_id: `timeline-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          date: nowStr,
+          time: timeStr,
+          type: 'hypothesis_change',
+          title: 'Hipótese Diagnóstica Selecionada',
+          summary: `Hipótese primária alterada para: ${activeHyp.title} (${activeHyp.confidence}% de certeza).`,
+          details: 'Módulos de Evidências, Decisão Clínica e Documentação sincronizados automaticamente.'
+        };
+        session.timeline = [newEv, ...(session.timeline || [])];
+      }
+    }
+
+    // Save state
+    activeSessions[session.case_id] = session;
+    activeSessions['current'] = session;
+    saveSessionsToDisk(activeSessions);
+
+    res.json(session);
+  } catch (err: any) {
+    console.error('Error updating session:', err);
+    res.status(500).json({ error: 'Erro ao atualizar sessão clínica.' });
+  }
+});
+
+app.get('/api/clinical-session/:id/timeline', (req, res) => {
+  try {
+    const { id } = req.params;
+    const session = activeSessions[id] || activeSessions['current'];
+    if (!session) {
+      return res.status(404).json({ error: 'Sessão não encontrada.' });
+    }
+    res.json({ timeline: session.timeline || [] });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Erro ao obter linha do tempo.' });
+  }
+});
+
+app.post('/api/clinical-session/:id/timeline', (req, res) => {
+  try {
+    const { id } = req.params;
+    const session = activeSessions[id] || activeSessions['current'];
+    if (!session) {
+      return res.status(404).json({ error: 'Sessão não encontrada.' });
+    }
+    const { type, title, summary, details } = req.body;
+    const nowStr = new Date().toLocaleDateString('pt-BR');
+    const timeStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    const newEvent = {
+      timeline_id: `timeline-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      date: nowStr,
+      time: timeStr,
+      type: type || 'evolution',
+      title: title || 'Evento Clínico',
+      summary: summary || '',
+      details: details || ''
+    };
+
+    session.timeline = [newEvent, ...(session.timeline || [])];
+    session.metadata.updatedAt = new Date().toISOString();
+
+    activeSessions[session.case_id] = session;
+    activeSessions['current'] = session;
+    saveSessionsToDisk(activeSessions);
+
+    res.json({ success: true, event: newEvent, timeline: session.timeline });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Erro ao adicionar evento na linha do tempo.' });
+  }
+});
 
 // Admin security verification middleware
 app.use('/api/admin/*', (req, res, next) => {
@@ -1160,7 +1531,7 @@ app.post('/api/chat-followup', async (req, res) => {
       
       Regras de Interação:
       1. Se o veterinário estiver fazendo uma pergunta de dúvida, aconselhamento, farmacologia, exames adicionais ou raciocínio clínico (ex: "Qual a dosagem recomendada?", "Como funciona a farmacologia de X?", "O que diz a literatura sobre Y?"), forneça uma resposta extremamente qualificada, indicando dosagens adequadas para o peso do paciente (se aplicável), e sugerindo links/diretrizes de busca científica.
-      2. Se o veterinário estiver apenas passando novos dados clínicos para o prontuário (ex: "Adicione vômito na anamnese", "A temperatura dele agora é 38.5"), responda brevemente confirmando o recebimento da informação (ex: "Sintoma integrado com sucesso ao prontuário!") e oriente-o a clicar em "Analisar Caso" para regerar o laudo SOAP e obter novos diagnósticos diferenciais sistemáticos.
+      2. Se o veterinário estiver apenas passando novos dados clínicos para o prontuário (ex: "Adicione vômito na anamnese", "A temperatura dele agora é 38.5"), responda brevemente confirmando o recebimento da informação (ex: "Sintoma integrado com sucesso ao histórico do prontuário!") e destaque que ele pode clicar no botão "✨ Reavaliar Caso" no chat ou na barra inferior para regerar a análise SOAP completa com os novos diagnósticos diferenciais.
       3. Se a pergunta for sobre medicamentos sugeridos na prescrição do paciente, consulte a prescrição e explique o mecanismo de ação, intervalos ou efeitos colaterais de forma clara e estruturada.
       4. Responda em Português Brasileiro. Use formatação Markdown (negrito, listas, etc.) para tornar o texto agradável e fácil de ler no chat.
     `;

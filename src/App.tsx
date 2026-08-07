@@ -25,34 +25,31 @@ import Library from './components/Library';
 
 const menuGroups = [
   {
-    title: "Atendimento Clínico",
+    title: "Navegação Principal",
     items: [
-      { id: 'dashboard', icon: LayoutGrid, label: 'Painel Central' },
-      { id: 'workspace', icon: Chrome, label: 'Copiloto & Chat' },
-      { id: 'prescriptions', icon: ClipboardList, label: 'Receituário Rápido' },
+      { id: 'workspace', icon: PlusCircle, label: 'Novo caso' },
+      { id: 'dashboard', icon: LayoutGrid, label: 'Dashboard' },
+      { id: 'cases', icon: ClipboardList, label: 'Casos' },
+      { id: 'patients', icon: UserCircle, label: 'Pacientes' },
+      { id: 'guidelines', icon: LibraryIcon, label: 'Literatura' },
+      { id: 'prescriptions', icon: Chrome, label: 'Ferramentas' },
+    ]
+  },
+  {
+    title: "Módulos Avançados",
+    items: [
+      { id: 'quiz', icon: BookOpen, label: 'Desafios Clínicos' },
+      { id: 'marketing', icon: Sparkles, label: 'Estúdio Marketing' },
+      { id: 'calendar', icon: CalendarIcon, label: 'Agenda Médica' },
+      { id: 'bi', icon: TrendingUp, label: 'Inteligência BI' },
       { id: 'signature', icon: PenTool, label: 'Termos & Assinatura' },
     ]
   },
   {
-    title: "Conhecimento & IA",
+    title: "Sistema & Perfil",
     items: [
-      { id: 'guidelines', icon: LibraryIcon, label: 'Diretrizes & Consensos' },
-      { id: 'quiz', icon: BookOpen, label: 'Desafios Clínicos (Quiz)' },
-    ]
-  },
-  {
-    title: "Gestão & Crescimento",
-    items: [
-      { id: 'marketing', icon: Sparkles, label: 'Estúdio de Marketing' },
-      { id: 'calendar', icon: CalendarIcon, label: 'Agenda Médica' },
-      { id: 'bi', icon: TrendingUp, label: 'Inteligência e BI' },
-    ]
-  },
-  {
-    title: "Configurações & Painel",
-    items: [
-      { id: 'profile', icon: UserCircle, label: 'Meu Perfil' },
-      { id: 'feedbacks', icon: Shield, label: 'Painel Admin (Métricas)' }
+      { id: 'profile', icon: UserCircle, label: 'Configurações' },
+      { id: 'feedbacks', icon: Shield, label: 'Painel Admin' }
     ]
   }
 ];
@@ -233,56 +230,44 @@ export default function App() {
         </button>
       )}
 
-      {/* Spacer to push content (width transition matches sidebar animation exactly) */}
+      {/* Spacer to push content based on sidebar width */}
       <div 
         style={{ 
-          width: isSidebarPinned ? 256 : 0, 
+          width: isSidebarHovered ? 240 : 96, 
         }}
-        className="hidden xl:block h-full bg-transparent shrink-0 transition-[width] duration-300 ease-in-out"
+        className="hidden xl:block h-full bg-transparent shrink-0 transition-[width] duration-200 ease-in-out"
       />
 
-      {/* Real Sidebar Element */}
+      {/* Real Sidebar Element - 96px collapsed, 240px expanded on hover */}
       <motion.aside 
-        className="hidden xl:flex flex-col bg-white border-r border-slate-100 h-screen w-64 shadow-sm fixed left-0 top-0 z-50 overflow-hidden"
-        onMouseEnter={() => {
-          if (!isSidebarPinned) setIsSidebarHovered(true);
+        className="hidden xl:flex flex-col bg-white border-r border-[#E2E8F0] h-screen shadow-2xs fixed left-0 top-0 z-50 overflow-hidden transition-[width] duration-200 ease-in-out"
+        style={{
+          width: isSidebarHovered ? 240 : 96,
         }}
-        onMouseLeave={() => {
-          if (!isSidebarPinned) setIsSidebarHovered(false);
-        }}
-        animate={{
-          x: (isSidebarPinned || isSidebarHovered) ? 0 : -256
-        }}
-        transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+        onMouseEnter={() => setIsSidebarHovered(true)}
+        onMouseLeave={() => setIsSidebarHovered(false)}
       >
-        {/* Header container */}
-        <div className="p-6 pb-2 border-b border-slate-50 shrink-0">
-          <div className="flex items-center justify-between gap-3 px-1 my-3">
-            <VetmindLogo showText={true} size={40} />
-                 {/* Collapse / Pin Toggle Button */}
-            <button
-              onClick={toggleSidebarPin}
-              className={`p-1.5 rounded-xl transition-all duration-200 border cursor-pointer hidden xl:block ${
-                isSidebarPinned 
-                  ? 'bg-indigo-50 border-indigo-100 text-indigo-600 hover:bg-indigo-100/50' 
-                  : 'bg-transparent border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'
-              }`}
-              title={isSidebarPinned ? "Ocultar Menu (Auto-recolher)" : "Fixar Menu"}
-            >
-              <Pin className={`w-4 h-4 transition-transform duration-300 ${
-                isSidebarPinned ? "rotate-45 text-indigo-600" : "-rotate-45 text-slate-400"
-              }`} />
-            </button>
+        {/* Top Logo Container */}
+        <div className="p-6 pb-4 shrink-0 flex items-center justify-between">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <VetmindLogo showText={false} size={36} />
+            {isSidebarHovered && (
+              <span className="font-extrabold text-lg text-[#0F172A] tracking-tight animate-in fade-in duration-150 font-sans">
+                vetmind
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Scrollable navigation area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar" style={{ scrollbarWidth: 'none' }}>
+        {/* Scrollable navigation items */}
+        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5 custom-scrollbar" style={{ scrollbarWidth: 'none' }}>
           {filteredMenuGroups.map((group) => (
-            <div key={group.title} className="space-y-1.5">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.18em] block px-3">
-                {group.title}
-              </span>
+            <div key={group.title} className="space-y-1">
+              {isSidebarHovered && (
+                <span className="text-[10px] font-semibold text-[#64748B] uppercase tracking-wider block px-3 py-1 font-sans">
+                  {group.title}
+                </span>
+              )}
               <nav className="space-y-1">
                 {group.items.map((item) => {
                   const isActive = activeTab === item.id;
@@ -293,23 +278,25 @@ export default function App() {
                         setActiveTab(item.id as any); 
                         setSelectedReport(null);
                       }}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl font-bold text-[12.5px] transition-all duration-200 relative group border cursor-pointer ${
+                      className={`w-full flex items-center gap-3.5 px-3.5 py-3 rounded-2xl font-semibold text-sm transition-all duration-150 relative group cursor-pointer ${
                         isActive 
-                        ? 'bg-indigo-50 border-indigo-100 text-indigo-600' 
-                        : 'bg-transparent border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-850'
+                        ? 'bg-[#4F46E5]/10 text-[#4F46E5]' 
+                        : 'bg-transparent text-[#64748B] hover:bg-slate-50 hover:text-[#0F172A]'
                       }`}
+                      title={!isSidebarHovered ? item.label : undefined}
                     >
-                      <div className={`p-1.5 rounded-xl transition-all duration-200 ${
-                        isActive 
-                        ? 'bg-indigo-100 text-indigo-600' 
-                        : 'bg-slate-50 text-slate-400 group-hover:bg-slate-100 group-hover:text-slate-600'
-                      }`}>
-                        <item.icon className="w-4 h-4 shrink-0" />
-                      </div>
-                      <span className="tracking-tight text-left flex-1 font-extrabold">{item.label}</span>
+                      <item.icon className={`w-6 h-6 shrink-0 transition-transform duration-150 group-hover:scale-105 ${
+                        isActive ? 'text-[#4F46E5]' : 'text-[#64748B] group-hover:text-[#0F172A]'
+                      }`} />
                       
-                      {isActive && (
-                        <div className="h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" />
+                      {isSidebarHovered && (
+                        <span className="tracking-tight text-left flex-1 whitespace-nowrap animate-in fade-in duration-150 font-sans">
+                          {item.label}
+                        </span>
+                      )}
+
+                      {isActive && !isSidebarHovered && (
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#4F46E5]" />
                       )}
                     </button>
                   );
@@ -319,37 +306,36 @@ export default function App() {
           ))}
         </div>
         
-        {/* Footer actions area */}
-        <div className="p-5 border-t border-slate-100 space-y-4 shrink-0 bg-slate-50/50">
-          <button 
-            onClick={handleNewReport}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white py-3.5 rounded-xl font-extrabold px-8 shadow-md shadow-indigo-600/10 hover:scale-[1.01] duration-200 transition-all flex items-center justify-center gap-2 cursor-pointer text-xs uppercase tracking-wider"
-          >
-            <PlusCircle className="w-4 h-4" />
-            Novo Chat / Copiloto
-          </button>
-          
-          <div className="p-3 bg-white rounded-2xl border border-slate-100 flex items-center justify-between gap-3 shadow-sm">
-             <div className="flex items-center gap-3 overflow-hidden">
-               <div className="w-8 h-8 rounded-full overflow-hidden border border-slate-200/55 bg-slate-100 shrink-0">
-                 <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Vet" alt="User" />
-               </div>
-               <div className="overflow-hidden">
-                 <p className="text-[10px] font-black text-slate-800 truncate uppercase">VETERINÁRIO</p>
-                 <p className="text-[9px] text-slate-400 truncate">{user?.email || "Convidado (Demo)"}</p>
-               </div>
-             </div>
-             <button
-               onClick={() => {
-                 if (confirm("Deseja realmente sair da sua conta?")) {
-                   signOut(auth);
-                 }
-               }}
-               className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
-               title="Sair"
-             >
-               <LogOut className="w-4 h-4 shrink-0" />
-             </button>
+        {/* Footer user profile area */}
+        <div className="p-3 border-t border-[#E2E8F0] shrink-0 bg-white">
+          <div className={`flex items-center gap-3 p-2 rounded-2xl transition-all ${isSidebarHovered ? 'bg-slate-50' : ''}`}>
+            <div className="w-10 h-10 rounded-full overflow-hidden border border-[#E2E8F0] bg-slate-100 shrink-0 shadow-2xs">
+              <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=André" alt="User Avatar" className="w-full h-full object-cover" />
+            </div>
+            {isSidebarHovered && (
+              <div className="overflow-hidden flex-1 animate-in fade-in duration-150">
+                <p className="text-xs font-semibold text-[#0F172A] truncate leading-tight font-sans">
+                  {profileName || "Dr. André Eguchi"}
+                </p>
+                <p className="text-[10px] text-[#10B981] font-medium tracking-tight mt-0.5 font-sans flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] inline-block animate-pulse" />
+                  Plano Premium
+                </p>
+              </div>
+            )}
+            {isSidebarHovered && (
+              <button
+                onClick={() => {
+                  if (confirm("Deseja realmente sair da sua conta?")) {
+                    signOut(auth);
+                  }
+                }}
+                className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition-colors cursor-pointer"
+                title="Sair"
+              >
+                <LogOut className="w-4 h-4 shrink-0" />
+              </button>
+            )}
           </div>
         </div>
       </motion.aside>
@@ -813,44 +799,60 @@ export default function App() {
           )}
         </main>
 
-        {/* Bottom Navigation - Mobile Only (Hidden in Workspace for maximal screen size) */}
-        {activeTab !== 'workspace' && activeTab !== 'prescriptions' && (
-          <div className="fixed xl:hidden bottom-4 left-0 w-full flex justify-center gap-2 px-4 z-40 pointer-events-none">
-            <nav className="bg-white/85 backdrop-blur-xl border border-slate-200/40 flex items-center justify-between p-1 rounded-full w-full max-w-[260px] shadow-[0_10px_30px_rgba(0,0,0,0.06)] pointer-events-auto">
-              <button 
-                onClick={() => {setActiveTab('dashboard'); setSelectedReport(null);}}
-                className={`flex items-center justify-center w-[33%] py-2.5 rounded-full transition-all ${activeTab === 'dashboard' ? 'bg-indigo-50/80 text-indigo-600 shadow-3xs font-extrabold' : 'text-slate-400 hover:text-slate-600'}`}
-                title="Início"
-              >
-                <LayoutGrid className="w-5 h-5" />
-              </button>
-
-              <button 
-                onClick={() => {setActiveTab('calendar'); setSelectedReport(null);}}
-                className={`flex items-center justify-center w-[33%] py-2.5 rounded-full transition-all ${activeTab === 'calendar' ? 'bg-indigo-50/80 text-indigo-600 shadow-3xs font-extrabold' : 'text-slate-400 hover:text-slate-600'}`}
-                title="Agenda"
-              >
-                <CalendarIcon className="w-5 h-5" />
-              </button>
-
-              <button 
-                onClick={() => {setActiveTab('profile'); setSelectedReport(null);}}
-                className={`flex items-center justify-center w-[33%] py-2.5 rounded-full transition-all ${activeTab === 'profile' ? 'bg-indigo-50/80 text-indigo-600 shadow-3xs font-extrabold' : 'text-slate-400 hover:text-slate-600'}`}
-                title="Perfil"
-              >
-                <UserCircle className="w-5 h-5" />
-              </button>
-            </nav>
+        {/* Bottom Navigation - Mobile Only (5 Tabs as requested in Vetmind Design Specs) */}
+        <div className="fixed xl:hidden bottom-3 left-0 w-full flex justify-center px-3 z-40 pointer-events-none">
+          <nav className="bg-white/90 backdrop-blur-xl border border-slate-200/60 flex items-center justify-around p-1.5 rounded-full w-full max-w-sm shadow-[0_12px_35px_rgba(15,23,42,0.12)] pointer-events-auto relative">
             
+            {/* Tab 1: Início */}
             <button 
-              onClick={() => setIsMobileMenuOpen(true)}
-              className="w-11 h-11 rounded-full bg-white/85 backdrop-blur-xl border border-slate-200/40 flex items-center justify-center pointer-events-auto text-slate-500 hover:text-slate-700 shadow-[0_10px_30px_rgba(0,0,0,0.06)] shrink-0 transition-all active:scale-95"
-              title="Mais Opções"
+              onClick={() => {setActiveTab('dashboard'); setSelectedReport(null);}}
+              className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-full transition-all ${activeTab === 'dashboard' ? 'text-[#4F46E5] font-bold' : 'text-slate-400 hover:text-slate-600'}`}
+              title="Início"
             >
-              <Menu className="w-5 h-5 text-slate-500" />
+              <LayoutGrid className="w-5 h-5" />
+              <span className="text-[9px] font-medium mt-0.5">Início</span>
             </button>
-          </div>
-        )}
+
+            {/* Tab 2: Casos */}
+            <button 
+              onClick={() => {setActiveTab('dashboard'); setSelectedReport(null);}}
+              className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-full transition-all ${activeTab === 'dashboard' && selectedReport ? 'text-[#4F46E5] font-bold' : 'text-slate-400 hover:text-slate-600'}`}
+              title="Casos"
+            >
+              <ClipboardList className="w-5 h-5" />
+              <span className="text-[9px] font-medium mt-0.5">Casos</span>
+            </button>
+
+            {/* Tab 3: Central Living Orb Button (Novo Caso) */}
+            <button
+              onClick={() => handleNewReport()}
+              className="relative -top-3 w-12 h-12 rounded-full bg-gradient-to-tr from-[#4F46E5] via-indigo-500 to-[#10B981] flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 hover:scale-105 active:scale-95 transition-all cursor-pointer border-2 border-white shrink-0"
+              title="Novo Atendimento / Copiloto"
+            >
+              <Sparkles className="w-6 h-6 text-white animate-pulse" />
+            </button>
+
+            {/* Tab 4: Literatura */}
+            <button 
+              onClick={() => {setActiveTab('guidelines'); setSelectedReport(null);}}
+              className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-full transition-all ${activeTab === 'guidelines' ? 'text-[#4F46E5] font-bold' : 'text-slate-400 hover:text-slate-600'}`}
+              title="Literatura"
+            >
+              <BookOpen className="w-5 h-5" />
+              <span className="text-[9px] font-medium mt-0.5">Literatura</span>
+            </button>
+
+            {/* Tab 5: Perfil */}
+            <button 
+              onClick={() => {setActiveTab('profile'); setSelectedReport(null);}}
+              className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-full transition-all ${activeTab === 'profile' ? 'text-[#4F46E5] font-bold' : 'text-slate-400 hover:text-slate-600'}`}
+              title="Perfil"
+            >
+              <UserCircle className="w-5 h-5" />
+              <span className="text-[9px] font-medium mt-0.5">Perfil</span>
+            </button>
+          </nav>
+        </div>
       </div>
 
       <UpgradePlanModal 

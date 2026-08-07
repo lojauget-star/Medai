@@ -15,6 +15,7 @@ import {
   Upload,
   CheckCircle2,
   RefreshCw,
+  RotateCcw,
   Sparkles,
   ChevronDown,
   Trash2,
@@ -33,6 +34,15 @@ import {
   Menu,
   ExternalLink,
   ListChecks,
+  Share2,
+  Info,
+  FileDown,
+  Activity,
+  HeartPulse,
+  ShieldCheck,
+  Thermometer,
+  Weight,
+  Library,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "motion/react";
@@ -40,6 +50,21 @@ import { db, auth, collection, addDoc, serverTimestamp, doc, updateDoc, getDocs,
 import { Patient, Report } from "../types";
 import VetmindLogo from "./VetmindLogo";
 import ClinicalNextStepsChecklist from "./ClinicalNextStepsChecklist";
+import LivingThinkingCore, { OrbState } from "./LivingThinkingCore";
+import AnamnesisDashboard from "./AnamnesisDashboard";
+import ClinicalReasoningEngine from "./ClinicalReasoningEngine";
+import DifferentialDiagnosisWorkspace from "./DifferentialDiagnosisWorkspace";
+import EvidenceWorkspace from "./EvidenceWorkspace";
+import ClinicalDecisionWorkspace from "./ClinicalDecisionWorkspace";
+import ClinicalDocumentationStudio from "./ClinicalDocumentationStudio";
+import ClinicalKnowledgeHub from "./ClinicalKnowledgeHub";
+import { useClinicalSession } from "../hooks/useClinicalSession";
+import {
+  PAGE_TRANSITION_VARIANTS,
+  BUTTON_MOTION_PROPS,
+  MOTION_TIMING,
+  MOTION_EASINGS
+} from "../lib/motionBible";
 
 // Style block for beautiful clinical markdown lists and spacing
 const styleBlock = (
@@ -314,28 +339,100 @@ export default function ReportWorkspace({
   onNavigateToSignature?: () => void;
   onToggleMenu?: () => void;
 }) {
+  const { session, updatePatient: savePatientToSession, updateAnamnesis: saveAnamnesisToSession, addAttachment } = useClinicalSession();
+
   const [step, setStep] = useState<"input" | "result">(initialReport ? "result" : "input");
   const [disabledReferences, setDisabledReferences] = useState<string[]>([]);
   const [savedPatients, setSavedPatients] = useState<Patient[]>([]);
   const [patient, setPatient] = useState<Partial<Patient>>(() => {
+    if (initialPatient) {
+      return {
+        name: initialPatient.name || "",
+        species: initialPatient.species || "Canino",
+        breed: initialPatient.breed || "",
+        age: initialPatient.age || "",
+        sex: initialPatient.sex || "Macho",
+        weight: initialPatient.weight || "",
+        tutorName: initialPatient.tutorName || "",
+        tutorPhone: initialPatient.tutorPhone || "",
+      };
+    }
+    if (initialReport) {
+      return {
+        name: initialReport.patientId || "",
+        species: initialReport.patientSpecies || "Canino",
+        breed: initialReport.patientBreed || "",
+        age: initialReport.patientAge || "",
+        sex: initialReport.patientSex || "Macho",
+        weight: initialReport.patientWeight || "",
+        tutorName: (initialReport as any)?.tutorName || "",
+        tutorPhone: (initialReport as any)?.tutorPhone || "",
+      };
+    }
     return {
-      name: initialReport?.patientId || "",
-      species: initialReport?.patientSpecies || "Canino",
-      breed: initialReport?.patientBreed || "",
-      age: initialReport?.patientAge || "",
-      sex: initialReport?.patientSex || "Macho",
-      weight: initialReport?.patientWeight || "",
-      tutorName: (initialReport as any)?.tutorName || "",
-      tutorPhone: (initialReport as any)?.tutorPhone || "",
+      name: "",
+      species: "Canino",
+      breed: "",
+      age: "",
+      sex: "Macho",
+      weight: "",
+      tutorName: "",
+      tutorPhone: "",
     };
   });
 
   const [anamnesis, setAnamnesis] = useState(initialReport?.anamnesis || "");
+
+  // Sync session updates back to patient state only if session has explicit user data and local patient is empty
+  useEffect(() => {
+    if (initialReport) {
+      setPatient({
+        name: initialReport.patientId || "",
+        species: initialReport.patientSpecies || "Canino",
+        breed: initialReport.patientBreed || "",
+        age: initialReport.patientAge || "",
+        sex: initialReport.patientSex || "Macho",
+        weight: initialReport.patientWeight || "",
+        tutorName: (initialReport as any)?.tutorName || "",
+        tutorPhone: (initialReport as any)?.tutorPhone || "",
+      });
+      setAnamnesis(initialReport.anamnesis || "");
+    } else if (initialPatient) {
+      setPatient({
+        name: initialPatient.name || "",
+        species: initialPatient.species || "Canino",
+        breed: initialPatient.breed || "",
+        age: initialPatient.age || "",
+        sex: initialPatient.sex || "Macho",
+        weight: initialPatient.weight || "",
+        tutorName: initialPatient.tutorName || "",
+        tutorPhone: initialPatient.tutorPhone || "",
+      });
+      setAnamnesis("");
+    }
+  }, [initialReport, initialPatient]);
+
+  // Handler for updating patient reactively
+  const handleUpdatePatient = (data: Partial<Patient>) => {
+    setPatient(prev => {
+      const next = { ...prev, ...data };
+      savePatientToSession(next);
+      return next;
+    });
+  };
+
+  // Handler for updating anamnesis reactively
+  const handleUpdateAnamnesis = (text: string) => {
+    setAnamnesis(text);
+    saveAnamnesisToSession(text);
+  };
   const [examData, setExamData] = useState(initialReport?.examData || "");
   const [uploadedExamFiles, setUploadedExamFiles] = useState<
     { name: string; size: string; data?: string; mimeType?: string }[]
   >([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showReasoningEngine, setShowReasoningEngine] = useState(false);
+  const [activeViewMode, setActiveViewMode] = useState<'anamnesis' | 'pipeline' | 'workspace' | 'evidence' | 'decision' | 'documentation' | 'knowledge'>('anamnesis');
   const [loadingStep, setLoadingStep] = useState(0);
 
   useEffect(() => {
@@ -352,6 +449,10 @@ export default function ReportWorkspace({
   const [generatedReport, setGeneratedReport] = useState<string | null>(initialReport?.soapContent || null);
   const [sources, setSources] = useState<any[]>(initialReport?.sources || []);
   const [error, setError] = useState<string | null>(null);
+
+  // Sub-navigation tab system matching Vetmind Design Specs
+  const [subTab, setSubTab] = useState<'resumo' | 'diferenciais' | 'exames' | 'condutas' | 'prescricao' | 'literatura'>('diferenciais');
+  const [showShareModal, setShowShareModal] = useState(false);
 
   // Prescription, weight calculator and message tutor
   const [prescription, setPrescription] = useState<string | null>(initialReport?.prescription || null);
@@ -458,6 +559,17 @@ export default function ReportWorkspace({
             mimeType: file.type,
           };
           setUploadedExamFiles((prev) => [...prev, newFile]);
+
+          // Sync attachment to global clinical session store
+          addAttachment({
+            attachment_id: `att-${Date.now()}-${i}`,
+            name: file.name,
+            size: fileSizeStr,
+            mimeType: file.type || 'application/octet-stream',
+            type: file.type?.includes('image') ? 'image' : file.type?.includes('pdf') ? 'pdf' : 'ocr',
+            data: newFile.data,
+            uploadedAt: new Date().toISOString()
+          });
 
           // Post file message to chat
           setChatMessages((prev) => [
@@ -567,8 +679,127 @@ export default function ReportWorkspace({
     }
   };
 
-  // SOAP clinical analysis main call
+  // Full SOAP clinical analysis re-evaluation
+  const handleTriggerReportGeneration = async (textToUse?: string) => {
+    const textToSend = (textToUse || currentMessageText).trim();
+    setCurrentMessageText(""); // instantly clear for elite responsiveness
+
+    let updatedAnamnesis = anamnesis;
+    if (textToSend) {
+      updatedAnamnesis = anamnesis ? `${anamnesis}\n\n[Atualização do Tutor/Clínica]: ${textToSend}` : textToSend;
+      setAnamnesis(updatedAnamnesis);
+
+      const userMsg: ChatMessage = {
+        id: "msg-" + Date.now(),
+        sender: "user",
+        text: textToSend,
+        timestamp: new Date()
+      };
+      setChatMessages((prev) => [...prev, userMsg]);
+    } else if (uploadedExamFiles.length > 0) {
+      const userMsg: ChatMessage = {
+        id: "msg-" + Date.now(),
+        sender: "user",
+        text: "📎 Solicitada reavaliação clínica com os exames em anexo",
+        timestamp: new Date()
+      };
+      setChatMessages((prev) => [...prev, userMsg]);
+    }
+
+    setIsGenerating(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/generate-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patient,
+          anamnesis: updatedAnamnesis,
+          examData: examData || "Exame físico geral veterinário",
+          files: uploadedExamFiles.map((f) => ({
+            name: f.name,
+            data: f.data,
+            mimeType: f.mimeType,
+          })),
+          disabledReferences,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Erro na comunicação com a API de geração.");
+      }
+
+      const data = await response.json();
+      setGeneratedReport(data.soapContent);
+      setSources(data.sources || []);
+      setStep("result");
+
+      // Split SOAP sections
+      const sections = data.soapContent.split("##");
+      let local_s = "", local_o = "", local_a = "", local_p = "", local_d = "";
+      sections.forEach((sec: string) => {
+        const trimmed = sec.trim();
+        if (trimmed.startsWith("S (")) local_s = trimmed.replace(/^S \([^)]+\):?/, "").trim();
+        else if (trimmed.startsWith("O (")) local_o = trimmed.replace(/^O \([^)]+\):?/, "").trim();
+        else if (trimmed.startsWith("A (")) local_a = trimmed.replace(/^A \([^)]+\):?/, "").trim();
+        else if (trimmed.startsWith("P (")) local_p = trimmed.replace(/^P \([^)]+\):?/, "").trim();
+        else if (trimmed.startsWith("D (")) local_d = trimmed;
+      });
+      if (!local_s && data.soapContent) local_s = data.soapContent.split("##")[1] || data.soapContent;
+
+      // Parse health metrics
+      let local_metrics = { fc: "125 bpm", temp: "38.7ºC", fr: "26 mpm", trc: "1.5s" };
+      const match = data.soapContent.match(/\{[\s\S]*\}/);
+      if (match) {
+        try {
+          const parsed = JSON.parse(match[0]);
+          local_metrics = { ...local_metrics, ...parsed };
+        } catch (e) {}
+      }
+
+      const isReevaluation = chatMessages.length > 1;
+
+      const aiMsg: ChatMessage = {
+        id: "reply-soap-" + Date.now(),
+        sender: "ai",
+        text: isReevaluation 
+          ? "🔄 **Reavaliação Clínica Concluída!** Atualizei o prontuário SOAP, os diagnósticos diferenciais RAG e a conduta terapêutica considerando as novas informações do tutor/clínica:"
+          : "Análise concluída com sucesso! Com base no caso relatado, estruturei o prontuário SOAP, os diagnósticos diferenciais RAG e as dosagens recomendadas nas seções abaixo:",
+        timestamp: new Date(),
+        soap: { s: local_s, o: local_o, a: local_a, p: local_p, raw: data.soapContent },
+        differentials: local_d,
+        metrics: local_metrics,
+        sources: data.sources || []
+      };
+      setChatMessages((prev) => [...prev, aiMsg]);
+      
+      // Auto background trigger prescription update
+      handleGeneratePrescriptionBackground(data.soapContent, local_d);
+
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Erro ao conectar.");
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: "reply-err-" + Date.now(),
+          sender: "ai",
+          text: "⚠️ Desculpe, ocorreu um erro de conexão ao processar este caso. Por favor, tente reavaliar novamente.",
+          timestamp: new Date()
+        }
+      ]);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // SOAP clinical analysis main call or follow-up chat
   const handleSendMessageUnified = async (textToUse?: string) => {
+    if (!generatedReport) {
+      return handleTriggerReportGeneration(textToUse);
+    }
+
     const textToSend = (textToUse || currentMessageText).trim();
     if (!textToSend && uploadedExamFiles.length === 0) return;
 
@@ -582,139 +813,51 @@ export default function ReportWorkspace({
     };
     setChatMessages((prev) => [...prev, userMsg]);
 
-    const updatedAnamnesis = anamnesis ? `${anamnesis}\n\n${textToSend}` : textToSend;
+    const updatedAnamnesis = anamnesis ? `${anamnesis}\n\n[Atualização]: ${textToSend}` : textToSend;
     setAnamnesis(updatedAnamnesis);
 
-    if (!generatedReport) {
-      setIsGenerating(true);
-      setError(null);
-      setGeneratedReport(null);
-      setPrescription(null);
-      setAiTutorMessage(null);
+    // Chat Follow-up flow for persistent case discussion
+    setIsGenerating(true);
+    try {
+      const response = await fetch("/api/chat-followup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patient,
+          chatMessages: [...chatMessages, userMsg],
+          soapContent: generatedReport,
+          message: textToSend,
+          disabledReferences
+        }),
+      });
 
-      try {
-        const response = await fetch("/api/generate-report", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            patient,
-            anamnesis: updatedAnamnesis,
-            examData: examData || "Exame físico geral veterinário",
-            files: uploadedExamFiles.map((f) => ({
-              name: f.name,
-              data: f.data,
-              mimeType: f.mimeType,
-            })),
-            disabledReferences,
-          }),
-        });
+      if (!response.ok) {
+        throw new Error("Erro na conexão de follow-up.");
+      }
 
-        if (!response.ok) {
-          throw new Error("Erro na comunicação com a API de geração.");
-        }
-
-        const data = await response.json();
-        setGeneratedReport(data.soapContent);
-        setSources(data.sources || []);
-        setStep("result");
-
-        // Split SOAP sections
-        const sections = data.soapContent.split("##");
-        let local_s = "", local_o = "", local_a = "", local_p = "", local_d = "";
-        sections.forEach((sec: string) => {
-          const trimmed = sec.trim();
-          if (trimmed.startsWith("S (")) local_s = trimmed.replace(/^S \([^)]+\):?/, "").trim();
-          else if (trimmed.startsWith("O (")) local_o = trimmed.replace(/^O \([^)]+\):?/, "").trim();
-          else if (trimmed.startsWith("A (")) local_a = trimmed.replace(/^A \([^)]+\):?/, "").trim();
-          else if (trimmed.startsWith("P (")) local_p = trimmed.replace(/^P \([^)]+\):?/, "").trim();
-          else if (trimmed.startsWith("D (")) local_d = trimmed;
-        });
-        if (!local_s && data.soapContent) local_s = data.soapContent.split("##")[1] || data.soapContent;
-
-        // Parse health metrics
-        let local_metrics = { fc: "125 bpm", temp: "38.7ºC", fr: "26 mpm", trc: "1.5s" };
-        const match = data.soapContent.match(/\{[\s\S]*\}/);
-        if (match) {
-          try {
-            const parsed = JSON.parse(match[0]);
-            local_metrics = { ...local_metrics, ...parsed };
-          } catch (e) {}
-        }
-
-        const aiMsg: ChatMessage = {
-          id: "reply-soap-" + Date.now(),
+      const data = await response.json();
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: "reply-followup-" + Date.now(),
           sender: "ai",
-          text: "Análise concluída com sucesso! Com base no caso relatado, estruturei o prontuário SOAP, os diagnósticos diferenciais RAG e as dosagens recomendadas nas seções abaixo:",
-          timestamp: new Date(),
-          soap: { s: local_s, o: local_o, a: local_a, p: local_p, raw: data.soapContent },
-          differentials: local_d,
-          metrics: local_metrics,
-          sources: data.sources || []
-        };
-        setChatMessages((prev) => [...prev, aiMsg]);
-        
-        // Auto background trigger prescription
-        handleGeneratePrescriptionBackground(data.soapContent, local_d);
-
-      } catch (err: any) {
-        console.error(err);
-        setError(err.message || "Erro ao conectar.");
-        setChatMessages((prev) => [
-          ...prev,
-          {
-            id: "reply-err-" + Date.now(),
-            sender: "ai",
-            text: "⚠️ Desculpe, ocorreu um erro de conexão ao processar este caso. Por favor, tente enviar novamente.",
-            timestamp: new Date()
-          }
-        ]);
-      } finally {
-        setIsGenerating(false);
-      }
-    } else {
-      // Chat Follow-up flow for persistent case discussion
-      setIsGenerating(true);
-      try {
-        const response = await fetch("/api/chat-followup", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            patient,
-            chatMessages: [...chatMessages, userMsg],
-            soapContent: generatedReport,
-            message: textToSend,
-            disabledReferences
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error("Erro na conexão de follow-up.");
+          text: data.replyText,
+          timestamp: new Date()
         }
-
-        const data = await response.json();
-        setChatMessages((prev) => [
-          ...prev,
-          {
-            id: "reply-followup-" + Date.now(),
-            sender: "ai",
-            text: data.replyText,
-            timestamp: new Date()
-          }
-        ]);
-      } catch (err: any) {
-        console.error(err);
-        setChatMessages((prev) => [
-          ...prev,
-          {
-            id: "reply-err-" + Date.now(),
-            sender: "ai",
-            text: "⚠️ Ocorreu um problema de conexão ao consultar o seguimento do caso.",
-            timestamp: new Date()
-          }
-        ]);
-      } finally {
-        setIsGenerating(false);
-      }
+      ]);
+    } catch (err: any) {
+      console.error(err);
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: "reply-err-" + Date.now(),
+          sender: "ai",
+          text: "⚠️ Ocorreu um problema de conexão ao consultar o seguimento do caso.",
+          timestamp: new Date()
+        }
+      ]);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -952,678 +1095,267 @@ export default function ReportWorkspace({
               </span>
             </button>
 
+            <button
+              onClick={() => {
+                setShowReasoningEngine(false);
+                setActiveViewMode('anamnesis');
+              }}
+              className={`px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer shadow-3xs ${
+                activeViewMode === 'anamnesis' 
+                  ? 'bg-indigo-600 text-white' 
+                  : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-700'
+              }`}
+            >
+              <span>Anamnese (M02)</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setShowReasoningEngine(true);
+                setActiveViewMode('pipeline');
+              }}
+              className={`px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer shadow-3xs ${
+                activeViewMode === 'pipeline'
+                  ? 'bg-indigo-600 text-white' 
+                  : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-700'
+              }`}
+              title="Visualizar Pipeline de Raciocínio Clínico (Módulo 03)"
+            >
+              <Activity className="w-3 h-3 shrink-0" />
+              <span>Pipeline RAG (M03)</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setShowReasoningEngine(false);
+                setActiveViewMode('workspace');
+              }}
+              className={`px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer shadow-3xs ${
+                activeViewMode === 'workspace' 
+                  ? 'bg-indigo-600 text-white' 
+                  : 'bg-[#F8FAFC] hover:bg-slate-100 border border-slate-200 text-slate-700'
+              }`}
+              title="Módulo 04 — Clinical Workspace (Diagnósticos Diferenciais)"
+            >
+              <Stethoscope className="w-3 h-3 text-[#4F46E5] shrink-0" />
+              <span>Workspace Clínico (M04)</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setShowReasoningEngine(false);
+                setActiveViewMode('evidence');
+              }}
+              className={`px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer shadow-3xs ${
+                activeViewMode === 'evidence' 
+                  ? 'bg-indigo-600 text-white' 
+                  : 'bg-[#F8FAFC] hover:bg-slate-100 border border-slate-200 text-slate-700'
+              }`}
+              title="Módulo 05 — Evidence Workspace (Evidências Científicas)"
+            >
+              <BookOpen className="w-3 h-3 text-[#4F46E5] shrink-0" />
+              <span>Evidências (M05)</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setShowReasoningEngine(false);
+                setActiveViewMode('decision');
+              }}
+              className={`px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer shadow-3xs ${
+                activeViewMode === 'decision' 
+                  ? 'bg-indigo-600 text-white' 
+                  : 'bg-[#F8FAFC] hover:bg-slate-100 border border-slate-200 text-slate-700'
+              }`}
+              title="Módulo 06 — Clinical Decision Workspace (Decisão Clínica)"
+            >
+              <ShieldCheck className="w-3 h-3 text-[#10B981] shrink-0" />
+              <span>Decisão Clínica (M06)</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setShowReasoningEngine(false);
+                setActiveViewMode('documentation');
+              }}
+              className={`px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer shadow-3xs ${
+                activeViewMode === 'documentation' 
+                  ? 'bg-indigo-600 text-white' 
+                  : 'bg-[#F8FAFC] hover:bg-slate-100 border border-slate-200 text-slate-700'
+              }`}
+              title="Módulo 07 — Clinical Documentation Studio"
+            >
+              <FileText className="w-3 h-3 text-[#4F46E5] shrink-0" />
+              <span>Doc Studio (M07)</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setShowReasoningEngine(false);
+                setActiveViewMode('knowledge');
+              }}
+              className={`px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer shadow-3xs ${
+                activeViewMode === 'knowledge' 
+                  ? 'bg-indigo-600 text-white' 
+                  : 'bg-[#F8FAFC] hover:bg-slate-100 border border-slate-200 text-slate-700'
+              }`}
+              title="Módulo 08 — Clinical Knowledge Hub (Central de Conhecimento)"
+            >
+              <Library className="w-3 h-3 text-[#4F46E5] shrink-0" />
+              <span>Knowledge Hub (M08)</span>
+            </button>
+
             {chatMessages.length > 1 && (
-              <button
-                onClick={handleClear}
-                className="px-2 py-1.5 sm:px-3 sm:py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-150 text-slate-500 hover:text-slate-700 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer"
-                title="Novo Atendimento"
-              >
-                <RefreshCw className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                <span className="hidden sm:inline">Limpar</span>
-              </button>
+              <>
+                <button
+                  onClick={() => {
+                    setActiveViewMode('pipeline');
+                    handleTriggerReportGeneration();
+                  }}
+                  disabled={isGenerating}
+                  className="px-2.5 py-1.5 sm:px-3 sm:py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer shadow-3xs disabled:opacity-50 hover:scale-[1.02]"
+                  title="Reavaliar caso e atualizar laudo SOAP com novas informações"
+                >
+                  <Sparkles className="w-3 h-3 text-yellow-300" />
+                  <span>Reavaliar Caso</span>
+                </button>
+
+                <button
+                  onClick={handleClear}
+                  className="px-2 py-1.5 sm:px-3 sm:py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-150 text-slate-500 hover:text-slate-700 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer"
+                  title="Novo Atendimento"
+                >
+                  <RefreshCw className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                  <span className="hidden sm:inline">Limpar</span>
+                </button>
+              </>
             )}
           </div>
         </div>
 
-        {/* Core Chat Stream Area */}
-        <div className="flex-grow overflow-y-auto p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 flex flex-col justify-between">
-          <div className="flex-1 space-y-4 sm:space-y-6">
-            {/* If only welcome message exists, show completely minimalist centered home screen (Disney/Lego principle) */}
-            {chatMessages.length === 1 ? (
-              <div className="max-w-2xl mx-auto py-4 sm:py-8 text-center space-y-6 sm:space-y-8 animate-in fade-in zoom-in-95 duration-450">
-                
-                {/* Magical Interactive Clinical Orb */}
-                <div className="relative flex flex-col items-center justify-center py-4">
-                  {/* Concentric ambient background ripples */}
-                  <motion.div
-                    animate={{
-                      scale: isRecording ? [1, 1.35, 1] : [1, 1.12, 1],
-                      opacity: isRecording ? [0.4, 0.1, 0.4] : [0.2, 0.05, 0.2],
+        {/* Core Chat / Workspace Stream Area */}
+        <div className="flex-grow overflow-y-auto p-1.5 sm:p-3 md:p-4 pt-1 sm:pt-1.5 md:pt-1.5 space-y-2 sm:space-y-3 flex flex-col justify-between">
+          <div className="flex-1 space-y-2 sm:space-y-3">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={isGenerating ? 'pipeline' : activeViewMode}
+                variants={PAGE_TRANSITION_VARIANTS}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="w-full"
+              >
+                {/* MÓDULO 03: Clinical Reasoning Engine — Processamento e Transparência */}
+                {isGenerating || activeViewMode === 'pipeline' ? (
+                  <ClinicalReasoningEngine
+                    patient={patient as Patient}
+                    anamnesisText={currentMessageText || anamnesis}
+                    isGenerating={isGenerating}
+                    onComplete={() => {
+                      setIsGenerating(false);
+                      setShowReasoningEngine(false);
+                      setActiveViewMode('workspace');
                     }}
-                    transition={{
-                      duration: isRecording ? 1.2 : 3.5,
-                      repeat: Infinity,
-                      ease: "easeInOut",
+                    onGoToAnamnesis={() => {
+                      setShowReasoningEngine(false);
+                      setActiveViewMode('anamnesis');
                     }}
-                    className={`absolute w-44 h-44 md:w-52 md:h-52 rounded-full ${
-                      isRecording ? "bg-red-450" : "bg-indigo-300"
-                    } blur-xl`}
                   />
-                  
-                  <motion.div
-                    animate={{
-                      scale: isRecording ? [1, 1.5, 1] : [1, 1.2, 1],
-                      opacity: isRecording ? [0.3, 0, 0.3] : [0.12, 0, 0.12],
-                    }}
-                    transition={{
-                      duration: isRecording ? 1.2 : 4.5,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                      delay: 0.6,
-                    }}
-                    className={`absolute w-52 h-52 md:w-60 md:h-60 rounded-full border ${
-                      isRecording ? "border-red-400/40 bg-red-100/10" : "border-indigo-400/20 bg-indigo-50/5"
-                    } blur-xs`}
+                ) : activeViewMode === 'knowledge' ? (
+                  /* MÓDULO 08: Clinical Knowledge Hub — Central de Conhecimento */
+                  <ClinicalKnowledgeHub
+                    patient={patient as Patient}
+                    anamnesisText={currentMessageText || anamnesis}
+                    onGoToDecision={() => setActiveViewMode('decision')}
+                    onGoToDocumentation={() => setActiveViewMode('documentation')}
                   />
-
-                  {/* Main Interactive Orb Element */}
-                  <motion.button
-                    whileHover={{ scale: 1.06 }}
-                    whileTap={{ scale: 0.94 }}
-                    onClick={handleToggleRecording}
-                    className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full relative z-10 flex flex-col items-center justify-center transition-all shadow-xl shadow-indigo-500/20 cursor-pointer overflow-hidden ${
-                      isRecording 
-                        ? "bg-gradient-to-tr from-red-500 via-rose-600 to-orange-400 ring-4 ring-red-100" 
-                        : isGenerating 
-                        ? "bg-gradient-to-tr from-violet-600 via-indigo-600 to-indigo-800 ring-4 ring-indigo-50"
-                        : "bg-gradient-to-tr from-indigo-600 via-indigo-500 to-emerald-400 hover:shadow-2xl hover:shadow-indigo-500/30 ring-4 ring-indigo-50"
-                    }`}
-                  >
-                    {/* Active Wave Shader inside the Orb when recording */}
-                    {isRecording && (
-                      <motion.div
-                        animate={{
-                          y: ["10%", "-10%", "10%"]
-                        }}
-                        transition={{
-                          duration: 2,
-                          repeat: Infinity,
-                          ease: "easeInOut"
-                        }}
-                        className="absolute inset-0 bg-gradient-to-t from-rose-700/30 to-transparent pointer-events-none"
-                      />
-                    )}
-
-                    {/* Status icon depending on state */}
-                    <div className="relative z-20 flex flex-col items-center justify-center text-white space-y-1.5">
-                      {isRecording ? (
-                        <>
-                          <Mic className="w-7 h-7 sm:w-8 sm:h-8 animate-bounce text-white" />
-                          <span className="text-[7.5px] font-black uppercase tracking-widest text-red-100">Gravando</span>
-                        </>
-                      ) : isTranscribing ? (
-                        <>
-                          <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 animate-spin text-white" />
-                          <span className="text-[7.5px] font-black uppercase tracking-widest text-indigo-100">Ouvindo</span>
-                        </>
-                      ) : isGenerating ? (
-                        <>
-                          <Sparkles className="w-7 h-7 sm:w-8 sm:h-8 animate-pulse text-yellow-300" />
-                          <span className="text-[7.5px] font-black uppercase tracking-widest text-violet-100 font-display">IA Ativa</span>
-                        </>
-                      ) : (
-                        <>
-                          <Mic className="w-8 h-8 text-white drop-shadow-md" />
-                          <span className="text-[7px] font-black uppercase tracking-widest text-indigo-100 mt-1">Toque p/ Falar</span>
-                        </>
-                      )}
-                    </div>
-                  </motion.button>
-
-                  {/* Small state display under Orb */}
-                  <div className="mt-3.5 z-10">
-                    <span className={`px-3 py-1 rounded-full text-[9px] font-bold tracking-wider uppercase border shadow-3xs ${
-                      isRecording 
-                        ? "bg-red-50 text-red-650 border-red-100" 
-                        : isTranscribing 
-                        ? "bg-indigo-50 text-indigo-650 border-indigo-100 animate-pulse"
-                        : isGenerating 
-                        ? "bg-violet-50 text-violet-650 border-violet-100"
-                        : "bg-emerald-50 text-emerald-600 border-emerald-100"
-                    }`}>
-                      {isRecording ? `Gravando Voz • 00:${recordTimer < 10 ? '0' : ''}${recordTimer}` : isTranscribing ? "Processando seu áudio..." : isGenerating ? "Analisando sintomas com IA..." : "Orbe Clínico Conectado"}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5 px-2">
-                  <h1 className="text-lg sm:text-2xl font-extrabold font-display text-slate-900 tracking-tight leading-tight">
-                    Copiloto Clínico & Prontuário Veterinário
-                  </h1>
-                  <p className="text-[10px] sm:text-xs text-slate-450 max-w-lg mx-auto font-medium leading-relaxed">
-                    Descreva os sintomas abaixo ou fale através do Orbe. Eu farei o cruzamento de literatura com nosso acervo RAG, gerando o prontuário SOAP estruturado, hipóteses e prescrições.
-                  </p>
-                </div>
-
-                {/* Large Clinical Console Card (Disney/Lego required) */}
-                <div className="max-w-xl mx-auto bg-white rounded-3xl sm:rounded-[2rem] shadow-md shadow-slate-100/50 p-5 sm:p-6 space-y-4 text-left border-none">
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Descrever Caso Clínico</label>
-                    <textarea
-                      disabled={isGenerating || isTranscribing}
-                      className="w-full text-xs sm:text-sm font-semibold p-0 border-0 bg-transparent focus:ring-0 focus:outline-none text-slate-800 placeholder:text-slate-400 transition-all disabled:opacity-50 min-h-[140px] sm:min-h-[160px] resize-none leading-relaxed"
-                      placeholder={isTranscribing ? "Transcrevendo voz do orbe..." : "Digite detalhadamente os sintomas clínicos, queixas do tutor, temperatura ou anexe exames laboratoriais do pet..."}
-                      value={currentMessageText}
-                      onChange={(e) => setCurrentMessageText(e.target.value)}
-                    />
-                  </div>
-
-                  {/* Active attachments list inside the console */}
-                  {uploadedExamFiles.length > 0 && (
-                    <div className="flex flex-wrap gap-1 p-2 bg-indigo-50/40 rounded-xl">
-                      {uploadedExamFiles.map((file, i) => (
-                        <div
-                          key={i}
-                          className="px-2 py-0.5 sm:px-2.5 sm:py-1 bg-indigo-50 border border-indigo-100 text-[9px] sm:text-[10px] font-bold text-indigo-700 rounded-full flex items-center gap-1 animate-in slide-in-from-bottom-2"
-                        >
-                          <span className="truncate max-w-[100px] sm:max-w-[120px]">{file.name}</span>
-                          <button
-                            onClick={() => setUploadedExamFiles((prev) => prev.filter((_, idx) => idx !== i))}
-                            className="hover:text-red-500 cursor-pointer"
-                          >
-                            <X className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Console Actions Bar */}
-                  <div className="flex items-center justify-between pt-1">
-                    <div className="flex items-center gap-1.5 sm:gap-2">
-                      <button
-                        type="button"
-                        onClick={() => examInputRef.current?.click()}
-                        className="p-2.5 bg-slate-50 hover:bg-indigo-50 text-indigo-600 rounded-full transition-colors cursor-pointer"
-                        title="Anexar exames (PDF/Imagem)"
-                      >
-                        <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleToggleRecording}
-                        className={`p-2.5 rounded-full transition-all cursor-pointer ${
-                          isRecording
-                            ? "bg-red-500 text-white animate-pulse"
-                            : "bg-slate-50 hover:bg-red-50 text-red-650"
-                        }`}
-                        title="Falar por voz"
-                      >
-                        <Mic className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                      </button>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleSendMessageUnified()}
-                      disabled={isGenerating || (!currentMessageText.trim() && uploadedExamFiles.length === 0)}
-                      className="px-4.5 py-2.5 sm:px-6 sm:py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[9px] sm:text-[10px] uppercase tracking-wider rounded-full transition-all cursor-pointer shadow-md shadow-indigo-600/15 disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98] flex items-center gap-1.5"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Gerar Diagnóstico</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              /* Chat History Stream Container */
-              <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
-                {chatMessages.map((msg) => {
-                  const isAi = msg.sender === "ai";
-                  return (
-                    <div
-                      key={msg.id}
-                      className={`flex gap-2 sm:gap-3.5 ${isAi ? "justify-start text-left" : "justify-end text-right"}`}
-                    >
-                      {isAi && (
-                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 shadow-3xs shrink-0 self-start text-sm">
-                          🧠
-                        </div>
-                      )}
-
-                      <div className={`w-full flex flex-col gap-1 ${isAi ? "items-start max-w-[95%] sm:max-w-3xl" : "items-end max-w-[88%] sm:max-w-2xl"}`}>
-                        <div
-                          className={`p-3.5 sm:p-4 rounded-3xl text-[11.5px] sm:text-xs font-semibold leading-relaxed shadow-md shadow-slate-100/50 ${
-                            isAi
-                              ? "bg-white text-slate-750 rounded-tl-sm text-left w-full border-none"
-                              : "bg-indigo-600 text-white rounded-tr-sm text-left"
-                          }`}
-                        >
-                          <ClinicalMarkdown>{msg.text}</ClinicalMarkdown>
-
-                          {/* Render Clinical Collapsible Accordions (Abre/Fecha) Inside AI Response Bubble */}
-                          {isAi && msg.soap && (
-                            <div className="mt-4 sm:mt-5 space-y-3 sm:space-y-3.5 w-full">
-                              
-                              {/* 1. SOAP ACCORDION CARD */}
-                              <div className="bg-slate-50/50 rounded-2xl overflow-hidden border-none">
-                                <button
-                                  type="button"
-                                  onClick={() => toggleAccordion(msg.id, "soap")}
-                                  className="w-full text-left p-3 sm:p-4 flex items-center justify-between hover:bg-slate-100/40 transition-colors cursor-pointer select-none"
-                                >
-                                  <div className="flex items-center gap-2 sm:gap-3">
-                                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
-                                      <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                    </div>
-                                    <div>
-                                      <h4 className="font-extrabold font-display text-slate-800 text-[10px] sm:text-[11px] uppercase tracking-wider">📄 Prontuário Estruturado SOAP</h4>
-                                      <p className="text-[8px] sm:text-[9px] text-slate-400 font-bold mt-0.5 line-clamp-1">Sintomas subjetivos, objetivos, avaliação e conduta clínica</p>
-                                    </div>
-                                  </div>
-                                  <ChevronDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 transition-transform duration-250 ${isAccordionOpen(msg.id, "soap") ? "rotate-180 text-indigo-600" : ""}`} />
-                                </button>
-
-                                {isAccordionOpen(msg.id, "soap") && (
-                                  <div className="p-3 sm:p-4 bg-slate-50/20 space-y-3 sm:space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                                    
-                                    {/* Metrics parameters dashboard */}
-                                    {msg.metrics && (
-                                      <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 sm:gap-2.5">
-                                        <div className="bg-white p-2 sm:p-2.5 rounded-xl flex flex-col items-center shadow-sm shadow-slate-100/30">
-                                          <span className="text-[7px] sm:text-[8px] font-black uppercase text-slate-400">FC</span>
-                                          <span className="text-[10px] sm:text-[11px] font-extrabold text-slate-800 mt-0.5">{msg.metrics.fc || "120 bpm"}</span>
-                                        </div>
-                                        <div className="bg-white p-2 sm:p-2.5 rounded-xl flex flex-col items-center shadow-sm shadow-slate-100/30">
-                                          <span className="text-[7px] sm:text-[8px] font-black uppercase text-slate-400">Temp</span>
-                                          <span className="text-[10px] sm:text-[11px] font-extrabold text-slate-800 mt-0.5">{msg.metrics.temp || "38.5ºC"}</span>
-                                        </div>
-                                        <div className="bg-white p-2 sm:p-2.5 rounded-xl flex flex-col items-center shadow-sm shadow-slate-100/30">
-                                          <span className="text-[7px] sm:text-[8px] font-black uppercase text-slate-400">FR</span>
-                                          <span className="text-[10px] sm:text-[11px] font-extrabold text-slate-800 mt-0.5">{msg.metrics.fr || "24 mpm"}</span>
-                                        </div>
-                                        <div className="bg-white p-2 sm:p-2.5 rounded-xl flex flex-col items-center shadow-sm shadow-slate-100/30">
-                                          <span className="text-[7px] sm:text-[8px] font-black uppercase text-slate-400">TRC</span>
-                                          <span className="text-[10px] sm:text-[11px] font-extrabold text-slate-800 mt-0.5">{msg.metrics.trc || "1.5s"}</span>
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    {/* SOAP sections text items */}
-                                    {[
-                                      { letter: "S", title: "Subjetivo", rationale: "Anamnese & queixas", content: msg.soap.s },
-                                      { letter: "O", title: "Objetivo", rationale: "Sinais clínicos & exames", content: msg.soap.o },
-                                      { letter: "A", title: "Avaliação", rationale: "Raciocínio diagnóstico", content: msg.soap.a },
-                                      { letter: "P", title: "Plano", rationale: "Condutas imediatas", content: msg.soap.p },
-                                    ].map((sec) => (
-                                      <div key={sec.letter} className="bg-white p-3 sm:p-4 rounded-2xl space-y-1 sm:space-y-1.5 text-left shadow-sm shadow-slate-100/30">
-                                        <div className="flex items-center gap-1.5 sm:gap-2">
-                                          <span className="w-5 h-5 rounded-md bg-indigo-100 text-indigo-700 font-black text-[10px] sm:text-xs flex items-center justify-center shrink-0">{sec.letter}</span>
-                                          <span className="font-extrabold text-slate-800 text-[9px] sm:text-[10px] font-display uppercase tracking-wider">{sec.title}</span>
-                                          <span className="text-[8px] sm:text-[9px] text-slate-400 font-semibold truncate">• {sec.rationale}</span>
-                                        </div>
-                                        <div className="text-[10px] sm:text-[11px] text-slate-700 font-medium leading-relaxed whitespace-pre-wrap pl-1 xs:pl-7">
-                                          {sec.content}
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* 2. RAG DIFFERENTIAL DIAGNOSES ACCORDION CARD */}
-                              <div className="bg-slate-50/50 rounded-2xl overflow-hidden border-none">
-                                <button
-                                  type="button"
-                                  onClick={() => toggleAccordion(msg.id, "differentials")}
-                                  className="w-full text-left p-3 sm:p-4 flex items-center justify-between hover:bg-slate-100/40 transition-colors cursor-pointer select-none"
-                                >
-                                  <div className="flex items-center gap-2 sm:gap-3">
-                                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shrink-0">
-                                      <Stethoscope className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                    </div>
-                                    <div>
-                                      <h4 className="font-extrabold font-display text-slate-800 text-[10px] sm:text-[11px] uppercase tracking-wider">🎯 Hipóteses & Diagnósticos Diferenciais</h4>
-                                      <p className="text-[8px] sm:text-[9px] text-slate-400 font-bold mt-0.5 line-clamp-1">Probabilidades cruzadas com consensos científicos veterinários</p>
-                                    </div>
-                                  </div>
-                                  <ChevronDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 transition-transform duration-250 ${isAccordionOpen(msg.id, "differentials") ? "rotate-180 text-indigo-600" : ""}`} />
-                                </button>
-
-                                {isAccordionOpen(msg.id, "differentials") && (
-                                  <div className="p-3 sm:p-4 bg-slate-50/20 space-y-3 sm:space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                                    <DifferentialCards
-                                      text={msg.differentials || ""}
-                                      onGeneratePrescriptionForDiag={handleGeneratePrescription}
-                                    />
-                                    <InteractiveSources sources={msg.sources || []} />
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* 2.5. CHECKLIST & ROTEIRO DE PRÓXIMOS PASSOS CARD */}
-                              <div className="bg-slate-50/50 rounded-2xl overflow-hidden border-none">
-                                <button
-                                  type="button"
-                                  onClick={() => toggleAccordion(msg.id, "checklist")}
-                                  className="w-full text-left p-3 sm:p-4 flex items-center justify-between hover:bg-slate-100/40 transition-colors cursor-pointer select-none"
-                                >
-                                  <div className="flex items-center gap-2 sm:gap-3">
-                                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 shrink-0">
-                                      <ListChecks className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                    </div>
-                                    <div>
-                                      <h4 className="font-extrabold font-display text-slate-800 text-[10px] sm:text-[11px] uppercase tracking-wider">📋 Roteiro & Checklist de Próximos Passos</h4>
-                                      <p className="text-[8px] sm:text-[9px] text-slate-400 font-bold mt-0.5 line-clamp-1">Condutas recomendadas, exames complementares e acompanhamento guiado</p>
-                                    </div>
-                                  </div>
-                                  <ChevronDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 transition-transform duration-250 ${isAccordionOpen(msg.id, "checklist") ? "rotate-180 text-indigo-600" : ""}`} />
-                                </button>
-
-                                {isAccordionOpen(msg.id, "checklist") && (
-                                  <div className="p-3 sm:p-4 bg-slate-50/20 space-y-3 sm:space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                                    <ClinicalNextStepsChecklist
-                                      soapRaw={msg.soap?.raw}
-                                      differentialsRaw={msg.differentials}
-                                      patientName={patient.name}
-                                      onOpenPrescription={() => toggleAccordion(msg.id, "prescription")}
-                                      onOpenTutorMessage={() => toggleAccordion(msg.id, "tutor")}
-                                    />
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* 3. PHARMACOLOGICAL PRESCRIPTION ACCORDION CARD */}
-                              <div className="bg-slate-50/50 rounded-2xl overflow-hidden border-none">
-                                <button
-                                  type="button"
-                                  onClick={() => toggleAccordion(msg.id, "prescription")}
-                                  className="w-full text-left p-3 sm:p-4 flex items-center justify-between hover:bg-slate-100/40 transition-colors cursor-pointer select-none"
-                                >
-                                  <div className="flex items-center gap-2 sm:gap-3">
-                                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
-                                      <Pill className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                    </div>
-                                    <div>
-                                      <h4 className="font-extrabold font-display text-slate-800 text-[10px] sm:text-[11px] uppercase tracking-wider">💊 Prescrição & Calculadora de Dosagem</h4>
-                                      <p className="text-[8px] sm:text-[9px] text-slate-400 font-bold mt-0.5 line-clamp-1">Receituário inteligente e simulação de doses por peso em tempo real</p>
-                                    </div>
-                                  </div>
-                                  <ChevronDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 transition-transform duration-250 ${isAccordionOpen(msg.id, "prescription") ? "rotate-180 text-indigo-600" : ""}`} />
-                                </button>
-
-                                {isAccordionOpen(msg.id, "prescription") && (
-                                  <div className="p-3 sm:p-4 bg-slate-50/20 space-y-3 sm:space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                                    {prescription ? (
-                                      <div className="space-y-3 sm:space-y-4 text-left">
-                                        <div className="bg-white p-3 sm:p-4 rounded-xl relative shadow-sm shadow-slate-100/30">
-                                          <div className="flex justify-between items-center pb-2 mb-3">
-                                            <span className="text-[8px] font-black uppercase text-indigo-500 tracking-wider">Receituário de Suporte Hospitalar</span>
-                                            <div className="flex gap-1.5 sm:gap-2">
-                                              <button
-                                                onClick={() => handleCopyText(prescription)}
-                                                className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-500 transition-colors cursor-pointer"
-                                                title="Copiar receita"
-                                              >
-                                                <Copy className="w-3.5 h-3.5" />
-                                              </button>
-                                              <button
-                                                onClick={handlePrintPrescription}
-                                                className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-500 transition-colors cursor-pointer"
-                                                title="Imprimir"
-                                              >
-                                                <Printer className="w-3.5 h-3.5" />
-                                              </button>
-                                            </div>
-                                          </div>
-
-                                          {isEditingPrescription ? (
-                                            <div className="space-y-2">
-                                              <textarea
-                                                value={prescriptionEditVal}
-                                                onChange={(e) => setPrescriptionEditVal(e.target.value)}
-                                                className="w-full h-36 text-[10px] sm:text-[11px] font-mono p-2 sm:p-3 border border-slate-300 rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none leading-relaxed bg-white"
-                                              />
-                                              <div className="flex justify-end gap-1.5">
-                                                <button
-                                                  onClick={() => setIsEditingPrescription(false)}
-                                                  className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full text-[9px] font-bold"
-                                                >
-                                                  Cancelar
-                                                </button>
-                                                <button
-                                                  onClick={() => {
-                                                    setPrescription(prescriptionEditVal);
-                                                    setIsEditingPrescription(false);
-                                                  }}
-                                                  className="px-3 py-1 bg-indigo-600 text-white rounded-full text-[9px] font-bold"
-                                                >
-                                                  Confirmar
-                                                </button>
-                                              </div>
-                                            </div>
-                                          ) : (
-                                            <div className="text-[9.5px] sm:text-[10.5px] text-slate-850 leading-relaxed font-mono whitespace-pre-wrap break-words bg-slate-50/40 p-2 sm:p-3 rounded-lg border-none">
-                                              {prescription}
-                                            </div>
-                                          )}
-
-                                          {!isEditingPrescription && (
-                                            <button
-                                              onClick={() => {
-                                                setPrescriptionEditVal(prescription);
-                                                setIsEditingPrescription(true);
-                                              }}
-                                              className="absolute right-3 bottom-3 p-1 px-2.5 bg-slate-100 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 rounded-full text-[9px] font-bold transition-all flex items-center gap-1 cursor-pointer shadow-3xs"
-                                            >
-                                              <Edit3 className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> <span className="text-[8px] sm:text-[9px]">Editar</span>
-                                            </button>
-                                          )}
-                                        </div>
-
-                                        {/* Weight Dosage Calculator Widget (Disney/Lego required) */}
-                                        <div className="p-3 sm:p-4 bg-indigo-50/30 rounded-2xl space-y-2.5 sm:space-y-3.5">
-                                          <div className="flex items-center gap-2">
-                                            <span className="text-sm">🧮</span>
-                                            <h4 className="font-extrabold text-slate-800 text-[9px] sm:text-[10px] uppercase tracking-wider">Simular Doses Clínicas (Hospitalar)</h4>
-                                          </div>
-
-                                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3.5">
-                                            <div className="space-y-1">
-                                              <label className="text-[8px] font-black uppercase text-slate-400 tracking-wider">Peso do Paciente (kg)</label>
-                                              <input
-                                                type="number"
-                                                value={calcWeight}
-                                                onChange={(e) => setCalcWeight(e.target.value)}
-                                                className="w-full px-2.5 py-1.5 bg-white rounded-lg text-xs font-bold text-slate-800 shadow-sm shadow-slate-100/50 outline-none border-none focus:ring-1 focus:ring-indigo-300"
-                                                placeholder="Ex: 10"
-                                              />
-                                            </div>
-
-                                            <div className="bg-white p-3 rounded-xl flex flex-col justify-center shadow-sm shadow-slate-100/50 border-none">
-                                              <span className="text-[8px] font-black text-slate-450 uppercase tracking-wider">Simulação (IV / SC)</span>
-                                              <div className="space-y-1 mt-1.5">
-                                                {[
-                                                  { name: "Cefalotina (IV)", dose: 30, unit: "mg/kg" },
-                                                  { name: "Metronidazol (IV)", dose: 15, unit: "mg/kg" },
-                                                  { name: "Dipirona (SC)", dose: 25, unit: "mg/kg" },
-                                                ].map((med, idx) => {
-                                                  const w = parseFloat(calcWeight) || parseFloat(patient.weight) || 0;
-                                                  const tot = (w * med.dose).toFixed(0);
-                                                  return (
-                                                    <p key={idx} className="text-[10px] font-bold text-slate-700 flex justify-between gap-4">
-                                                      <span>{med.name}:</span>
-                                                      <span className="text-indigo-600 font-black shrink-0">{tot} mg total</span>
-                                                    </p>
-                                                  );
-                                                })}
-                                              </div>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      <div className="p-6 text-center bg-slate-50 rounded-xl space-y-3 border-none">
-                                        <Pill className="w-8 h-8 text-slate-300 mx-auto" />
-                                        <div className="space-y-1">
-                                          <p className="text-xs font-bold text-slate-800">Prescrição sob Demanda</p>
-                                          <p className="text-[10px] text-slate-450 font-semibold max-w-xs mx-auto">Gere um receituário e protocolo terapêutico calibrado automaticamente com as queixas e peso.</p>
-                                        </div>
-                                        <button
-                                          onClick={() => handleGeneratePrescription(msg.differentials ? parseClinicsDiferenciais(msg.differentials)[0]?.title : undefined)}
-                                          disabled={isGeneratingPrescription}
-                                          className="mx-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full font-black text-[9px] uppercase tracking-wider transition-all shadow-md hover:scale-[1.01] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                                        >
-                                          {isGeneratingPrescription ? (
-                                            <>
-                                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                              <span>Gerando Prescrição...</span>
-                                            </>
-                                          ) : (
-                                            <>
-                                              <Sparkles className="w-3.5 h-3.5" />
-                                              <span>Gerar Prescrição Inteligente</span>
-                                            </>
-                                          )}
-                                        </button>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* 4. MENSAGEM TUTOR ACCORDION CARD */}
-                              <div className="bg-slate-50/50 rounded-2xl overflow-hidden border-none">
-                                <button
-                                  type="button"
-                                  onClick={() => toggleAccordion(msg.id, "tutor")}
-                                  className="w-full text-left p-3 sm:p-4 flex items-center justify-between hover:bg-slate-100/40 transition-colors cursor-pointer select-none"
-                                >
-                                  <div className="flex items-center gap-2 sm:gap-3">
-                                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
-                                      <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                    </div>
-                                    <div>
-                                      <h4 className="font-extrabold font-display text-slate-800 text-[10px] sm:text-[11px] uppercase tracking-wider">💬 Tradução Humana para Tutor (WhatsApp)</h4>
-                                      <p className="text-[8px] sm:text-[9px] text-slate-400 font-bold mt-0.5 line-clamp-1">Orientações de alta livres de jargões técnicos complexos</p>
-                                    </div>
-                                  </div>
-                                  <ChevronDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 transition-transform duration-250 ${isAccordionOpen(msg.id, "tutor") ? "rotate-180 text-indigo-600" : ""}`} />
-                                </button>
-
-                                {isAccordionOpen(msg.id, "tutor") && (
-                                  <div className="p-3 sm:p-4 bg-slate-50/20 space-y-3 sm:space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                                    {aiTutorMessage ? (
-                                      <div className="space-y-3 text-left">
-                                        <div className="text-[9.5px] sm:text-[10.5px] text-slate-700 font-medium leading-relaxed bg-white p-3 sm:p-4 rounded-xl whitespace-pre-wrap font-mono shadow-sm shadow-slate-100/30 border-none">
-                                          {aiTutorMessage}
-                                        </div>
-                                        <button
-                                          onClick={() => handleCopyText(aiTutorMessage)}
-                                          className="w-full py-2.5 sm:py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full font-extrabold text-[9px] sm:text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer transition-all shadow-md shadow-emerald-500/10 hover:scale-[1.01]"
-                                        >
-                                          <Copy className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                                          Copiar Texto Simplificado
-                                        </button>
-                                      </div>
-                                    ) : (
-                                      <div className="p-4 sm:p-6 text-center bg-slate-50 border-none rounded-xl space-y-2 sm:space-y-3">
-                                        <MessageSquare className="w-6 h-6 sm:w-8 sm:h-8 text-slate-300 mx-auto" />
-                                        <div className="space-y-1">
-                                          <p className="text-xs font-bold text-slate-800">Comunicação Sem Fricção</p>
-                                          <p className="text-[9px] sm:text-[10px] text-slate-450 font-semibold max-w-xs mx-auto">Traduza o diagnóstico técnico em orientações carinhosas e simplificadas prontas para envio rápido.</p>
-                                        </div>
-                                        <button
-                                          onClick={handleGenerateTutorMessage}
-                                          disabled={isGeneratingTutorMessage}
-                                          className="mx-auto px-4 py-2 sm:px-5 sm:py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full font-black text-[9px] uppercase tracking-wider transition-all shadow-md hover:scale-[1.01] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                                        >
-                                          {isGeneratingTutorMessage ? (
-                                            <>
-                                              <Loader2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 animate-spin" />
-                                              <span>Traduzindo...</span>
-                                            </>
-                                          ) : (
-                                            <>
-                                              <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                                              <span>Traduzir Linguagem Clínica</span>
-                                            </>
-                                          )}
-                                        </button>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* 5. MARKETING EXPORT ACCORDION CARD */}
-                              <div className="bg-slate-50/50 rounded-2xl overflow-hidden border-none">
-                                <button
-                                  type="button"
-                                  onClick={() => toggleAccordion(msg.id, "marketing")}
-                                  className="w-full text-left p-3 sm:p-4 flex items-center justify-between hover:bg-slate-100/40 transition-colors cursor-pointer select-none"
-                                >
-                                  <div className="flex items-center gap-2 sm:gap-3">
-                                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-violet-50 border border-violet-100 flex items-center justify-center text-violet-600 shrink-0">
-                                      <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                    </div>
-                                    <div>
-                                      <h4 className="font-extrabold font-display text-slate-800 text-[10px] sm:text-[11px] uppercase tracking-wider">✨ Estúdio de Marketing de Conteúdo</h4>
-                                      <p className="text-[8px] sm:text-[9px] text-slate-400 font-bold mt-0.5 line-clamp-1">Converta as observações do prontuário em engajamento nas redes sociais</p>
-                                    </div>
-                                  </div>
-                                  <ChevronDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 transition-transform duration-250 ${isAccordionOpen(msg.id, "marketing") ? "rotate-180 text-indigo-600" : ""}`} />
-                                </button>
-
-                                {isAccordionOpen(msg.id, "marketing") && (
-                                  <div className="p-3 sm:p-4 bg-slate-50/20 space-y-3 sm:space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                                    <p className="text-[9px] sm:text-[10px] font-semibold text-slate-500 text-left leading-normal">
-                                      Exporte este caso de forma segura para o nosso Estúdio de Marketing para gerar posts educativos ou compartilhar no seu feed profissional.
-                                    </p>
-                                    <button
-                                      onClick={() => {
-                                        if (onTransformToSocial) {
-                                          onTransformToSocial({
-                                            queixa: anamnesis,
-                                            exames: examData,
-                                            tecnica: msg.soap.a,
-                                            desfecho: msg.soap.p + "\n\n" + (prescription || ""),
-                                          });
-                                        }
-                                      }}
-                                      className="w-full py-2.5 sm:py-3 bg-violet-600 hover:bg-violet-700 text-white rounded-full font-black text-[9px] uppercase tracking-wider flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer transition-all shadow-md shadow-violet-600/10 hover:scale-[1.01]"
-                                    >
-                                      <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                                      Exportar e Criar Postagem no Estúdio
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Document Footer Actions: Save and print */}
-                              <div className="flex justify-end gap-2 pt-2.5 mt-2">
-                                <button
-                                  onClick={handleSaveReport}
-                                  className="px-3.5 py-2 sm:px-4 sm:py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider shadow-md hover:scale-[1.01] transition-all cursor-pointer flex items-center gap-1"
-                                >
-                                  <Save className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                                  <span>Salvar no Histórico</span>
-                                </button>
-                              </div>
-
-                            </div>
-                          )}
-                        </div>
-
-                        <span className="text-[8px] font-bold text-slate-400 font-mono">
-                          {msg.timestamp.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-                {isGenerating && (
-                  <div className="flex gap-3.5 justify-start text-left animate-pulse">
-                    <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-3xs shrink-0 self-start">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    </div>
-                    <div className="max-w-2xl flex flex-col gap-1.5">
-                      <div className="p-4 rounded-3xl bg-slate-50 border border-slate-200 text-xs font-semibold leading-relaxed shadow-3xs text-slate-600">
-                        <div className="flex items-center gap-2 text-indigo-600 font-extrabold uppercase text-[9px] tracking-wider mb-1">
-                          <Sparkles className="w-3.5 h-3.5 animate-bounce" />
-                          <span>Vetmind Inteligência Clínica</span>
-                        </div>
-                        {loadingStep === 0 && "🧠 Analisando as queixas clínicas apresentadas e correlacionando sinais..."}
-                        {loadingStep === 1 && "📚 Cruzando informações com consensos, diretrizes e o acervo RAG..."}
-                        {loadingStep === 2 && "✍️ Estruturando prontuário na metodologia SOAP e organizando tratamentos..."}
-                      </div>
-                    </div>
-                  </div>
+                ) : activeViewMode === 'documentation' ? (
+                  /* MÓDULO 07: Clinical Documentation Studio — Documentação Clínica Unificada */
+                  <ClinicalDocumentationStudio
+                    patient={patient as Patient}
+                    anamnesisText={currentMessageText || anamnesis}
+                    onGoToAnamnesis={() => setActiveViewMode('anamnesis')}
+                    onGoToDecision={() => setActiveViewMode('decision')}
+                  />
+                ) : activeViewMode === 'decision' ? (
+                  /* MÓDULO 06: Clinical Decision Workspace — Decisão Clínica e Plano Estruturado */
+                  <ClinicalDecisionWorkspace
+                    patient={patient as Patient}
+                    anamnesisText={currentMessageText || anamnesis}
+                    onGoToAnamnesis={() => setActiveViewMode('anamnesis')}
+                    onGoToEvidence={() => setActiveViewMode('evidence')}
+                    onGoToPrescription={() => {
+                      const isCat = patient?.species?.toLowerCase().includes('gato') || patient?.species?.toLowerCase().includes('felin');
+                      const fallbackDiag = isCat ? "Pancreatite Aguda Felina / Tríade Felina" : "Pancreatite Aguda Canina";
+                      if (chatMessages.length > 1) {
+                        const lastAi = chatMessages.find((m) => m.sender === 'ai');
+                        if (lastAi && lastAi.soap) {
+                          handleGeneratePrescription(lastAi.soap.a || fallbackDiag);
+                        } else {
+                          handleGeneratePrescription(fallbackDiag);
+                        }
+                      } else {
+                        handleGeneratePrescription(fallbackDiag);
+                      }
+                    }}
+                  />
+                ) : activeViewMode === 'evidence' ? (
+                  /* MÓDULO 05: Evidence Workspace — Evidências Científicas e Grafo */
+                  <EvidenceWorkspace
+                    patient={patient as Patient}
+                    anamnesisText={currentMessageText || anamnesis}
+                    onGoToAnamnesis={() => setActiveViewMode('anamnesis')}
+                  />
+                ) : activeViewMode === 'workspace' || (chatMessages.length > 1 && activeViewMode !== 'anamnesis' && activeViewMode !== 'evidence' && activeViewMode !== 'decision') ? (
+                  /* MÓDULO 04: Clinical Workspace — Diagnósticos Diferenciais (3 Colunas) */
+                  <DifferentialDiagnosisWorkspace 
+                    patient={patient as Patient}
+                    anamnesisText={currentMessageText || anamnesis}
+                    uploadedFiles={uploadedExamFiles as { name: string; size: string; data: string; mimeType: string; }[]}
+                    onOpenPrescription={() => {
+                      const isCat = patient?.species?.toLowerCase().includes('gato') || patient?.species?.toLowerCase().includes('felin');
+                      const fallbackDiag = isCat ? "Pancreatite Aguda Felina / Tríade Felina" : "Pancreatite Aguda Canina";
+                      if (chatMessages.length > 1) {
+                        const lastAi = chatMessages.find((m) => m.sender === 'ai');
+                        if (lastAi && lastAi.soap) {
+                          handleGeneratePrescription(lastAi.soap.a || fallbackDiag);
+                        } else {
+                          handleGeneratePrescription(fallbackDiag);
+                        }
+                      } else {
+                        handleGeneratePrescription(fallbackDiag);
+                      }
+                    }}
+                    onGeneratePdf={() => window.print()}
+                  />
+                ) : (
+                  /* MÓDULO 02: Dashboard de Anamnese & Triagem */
+                  <AnamnesisDashboard 
+                    patient={patient as Patient}
+                    onUpdatePatient={(p) => setPatient((prev) => ({ ...prev, ...p }))}
+                    anamnesisText={currentMessageText || anamnesis}
+                    onAnamnesisChange={(text) => {
+                      setCurrentMessageText(text);
+                      setAnamnesis(text);
+                    }}
+                    uploadedFiles={uploadedExamFiles as { name: string; size: string; data: string; mimeType: string; }[]}
+                    onFileUpload={handleExamFileChange}
+                    onRemoveFile={(idx) => setUploadedExamFiles((prev) => prev.filter((_, i) => i !== idx))}
+                    onSubmitCase={() => {
+                      setShowReasoningEngine(true);
+                      setActiveViewMode('pipeline');
+                      handleTriggerReportGeneration(currentMessageText || anamnesis);
+                    }}
+                    isGenerating={isGenerating}
+                    isRecording={isRecording}
+                    recordTimer={recordTimer}
+                    onToggleRecording={handleToggleRecording}
+                    isTranscribing={isTranscribing}
+                    onOpenEditModal={() => setShowPatientModal(true)}
+                  />
                 )}
-                <div ref={chatEndRef} />
-              </div>
-            )}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
 
@@ -1690,7 +1422,7 @@ export default function ReportWorkspace({
                   type="text"
                   disabled={isGenerating || isTranscribing}
                   className="w-full text-[11px] sm:text-xs font-semibold py-2 px-3 sm:py-3 sm:pl-4 sm:pr-11 pr-10 border border-slate-150 bg-slate-50 focus:bg-white focus:border-indigo-300 rounded-full outline-none text-slate-800 placeholder:text-slate-400 transition-all disabled:opacity-50"
-                  placeholder={isTranscribing ? "Transcrevendo voz..." : "Descreva sintomas, queixas..."}
+                  placeholder={isTranscribing ? "Transcrevendo voz..." : "Digite novas informações do tutor ou dúvidas..."}
                   value={currentMessageText}
                   onChange={(e) => setCurrentMessageText(e.target.value)}
                   onKeyDown={(e) => {
@@ -1705,11 +1437,25 @@ export default function ReportWorkspace({
                   type="button"
                   onClick={() => handleSendMessageUnified()}
                   disabled={isGenerating || (!currentMessageText.trim() && uploadedExamFiles.length === 0)}
-                  className="absolute right-1 top-1 sm:right-1.5 sm:top-1.5 p-1.5 rounded-full transition-all cursor-pointer bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 shadow-3xs"
+                  className="absolute right-1 top-1 sm:right-1.5 sm:top-1.5 p-1.5 rounded-full transition-all cursor-pointer bg-slate-200 text-slate-700 hover:bg-indigo-600 hover:text-white disabled:opacity-50 shadow-3xs"
+                  title="Enviar mensagem no chat"
                 >
                   <Send className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 </button>
               </div>
+
+              {/* Explicit Re-evaluate Case Action Button */}
+              <button
+                type="button"
+                onClick={() => handleTriggerReportGeneration()}
+                disabled={isGenerating}
+                className="px-3 sm:px-4 py-2 sm:py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[9px] sm:text-[10px] uppercase tracking-wider rounded-full transition-all cursor-pointer shadow-md shadow-indigo-600/15 disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98] flex items-center gap-1 sm:gap-1.5 shrink-0"
+                title="Reavaliar caso e atualizar laudo SOAP e diagnósticos com novas informações"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
+                <span className="hidden xs:inline">Reavaliar</span>
+                <span>Caso</span>
+              </button>
             </div>
           </div>
         )}
@@ -1741,6 +1487,60 @@ export default function ReportWorkspace({
                     className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-200 transition-all cursor-pointer"
                   >
                     <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Quick actions for clearing or testing */}
+                <div className="flex items-center justify-between gap-2 pt-1 pb-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPatient({
+                        name: "",
+                        species: "Canino",
+                        breed: "",
+                        age: "",
+                        sex: "Macho",
+                        weight: "",
+                        tutorName: "",
+                        tutorPhone: "",
+                      });
+                      savePatientToSession({
+                        name: "",
+                        species: "Canino",
+                        breed: "",
+                        age: "",
+                        sex: "Macho",
+                        weight: "",
+                        tutorName: "",
+                        tutorPhone: "",
+                      });
+                    }}
+                    className="text-[10px] font-extrabold text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2.5 py-1 rounded-lg transition-all border border-rose-100 flex items-center gap-1 cursor-pointer"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Limpar Ficha
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const demoData = {
+                        name: "Thor",
+                        species: "Canino",
+                        breed: "Golden Retriever",
+                        age: "4 anos",
+                        sex: "Macho Inteiro",
+                        weight: "28.5",
+                        tutorName: "Mariana Souza",
+                        tutorPhone: "(11) 98765-4321",
+                      };
+                      setPatient(demoData);
+                      savePatientToSession(demoData);
+                    }}
+                    className="text-[10px] font-extrabold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 px-2.5 py-1 rounded-lg transition-all border border-indigo-100 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    Carregar Exemplo (Thor)
                   </button>
                 </div>
 
@@ -1778,72 +1578,172 @@ export default function ReportWorkspace({
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3 text-left">
-                  <div className="space-y-0.5">
-                    <label className="text-[8px] font-black uppercase text-slate-400">Nome do Pet</label>
-                    <input
-                      type="text"
-                      className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:border-indigo-300"
-                      value={patient.name}
-                      onChange={(e) => setPatient((p) => ({ ...p, name: e.target.value }))}
-                      placeholder="Ex: Pipoca"
-                    />
+                <div className="max-h-[75vh] overflow-y-auto space-y-4 pr-1">
+                  {/* Paciente */}
+                  <div className="space-y-2 text-left">
+                    <span className="text-[9px] font-black uppercase text-indigo-600 tracking-wider block">Dados do Paciente</span>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div className="space-y-0.5">
+                        <label className="text-[8px] font-black uppercase text-slate-400">Nome do Pet</label>
+                        <input
+                          type="text"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:border-indigo-300"
+                          value={patient.name || ""}
+                          onChange={(e) => handleUpdatePatient({ name: e.target.value })}
+                          placeholder="Ex: Thor"
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <label className="text-[8px] font-black uppercase text-slate-400">Espécie</label>
+                        <select
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:border-indigo-300 bg-white"
+                          value={patient.species || "Canino"}
+                          onChange={(e) => handleUpdatePatient({ species: e.target.value })}
+                        >
+                          <option value="Canino">Canino</option>
+                          <option value="Felino">Felino</option>
+                          <option value="Outros">Outros</option>
+                        </select>
+                      </div>
+                      <div className="space-y-0.5">
+                        <label className="text-[8px] font-black uppercase text-slate-400">Raça</label>
+                        <input
+                          type="text"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:border-indigo-300"
+                          value={patient.breed || ""}
+                          onChange={(e) => handleUpdatePatient({ breed: e.target.value })}
+                          placeholder="Ex: Poodle, SRD..."
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <label className="text-[8px] font-black uppercase text-slate-400">Sexo</label>
+                        <select
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:border-indigo-300 bg-white"
+                          value={patient.sex || "Macho"}
+                          onChange={(e) => handleUpdatePatient({ sex: e.target.value })}
+                        >
+                          <option value="Macho">Macho</option>
+                          <option value="Fêmea">Fêmea</option>
+                        </select>
+                      </div>
+                      <div className="space-y-0.5">
+                        <label className="text-[8px] font-black uppercase text-slate-400">Peso (kg)</label>
+                        <input
+                          type="number"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:border-indigo-300"
+                          value={patient.weight || ""}
+                          onChange={(e) => {
+                            handleUpdatePatient({ weight: e.target.value });
+                            setCalcWeight(e.target.value);
+                          }}
+                          placeholder="Ex: 8.5"
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <label className="text-[8px] font-black uppercase text-slate-400">Idade</label>
+                        <input
+                          type="text"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:border-indigo-300"
+                          value={patient.age || ""}
+                          onChange={(e) => handleUpdatePatient({ age: e.target.value })}
+                          placeholder="Ex: 3 anos"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-0.5">
-                    <label className="text-[8px] font-black uppercase text-slate-400">Espécie</label>
-                    <select
-                      className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:border-indigo-300 bg-white"
-                      value={patient.species}
-                      onChange={(e) => setPatient((p) => ({ ...p, species: e.target.value }))}
-                    >
-                      <option value="Canino">Canino</option>
-                      <option value="Felino">Felino</option>
-                      <option value="Outros">Outros</option>
-                    </select>
+
+                  {/* Tutor */}
+                  <div className="space-y-2 text-left pt-2 border-t border-slate-100">
+                    <span className="text-[9px] font-black uppercase text-indigo-600 tracking-wider block">Dados do Tutor</span>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div className="space-y-0.5">
+                        <label className="text-[8px] font-black uppercase text-slate-400">Nome do Tutor</label>
+                        <input
+                          type="text"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:border-indigo-300"
+                          value={patient.ownerName || patient.tutorName || ""}
+                          onChange={(e) => handleUpdatePatient({ ownerName: e.target.value, tutorName: e.target.value })}
+                          placeholder="Ex: Maria Santos"
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <label className="text-[8px] font-black uppercase text-slate-400">Contato / Telefone</label>
+                        <input
+                          type="text"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:border-indigo-300"
+                          value={patient.ownerPhone || patient.tutorPhone || ""}
+                          onChange={(e) => handleUpdatePatient({ ownerPhone: e.target.value, tutorPhone: e.target.value })}
+                          placeholder="Ex: (11) 99999-8888"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-0.5">
-                    <label className="text-[8px] font-black uppercase text-slate-400">Raça</label>
-                    <input
-                      type="text"
-                      className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:border-indigo-300"
-                      value={patient.breed}
-                      onChange={(e) => setPatient((p) => ({ ...p, breed: e.target.value }))}
-                      placeholder="Ex: Poodle"
-                    />
-                  </div>
-                  <div className="space-y-0.5">
-                    <label className="text-[8px] font-black uppercase text-slate-400">Sexo</label>
-                    <select
-                      className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:border-indigo-300 bg-white"
-                      value={patient.sex}
-                      onChange={(e) => setPatient((p) => ({ ...p, sex: e.target.value }))}
-                    >
-                      <option value="Macho">Macho</option>
-                      <option value="Fêmea">Fêmea</option>
-                    </select>
-                  </div>
-                  <div className="space-y-0.5">
-                    <label className="text-[8px] font-black uppercase text-slate-400">Peso (kg)</label>
-                    <input
-                      type="number"
-                      className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:border-indigo-300"
-                      value={patient.weight}
-                      onChange={(e) => {
-                        setPatient((p) => ({ ...p, weight: e.target.value }));
-                        setCalcWeight(e.target.value);
-                      }}
-                      placeholder="Ex: 8.5"
-                    />
-                  </div>
-                  <div className="space-y-0.5">
-                    <label className="text-[8px] font-black uppercase text-slate-400">Idade</label>
-                    <input
-                      type="text"
-                      className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:border-indigo-300"
-                      value={patient.age}
-                      onChange={(e) => setPatient((p) => ({ ...p, age: e.target.value }))}
-                      placeholder="Ex: 3 anos"
-                    />
+
+                  {/* Sinais Vitais */}
+                  <div className="space-y-2 text-left pt-2 border-t border-slate-100">
+                    <span className="text-[9px] font-black uppercase text-emerald-600 tracking-wider block">Sinais Vitais na Triagem</span>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="space-y-0.5">
+                        <label className="text-[8px] font-black uppercase text-slate-400">FC (bpm)</label>
+                        <input
+                          type="text"
+                          className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:border-indigo-300"
+                          value={patient.fc || ""}
+                          onChange={(e) => setPatient((p) => ({ ...p, fc: e.target.value }))}
+                          placeholder="Ex: 120"
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <label className="text-[8px] font-black uppercase text-slate-400">FR (mpm)</label>
+                        <input
+                          type="text"
+                          className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:border-indigo-300"
+                          value={patient.fr || ""}
+                          onChange={(e) => setPatient((p) => ({ ...p, fr: e.target.value }))}
+                          placeholder="Ex: 24"
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <label className="text-[8px] font-black uppercase text-slate-400">Temp (°C)</label>
+                        <input
+                          type="text"
+                          className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:border-indigo-300"
+                          value={patient.temperature || ""}
+                          onChange={(e) => setPatient((p) => ({ ...p, temperature: e.target.value }))}
+                          placeholder="Ex: 38.5"
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <label className="text-[8px] font-black uppercase text-slate-400">TPC</label>
+                        <input
+                          type="text"
+                          className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:border-indigo-300"
+                          value={patient.tpc || ""}
+                          onChange={(e) => setPatient((p) => ({ ...p, tpc: e.target.value }))}
+                          placeholder="Ex: < 2s"
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <label className="text-[8px] font-black uppercase text-slate-400">Mucosas</label>
+                        <input
+                          type="text"
+                          className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:border-indigo-300"
+                          value={patient.mucosas || ""}
+                          onChange={(e) => setPatient((p) => ({ ...p, mucosas: e.target.value }))}
+                          placeholder="Ex: Normocoradas"
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <label className="text-[8px] font-black uppercase text-slate-400">Hidratação</label>
+                        <input
+                          type="text"
+                          className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:border-indigo-300"
+                          value={patient.hydration || ""}
+                          onChange={(e) => setPatient((p) => ({ ...p, hydration: e.target.value }))}
+                          placeholder="Ex: Normal"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
 

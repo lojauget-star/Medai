@@ -1,17 +1,18 @@
-@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Nunito", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
   
-  --color-clinical-blue: #4f46e5; /* Inovação tecnológica e autoridade (Indigo-600) */
-  --color-clinical-blue-dark: #3730a3;
-  --color-trusted-green: #10b981; /* Calma, saúde e precisão clínica (Emerald-500) */
-  --color-clinical-bg: #f8fafc;
-  --color-surface-border: #e2e8f0;
-  --color-surface-text: #0f172a;
-  --color-surface-text-variant: #64748b;
+  --color-clinical-blue: #4F46E5;
+  --color-clinical-blue-dark: #3730A3;
+  --color-trusted-green: #10B981;
+  --color-clinical-bg: #F8FAFC;
+  --color-surface-border: #E2E8F0;
+  --color-surface-text: #0F172A;
+  --color-surface-text-variant: #64748B;
+  --color-danger: #F43F5E;
 }
 
 @layer base {
@@ -22,57 +23,63 @@
   }
 
   body {
-    @apply antialiased font-sans bg-slate-50 text-slate-800;
+    @apply antialiased font-sans bg-[#F8FAFC] text-[#0F172A];
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-display tracking-tight text-slate-900;
+    @apply font-sans tracking-tight text-[#0F172A];
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 }
 
 @layer components {
   /* Elegant invisible scrollbar */
   .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
+    width: 5px;
+    height: 5px;
   }
   .custom-scrollbar::-webkit-scrollbar-track {
     background: transparent;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-slate-200 rounded-full hover:bg-slate-300;
+    @apply bg-slate-200/80 rounded-full hover:bg-slate-300;
   }
 
   /* Universal highly polished input styling */
   input, textarea, select {
-    @apply transition-all duration-300 outline-none;
+    @apply transition-all duration-200 outline-none;
   }
   
   input:focus, textarea:focus, select:focus {
-    @apply ring-4 ring-indigo-500/10 border-indigo-500 shadow-sm relative z-10;
+    @apply ring-2 ring-[#4F46E5]/15 border-[#4F46E5] shadow-xs relative z-10;
   }
 
-  /* Micro-interactions to deliver a "Perfect UX" feel */
+  /* Micro-interactions: Apple 150ms spring */
   button {
-    @apply transition-all duration-300 active:scale-[0.97];
+    @apply transition-all duration-150 active:scale-[0.98];
   }
 
   .input-clinical {
-    @apply w-full px-4 py-3 border border-slate-200 bg-white rounded-2xl text-[13px] md:text-sm font-medium leading-relaxed focus:border-clinical-blue/45 focus:ring-4 focus:ring-clinical-blue/10 outline-none transition-all placeholder:text-slate-400 text-slate-800;
+    @apply w-full px-4 py-3 border border-[#E2E8F0] bg-white rounded-2xl text-[13px] md:text-sm font-normal leading-relaxed focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/15 outline-none transition-all placeholder:text-[#64748B] text-[#0F172A];
   }
 
-  /* Custom animated glow container */
-  @keyframes container-pulse {
+  /* Living Thinking Core Glassmorphism and Orb Animation */
+  @keyframes orb-pulse {
     0%, 100% {
-      border-color: rgba(79, 70, 229, 0.25);
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 0 0 2px rgba(79, 70, 229, 0.04);
+      transform: scale(1) rotate(0deg);
+      box-shadow: 0 0 40px rgba(79, 70, 229, 0.35), inset 0 0 20px rgba(255, 255, 255, 0.6);
     }
     50% {
-      border-color: rgba(16, 185, 129, 0.45);
-      box-shadow: 0 20px 25px -5px rgba(79, 70, 229, 0.08), 0 10px 10px -5px rgba(16, 185, 129, 0.08), 0 0 0 4px rgba(16, 185, 129, 0.08);
+      transform: scale(1.06) rotate(180deg);
+      box-shadow: 0 0 60px rgba(16, 185, 129, 0.45), inset 0 0 30px rgba(255, 255, 255, 0.8);
     }
   }
-  
-  .animate-container-pulse {
-    animation: container-pulse 4s infinite ease-in-out;
+
+  .animate-orb {
+    animation: orb-pulse 6s ease-in-out infinite;
   }
 }
