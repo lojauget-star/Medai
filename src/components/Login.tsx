@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Chrome, ShieldAlert, Sparkles, ArrowRight } from 'lucide-react';
-import { auth, db, signInAnonymously, doc, getDoc, setDoc, activateLocalGuestMode } from '../lib/firebase';
+import { auth, db, signInAnonymously, doc, getDoc, setDoc, activateLocalGuestMode, firebaseConfig } from '../lib/firebase';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import VetmindLogo from './VetmindLogo';
 
@@ -53,6 +53,16 @@ export default function Login({ onLoginSuccess }: LoginProps) {
             console.log('User doc set.');
           }
         } catch (innerErr: any) {
+          console.error('🔥 FIRESTORE ERROR DETAILS', {
+            code: innerErr?.code,
+            message: innerErr?.message,
+            name: innerErr?.name,
+            stack: innerErr?.stack,
+            uid: user?.uid,
+            path: docRef?.path,
+            projectId: firebaseConfig?.projectId,
+            databaseId: firebaseConfig?.firestoreDatabaseId,
+          });
           console.error('Error during getDoc/setDoc for users (ignoring to allow login):', innerErr);
         }
         

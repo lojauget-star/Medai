@@ -8,7 +8,7 @@ import PrescriptionWorkspace from './components/PrescriptionWorkspace';
 import Dashboard from './components/Dashboard';
 import { Calendar } from './components/Calendar';
 import { BusinessIntelligence } from './components/BusinessIntelligence';
-import { auth, db, signInAnonymously, onAuthStateChanged, signOut, doc, getDoc, setDoc } from './lib/firebase';
+import { auth, db, signInAnonymously, onAuthStateChanged, signOut, doc, getDoc, setDoc, firebaseConfig } from './lib/firebase';
 import { User } from 'firebase/auth';
 import { handleFirestoreError, OperationType } from './lib/firestore-errors';
 import { Report, Patient } from './types';
@@ -125,7 +125,16 @@ export default function App() {
           } else {
             setUserPlan('free');
           }
-        } catch (err) {
+        } catch (err: any) {
+          console.error('🔥 FIRESTORE ERROR DETAILS (App.tsx profile load)', {
+            code: err?.code,
+            message: err?.message,
+            name: err?.name,
+            stack: err?.stack,
+            uid: u?.uid,
+            projectId: firebaseConfig?.projectId,
+            databaseId: firebaseConfig?.firestoreDatabaseId,
+          });
           console.error("Error loading user profile:", err);
         }
       }
