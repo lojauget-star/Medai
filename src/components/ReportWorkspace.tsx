@@ -1342,6 +1342,8 @@ export default function ReportWorkspace({
                     patient={patient as Patient}
                     anamnesisText={currentMessageText || anamnesis}
                     uploadedFiles={uploadedExamFiles as { name: string; size: string; data: string; mimeType: string; }[]}
+                    aiReportText={generatedReport || (chatMessages.length > 0 ? (chatMessages[chatMessages.length - 1]?.soap?.raw || chatMessages[chatMessages.length - 1]?.text) : undefined)}
+                    sources={sources}
                     onOpenPrescription={() => {
                       const fallbackDiag = "Pancreatite / Gastroenterite Aguda";
                       if (chatMessages.length > 1) {

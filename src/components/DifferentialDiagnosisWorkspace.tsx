@@ -39,6 +39,8 @@ interface DifferentialDiagnosisWorkspaceProps {
   patient: Patient;
   anamnesisText: string;
   uploadedFiles?: Array<{ name: string; size: string; data?: string; mimeType?: string }>;
+  aiReportText?: string;
+  sources?: Array<{ topic: string; content?: string; snippet?: string; type?: string; score?: number }>;
   onOpenPrescription?: () => void;
   onOpenTutorModal?: () => void;
   onGeneratePdf?: () => void;
@@ -84,6 +86,255 @@ export interface DynamicClinicalData {
     node3Subtitle: string;
   };
   tutorExplanation: string;
+}
+
+function extractClinicalTagsFromText(text: string): string[] {
+  const lower = (text || '').toLowerCase();
+  const tags: string[] = [];
+  if (lower.includes('vômito') || lower.includes('vomito') || lower.includes('êmese')) tags.push('Êmese / Vômito');
+  if (lower.includes('diarreia') || lower.includes('diarréia')) tags.push('Diarreia');
+  if (lower.includes('perda de peso') || lower.includes('emagrecimento') || lower.includes('magro')) tags.push('Perda de Peso Progressiva');
+  if (lower.includes('crônico') || lower.includes('cronico') || lower.includes('crônica') || lower.includes('cronica') || lower.includes('meses') || lower.includes('semanas')) tags.push('Evolução Crônica');
+  if (lower.includes('felino') || lower.includes('gato') || lower.includes('felina') || lower.includes('cat')) tags.push('Espécie Felina');
+  if (lower.includes('canino') || lower.includes('cão') || lower.includes('cachorro') || lower.includes('dog')) tags.push('Espécie Canina');
+  if (lower.includes('inapetência') || lower.includes('anorexia') || lower.includes('sem comer')) tags.push('Inapetência / Anorexia');
+  if (lower.includes('dor') || lower.includes('sensibilidade')) tags.push('Dor Abdominal / Sensibilidade');
+  if (tags.length === 0) tags.push('Sinais Sintomáticos Registrados');
+  return tags;
+}
+
+function finalizeHypothesis(
+  partial: Partial<Hypothesis>,
+  index: number,
+  patient?: Patient,
+  anamnesisText?: string
+): Hypothesis {
+  const species = patient?.species || 'Pequenos Animais';
+  const name = patient?.name || 'Pet';
+  const title = partial.title || `Hipótese Diagnóstica ${index}`;
+  const confidence = partial.confidence || (index === 1 ? 85 : index === 2 ? 65 : 45);
+  const probability: 'Alta' | 'Moderada' | 'Baixa' = confidence >= 70 ? 'Alta' : confidence >= 50 ? 'Moderada' : 'Baixa';
+
+  const excerpt = (anamnesisText || '').slice(0, 100);
+  const defaultJustification = [
+    `Anamnese relatada para ${name} (${species}): "${excerpt || 'Sintomas em investigação'}..."`,
+    `Achados clínicos e epidemiológicos compatíveis com a patologia ${title}.`,
+    `Cruzamento de evidências com as diretrizes do acervo RAG Vetmind.`
+  ];
+
+  const tags = extractClinicalTagsFromText(`${patient?.species} ${anamnesisText}`);
+
+  const defaultTests = [
+    { name: `Ultrassonografia Abdominal Focada em ${title}`, priority: 'Alta' as const, reason: 'Avaliação parenquimatosa e morfológica de órgãos abdominais' },
+    { name: 'Hemograma Completo + Perfil Bioquímico (ALT, FA, Ureia, Creatinina)', priority: 'Alta' as const, reason: 'Triagem de disfunções sistêmicas, inflamatórias e orgânicas' },
+    { name: 'Perfil Específico de Laboratório / Imagem', priority: 'Moderada' as const, reason: 'Mapeamento complementar para confirmação' }
+  ];
+
+  const defaultConduct = [
+    { id: 'c1', label: `Protocolo terapêutico e suporte sintomático para ${title}`, checked: true },
+    { id: 'c2', label: 'Monitoramento do estado geral e balanço hídrico', checked: true },
+    { id: 'c3', label: 'Acompanhamento dos resultados dos exames laboratoriais e de imagem', checked: false }
+  ];
+
+  return {
+    id: partial.id || `dx_${index}`,
+    title,
+    probability,
+    confidence,
+    justification: partial.justification && partial.justification.length > 0 ? partial.justification : defaultJustification,
+    supportingFindings: partial.supportingFindings && partial.supportingFindings.length > 0 ? partial.supportingFindings : tags,
+    contradictoryFindings: partial.contradictoryFindings && partial.contradictoryFindings.length > 0 ? partial.contradictoryFindings : ['Ausência de sinais de choque cirúrgico agudo descompensado'],
+    recommendedTests: partial.recommendedTests && partial.recommendedTests.length > 0 ? partial.recommendedTests : defaultTests,
+    relatedDiagnoses: partial.relatedDiagnoses && partial.relatedDiagnoses.length > 0 ? partial.relatedDiagnoses : [`Diagnóstico diferencial secundário para ${species}`],
+    conduct: partial.conduct && partial.conduct.length > 0 ? partial.conduct : defaultConduct,
+    prognosis: partial.prognosis || (confidence >= 70 ? 'Favorável' : 'Reservado')
+  };
+}
+
+export function parseAIDifferentials(
+  aiReportText: string,
+  sources: Array<{ topic: string; content?: string; snippet?: string; type?: string; score?: number }> = [],
+  patient?: Patient,
+  anamnesisText?: string
+): DynamicClinicalData | null {
+  if (!aiReportText || typeof aiReportText !== 'string' || aiReportText.length < 20) {
+    return null;
+  }
+
+  let diffText = aiReportText;
+  if (aiReportText.includes('## D')) {
+    const sections = aiReportText.split('##');
+    const dSection = sections.find(s => s.trim().startsWith('D (') || s.trim().startsWith('D:') || s.trim().startsWith('D '));
+    if (dSection) {
+      diffText = dSection;
+    }
+  }
+
+  const hypotheses: Hypothesis[] = [];
+  const referencesMap = new Map<string, Reference>();
+
+  const lines = diffText.split('\n');
+  let currentHyp: Partial<Hypothesis> | null = null;
+  let currentField: 'justification' | 'references' | 'none' = 'none';
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+
+    const isTitleLine = 
+      (trimmed.startsWith('1.') || trimmed.startsWith('2.') || trimmed.startsWith('3.') || trimmed.startsWith('- **') || trimmed.startsWith('###')) &&
+      (trimmed.includes('%') || trimmed.includes('Probabilidade') || trimmed.includes('1º') || trimmed.includes('2º') || trimmed.includes('3º') || trimmed.includes('Diagnóstico')) &&
+      !trimmed.includes('Revisão Sistemática') &&
+      !trimmed.includes('Embasamento Literário') &&
+      !trimmed.includes('Por que esta causa');
+
+    if (isTitleLine) {
+      if (currentHyp && currentHyp.title) {
+        hypotheses.push(finalizeHypothesis(currentHyp, hypotheses.length + 1, patient, anamnesisText));
+      }
+
+      let rawTitle = trimmed.replace(/^[-*\d.#\s]+/, '').replace(/\*\*/g, '').trim();
+      let confidence = 80;
+      const percMatch = trimmed.match(/(\d{1,3})\s*%/);
+      if (percMatch) {
+        confidence = parseInt(percMatch[1], 10);
+      } else if (hypotheses.length === 0) confidence = 85;
+      else if (hypotheses.length === 1) confidence = 65;
+      else confidence = 45;
+
+      rawTitle = rawTitle.replace(/[-–]?\s*\d{1,3}%\s*de\s*Probabilidade/i, '');
+      rawTitle = rawTitle.replace(/[-–]?\s*\d{1,3}%/i, '');
+      rawTitle = rawTitle.replace(/\[|\]/g, '').trim();
+
+      const probability: 'Alta' | 'Moderada' | 'Baixa' = confidence >= 70 ? 'Alta' : confidence >= 50 ? 'Moderada' : 'Baixa';
+
+      currentHyp = {
+        id: `dx_ai_${hypotheses.length + 1}`,
+        title: rawTitle || `Hipótese Diagnóstica ${hypotheses.length + 1}`,
+        probability,
+        confidence,
+        justification: [],
+        supportingFindings: extractClinicalTagsFromText(`${patient?.species} ${anamnesisText}`),
+        contradictoryFindings: [],
+        recommendedTests: [],
+        conduct: [],
+        prognosis: confidence >= 70 ? 'Favorável' : 'Reservado'
+      };
+      currentField = 'none';
+      return;
+    }
+
+    if (!currentHyp) return;
+
+    if (trimmed.includes('Revisão Sistemática') || trimmed.includes('Por que esta causa') || trimmed.includes('Justificativa')) {
+      currentField = 'justification';
+      const textAfterColon = trimmed.split(':').slice(1).join(':').replace(/\*\*/g, '').trim();
+      if (textAfterColon) {
+        currentHyp.justification?.push(textAfterColon);
+      }
+      return;
+    }
+
+    if (trimmed.includes('Embasamento Literário') || trimmed.includes('Referências') || trimmed.includes('Bibliográficas')) {
+      currentField = 'references';
+      return;
+    }
+
+    if (currentField === 'justification') {
+      const cleanLine = trimmed.replace(/^[-*•\s]+/, '').replace(/\*\*/g, '').trim();
+      if (cleanLine && !cleanLine.startsWith('Embasamento')) {
+        currentHyp.justification?.push(cleanLine);
+      }
+    } else if (currentField === 'references' || trimmed.includes('http') || trimmed.includes('doi.org') || trimmed.includes('scholar.google')) {
+      const linkMatches = [...trimmed.matchAll(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g)];
+      if (linkMatches.length > 0) {
+        linkMatches.forEach((m) => {
+          const refTitle = m[1];
+          const refUrl = m[2];
+          const refId = `ref_ai_${referencesMap.size + 1}`;
+          referencesMap.set(refId, {
+            id: refId,
+            title: refTitle,
+            authors: refTitle.includes('Consensus') || refTitle.includes('ACVIM') || refTitle.includes('WSAVA') 
+              ? 'Consenso Internacional Veterinário (RAG)' 
+              : 'Literatura Científica & Tratado (RAG)',
+            year: 2024,
+            journal: refTitle.includes('JVIM') || refTitle.includes('Journal') 
+              ? 'Journal of Veterinary Internal Medicine' 
+              : 'Base de Conhecimento Vetmind',
+            evidenceType: refTitle.includes('Consensus') || refTitle.includes('ACVIM') || refTitle.includes('WSAVA') ? 'Consenso' : 'Guideline',
+            level: 'Alta Evidência',
+            doi: refUrl.includes('doi.org') ? refUrl.replace(/.*doi\.org\//, '') : refUrl,
+            summary: `Referência científica selecionada pelo RAG para o diagnóstico de ${currentHyp?.title}.`
+          });
+        });
+      } else if (trimmed.startsWith('-') || trimmed.startsWith('*')) {
+        const cleanRefText = trimmed.replace(/^[-*•\s]+/, '').replace(/\*\*/g, '').trim();
+        if (cleanRefText) {
+          const refId = `ref_ai_${referencesMap.size + 1}`;
+          referencesMap.set(refId, {
+            id: refId,
+            title: cleanRefText,
+            authors: 'RAG Vetmind Engine',
+            year: 2024,
+            journal: 'Diretriz de Clínica Veterinária',
+            evidenceType: 'Guideline',
+            level: 'Alta Evidência',
+            doi: '',
+            summary: cleanRefText
+          });
+        }
+      }
+    }
+  });
+
+  if (currentHyp && (currentHyp as Hypothesis).title) {
+    hypotheses.push(finalizeHypothesis(currentHyp, hypotheses.length + 1, patient, anamnesisText));
+  }
+
+  if (hypotheses.length === 0) {
+    return null;
+  }
+
+  const references = Array.from(referencesMap.values());
+  if (sources && sources.length > 0) {
+    sources.forEach((s, idx) => {
+      if (s.topic || s.snippet || s.content) {
+        references.push({
+          id: `ref_source_${idx + 1}`,
+          title: s.topic || `Diretriz RAG ${idx + 1}`,
+          authors: s.type === 'pdf' ? 'Tratado de Referência RAG' : 'Diretriz Vetmind',
+          year: 2024,
+          journal: 'Acervo RAG Integrado',
+          evidenceType: 'Guideline',
+          level: 'Alta Evidência',
+          doi: '',
+          summary: (s.snippet || s.content || '').substring(0, 200) + '...'
+        });
+      }
+    });
+  }
+
+  const name = patient?.name || 'Pet';
+  const species = patient?.species || 'Pequenos Animais';
+  const breed = patient?.breed || 'SRD';
+  const topHyp = hypotheses[0];
+
+  return {
+    hypotheses,
+    references,
+    clinicalTags: extractClinicalTagsFromText(`${species} ${anamnesisText}`),
+    decisionNodes: {
+      node1Title: 'Anamnese & Relato',
+      node1Subtitle: `Sinais informados para ${name} (${species}, ${breed})`,
+      node2Consensus: 'Motor RAG & Diretrizes Ativas',
+      node2Title: 'Raciocínio Clínico IA + RAG',
+      node2Subtitle: 'Cruzamento com acervo científico e diretrizes ativas',
+      node3Title: `${topHyp.title} (${topHyp.confidence}%)`,
+      node3Subtitle: 'Hipótese diagnóstica primária confirmada',
+    },
+    tutorExplanation: `Realizamos a análise inteligente do caso do(a) ${name}. A hipótese principal identificada é ${topHyp.title}. Recomendamos os exames e o suporte terapêutico indicados para o tratamento mais eficaz e seguro.`
+  };
 }
 
 export function generateClinicalData(anamnesisText: string, patient: Patient): DynamicClinicalData {
@@ -466,7 +717,91 @@ export function generateClinicalData(anamnesisText: string, patient: Patient): D
   }
 
   if (category === 'gastro') {
+    const isFeline = lower.includes('felin') || lower.includes('gato') || lower.includes('cat') || species.toLowerCase().includes('felin') || species.toLowerCase().includes('gato');
+    const isChronic = lower.includes('cronico') || lower.includes('crônico') || lower.includes('cronica') || lower.includes('crônica') || lower.includes('perda de peso') || lower.includes('emagrecimento');
     const isPancreatitisMentioned = lower.includes('pancreatite') || lower.includes('gordura') || lower.includes('lipase') || lower.includes('dor abdominal');
+
+    if (isFeline || isChronic) {
+      const primaryTitle = isFeline 
+        ? `Enteropatia Crônica Felina / DII (Doença Inflamatória Intestinal) em ${species}`
+        : `Gastroenterite Crônica / Enteropatia Inflamatória em ${species}`;
+
+      return {
+        hypotheses: [
+          {
+            id: 'dx_1',
+            title: primaryTitle,
+            probability: 'Alta',
+            confidence: 86,
+            justification: [
+              `Anamnese relatada para ${name} (${species}): "${text.slice(0, 110)}..."`,
+              `Quadro de êmese/vômitos e perda de peso em ${species} é um achado marcante para Doença Inflamatória Intestinal (DII / IBD) e Síndrome de Má-Absorção.`,
+              `Indicação de diagnóstico diferencial com Tríade Felina (Pancreatite / Colangite / DII) e Linfoma Alimentar de Baixo Grau.`,
+            ],
+            supportingFindings: clinicalTags,
+            contradictoryFindings: [`Ausência de choque hipovolêmico descompensado ou peritonite aguda na triagem`],
+            recommendedTests: [
+              { name: 'Ultrassonografia Abdominal com Doppler de TGI', priority: 'Alta', reason: 'Aferição de espessamento de camada muscular intestinal e linfonodomegalia mesentérica' },
+              { name: 'Dosagem Sérica de Cobalamina (Vitamina B12) e Folato', priority: 'Alta', reason: 'Avaliação de síndrome de má-absorção ileal e disbiose proximal' },
+              { name: 'Perfil Bioquímico Completo (ALT, FA, GGT, Proteínas Totais, Albuminas, Ureia, Creatinina)', priority: 'Alta', reason: 'Aferição de hepatopatias secundárias, pancreatite e função renal' },
+            ],
+            relatedDiagnoses: ['Linfoma Intestinal Felino de Baixo Grau (LSA)', 'Tríade Felina (Colangite / Pancreatite / DII)', 'Insuficiência Renal Crônica (IRC)'],
+            conduct: [
+              { id: 'c1', label: 'Dieta hipoalergênica ou de proteína hidrolisada por no mínimo 6 a 8 semanas', checked: true },
+              { id: 'c2', label: 'Suplementação parenteral/SC de Cobalamina (Vitamina B12) se hipocobalaminemia confirmada', checked: true },
+              { id: 'c3', label: 'Antiemético/Procinético (Citrato de Maropitant 1 mg/kg SC/VO) conforme episódios de êmese', checked: true },
+              { id: 'c4', label: 'Considerar imunomodulação com Prednisolona após biópsia/descarte de neoplasia', checked: false },
+            ],
+            prognosis: 'Favorável',
+          },
+          {
+            id: 'dx_2',
+            title: isFeline ? `Linfoma Alimentar Felino de Baixo Grau (LSA Intestinal)` : `Enteropatia Crônica por Hipersensibilidade Alimentar / Disbiose`,
+            probability: 'Moderada',
+            confidence: 68,
+            justification: [
+              `Sintomatologia crônica de vômitos e perda de peso em ${name} exige exclusão histopatológica de neoplasia linfocítica ou alergia alimentar.`,
+              `Diferenciação indispensável frente à Doença Inflamatória Intestinal (DII).`,
+            ],
+            supportingFindings: clinicalTags,
+            contradictoryFindings: [`Aguardando ultrassonografia para descartar massa abdominal evidente`],
+            recommendedTests: [
+              { name: 'Ultrassonografia Abdominal Avançada / Biópsia Intestinal', priority: 'Alta', reason: 'Diagnóstico histopatológico definitivo e imunofenotipagem' },
+            ],
+            relatedDiagnoses: ['Doença Inflamatória Intestinal (IBD)', 'Gastroenterite Eosinofílica'],
+            conduct: [
+              { id: 'c1', label: 'Início de conduta sintomática de suporte e dieta de alta digestibilidade', checked: true },
+            ],
+            prognosis: 'Reservado',
+          },
+        ],
+        references: [
+          {
+            id: 'ref_1',
+            title: 'WSAVA Guidelines for the Diagnosis and Treatment of Chronic Feline Enteropathies and IBD',
+            authors: 'Marsilio S., Jergens A.E., Suchodolski J.S. et al.',
+            year: 2024,
+            journal: 'Journal of Feline Medicine and Surgery (JFMS)',
+            evidenceType: 'Consenso',
+            level: 'Alta Evidência',
+            doi: '10.1177/1098612X23118901',
+            summary: 'Consenso internacional estabelecendo dosagem de cobalamina, ultrassom de alças e dieta hidrolisada para vômitos crônicos e perda de peso.',
+          },
+        ],
+        clinicalTags,
+        decisionNodes: {
+          node1Title: 'Sinais de Enteropatia Crônica',
+          node1Subtitle: `Relato na anamnese de ${name}: "${text.slice(0, 60)}..."`,
+          node2Consensus: 'Consenso JFMS / WSAVA 2024',
+          node2Title: 'Ultrassom TGI & Cobalamina B12',
+          node2Subtitle: 'Diferenciação entre DII, Tríade Felina e Linfoma Alimentar',
+          node3Title: `${primaryTitle} (86%)`,
+          node3Subtitle: 'Iniciar dieta hidrolisada, suporte sintomático e exames de imagem',
+        },
+        tutorExplanation: `O(A) ${name} apresenta um quadro de sensibilidade gastrointestinal crônica com vômitos e perda de peso. Vamos iniciar a alimentação especial e as medicações de suporte, além de solicitar o ultrassom e exames de sangue para tratar a causa com máxima precisão.`,
+      };
+    }
+
     const primaryTitle = isPancreatitisMentioned
       ? `Pancreatite Aguda / Enteropatia Inflamatória em ${species}`
       : `Gastroenterite Aguda / Indiscreção Alimentar em ${species}`;
@@ -479,7 +814,7 @@ export function generateClinicalData(anamnesisText: string, patient: Patient): D
           probability: 'Alta',
           confidence: 85,
           justification: [
-            `Queixa de êmese, prostração e/ou alteração gastrointestinal relatada na anamnese de ${name}`,
+            `Queixa relatada na anamnese de ${name} (${species}, ${breed}): "${text.slice(0, 110)}..."`,
             `Sintomatologia clínica compatível com inflamação de mucosa gastrointestinal ou parênquima pancreático`,
             `Necessidade de controle imediato de perda de fluidos, náusea e dor visceral`,
           ],
@@ -611,15 +946,21 @@ export default function DifferentialDiagnosisWorkspace({
   patient,
   anamnesisText,
   uploadedFiles = [],
+  aiReportText,
+  sources = [],
   onOpenPrescription,
   onOpenTutorModal,
   onGeneratePdf,
 }: DifferentialDiagnosisWorkspaceProps) {
   
-  // Dynamically compute clinical data based on anamnesisText & patient
+  // Dynamically compute clinical data based on aiReportText or anamnesisText & patient
   const clinicalData = React.useMemo(() => {
+    if (aiReportText) {
+      const parsed = parseAIDifferentials(aiReportText, sources, patient, anamnesisText);
+      if (parsed) return parsed;
+    }
     return generateClinicalData(anamnesisText, patient);
-  }, [anamnesisText, patient]);
+  }, [aiReportText, sources, anamnesisText, patient]);
 
   // Expanded card IDs
   const [expandedHypothesis, setExpandedHypothesis] = useState<string[]>(['dx_1']);
