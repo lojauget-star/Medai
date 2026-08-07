@@ -116,29 +116,30 @@ const originalDescriptor = Object.getOwnPropertyDescriptor(
 );
 const originalGetter = originalDescriptor?.get || (() => null);
 
-Object.defineProperty(auth, 'currentUser', {
-  get() {
-    if (localGuestUser) return localGuestUser;
-    if (localStorage.getItem('vetmind_local_guest') === 'true') {
-      if (!localGuestUser) {
-        localGuestUser = createMockUser();
-      }
-      return localGuestUser;
-    }
-    return originalGetter.call(auth);
-  },
-  set(val) {
-    const originalSetter = originalDescriptor?.set;
-    if (originalSetter) {
-      try {
-        originalSetter.call(auth, val);
-      } catch (e) {
-        console.warn("Error calling original auth.currentUser setter:", e);
-      }
-    }
-  },
-  configurable: true
-});
+// TEMPORARIAMENTE DESATIVADO PARA DIAGNÓSTICO - permission-denied no Firestore
+// Object.defineProperty(auth, 'currentUser', {
+//   get() {
+//     if (localGuestUser) return localGuestUser;
+//     if (localStorage.getItem('vetmind_local_guest') === 'true') {
+//       if (!localGuestUser) {
+//         localGuestUser = createMockUser();
+//       }
+//       return localGuestUser;
+//     }
+//     return originalGetter.call(auth);
+//   },
+//   set(val) {
+//     const originalSetter = originalDescriptor?.set;
+//     if (originalSetter) {
+//       try {
+//         originalSetter.call(auth, val);
+//       } catch (e) {
+//         console.warn("Error calling original auth.currentUser setter:", e);
+//       }
+//     }
+//   },
+//   configurable: true
+// });
 
 // WRAPPED AUTH METHODS
 export async function signInAnonymously(authInstance: any) {
