@@ -69,7 +69,7 @@ export function getCanonicalCaseForPatient(patient: Patient, anamnesisText?: str
     category = 'vector_borne';
   } else if (lower.match(/(tosse|engasgo|falta de ar|dispneia|dispnéia|secreção nasal|espirro|asma|bronquite)/)) {
     category = 'respiratory';
-  } else if (lower.match(/(mancando|claudicação|claudicacao|dor na coluna|paralisia|convulsão|fratura|trauma)/)) {
+  } else if (lower.match(/(mancando|claudicação|claudicacao|dor na coluna|cervical|pescoço|pescoco|coluna|disco|hernia|discopatia|ivdd|srma|paralisia|convulsão|fratura|trauma|dor|grito|rigidez|ataxia|paresia)/)) {
     category = 'ortho_neuro';
   }
 
@@ -166,49 +166,56 @@ export function getCanonicalCaseForPatient(patient: Patient, anamnesisText?: str
   }
 
   if (category === 'ortho_neuro') {
+    const isCervicalSpine = lower.includes('cervical') || lower.includes('pescoço') || lower.includes('pescoco') || lower.includes('coluna') || lower.includes('disco') || lower.includes('ivdd');
+    const hypTitle = isCervicalSpine
+      ? `Discopatia Intervertebral Cervical (IVDD) / Mielopatia em ${species}`
+      : `Afeção Osteomioarticular / Neurológica em ${species}`;
+
     return {
       patient: { name, species, breed, age, weight: weightStr, tutorName, tutorPhone, ownerId: 'owner-current' },
-      activeHypothesis: `Afeção Osteomioarticular / Neurológica em ${species}`,
+      activeHypothesis: hypTitle,
       medications: [
         {
-          name: 'Meloxicam (0,1 mg/kg)',
-          dose: weightVal > 0 ? `${(weightVal * 0.1).toFixed(1)} mg` : '0,1 mg/kg',
+          name: 'Gabapentina (10 mg/kg) + Dipirona Sódica (25 mg/kg)',
+          dose: weightVal > 0 ? `Gabapentina ${Math.round(weightVal * 10)} mg + Dipirona ${Math.round(weightVal * 25)} mg` : 'Conforme peso',
+          frequency: 'A cada 8-12 horas',
+          duration: '10 a 14 dias',
+          route: 'Oral',
+          notes: 'Analgesia neuropática multimodal de escolha para compressão radicular/cervical ou dor ortopédica.'
+        },
+        {
+          name: 'Meloxicam (0,1 mg/kg) ou Prednisolona (0,5 mg/kg)',
+          dose: weightVal > 0 ? `${(weightVal * 0.1).toFixed(1)} mg` : 'Conforme indicação',
           frequency: 'A cada 24 horas',
           duration: '5 dias',
           route: 'Oral (com alimentos)',
-          notes: 'Anti-inflamatório não esteroidal para redução de edema e dor articular.'
-        },
-        {
-          name: 'Dipirona Sódica (25 mg/kg) + Gabapentina (10 mg/kg)',
-          dose: weightVal > 0 ? `Dipirona ${Math.round(weightVal * 25)} mg + Gabapentina ${Math.round(weightVal * 10)} mg` : 'Conforme peso',
-          frequency: 'A cada 8-12 horas',
-          duration: '7 a 10 dias',
-          route: 'Oral',
-          notes: 'Analgesia multimodal preventiva para dor neuropática ou musculoesquelética.'
+          notes: 'Anti-inflamatório para controle de edema discal ou articular. Não associar AINE com Corticosteroide.'
         }
       ],
       requestedExams: [
-        'Exame Radiográfico Simples/Ortogonal da Região Afetada',
-        'Avaliação Ortopédica e Neurológica Especializada'
+        'Ressonância Magnética (RM) ou Tomografia Computadorizada (TC) de Coluna Cervical/Espinhal',
+        'Exame Radiográfico Ortogonal da Região Afetada',
+        'Avaliação Neurológica e Ortopédica Especializada'
       ],
       careGoals: [
-        'Controle ágil da dor aguda (Escore Glasgow < 3) em 24h',
-        'Restabelecimento gradual do apoio e mobilidade do membro'
+        'Controle ágil da dor neuropática e dor à manipulação em 24h',
+        'Restrição absoluta de mobilidade para prevenir agravamento neurológico'
       ],
       tutorInstructions: [
-        `Manter ${name} em repouso absoluto. Evitar subida em sofás, camas e escadas.`,
-        'Passeios permitidos apenas para necessidades fisiológicas com coleira/guia curta.'
+        `Manter ${name} em repouso estrito em gaiola/recinto. PROIBIDO o uso de coleiras de pescoço (usar apenas peitoral).`,
+        'Evitar subida e descida em móveis, escadas ou caminhadas ativas.'
       ],
       anamnesisSummary: cleanText,
       version: 1
     };
   }
 
-  // Default Gastro / General (Symptom-aware)
-  const isPancreatitisMentioned = lower.includes('pancreatite') || lower.includes('lipase') || lower.includes('gordura') || lower.includes('dor abdominal');
-  const activeHypothesis = isPancreatitisMentioned
-    ? `Pancreatite Aguda / Enteropatia Inflamatória em ${species}`
-    : `Gastroenterite Aguda / Indiscreção Alimentar em ${species}`;
+  // Default General / Symptom-aware (Fallback when no specific category is matched)
+  const isGastroMentioned = lower.includes('vômito') || lower.includes('vomito') || lower.includes('pancreatite') || lower.includes('diarreia') || lower.includes('lipase') || lower.includes('dor abdominal');
+  
+  const activeHypothesis = isGastroMentioned
+    ? `Gastroenterite Aguda / Suspeita de Pancreatite em ${species}`
+    : `Quadro Clínico em Investigação (${cleanText.slice(0, 35)}...) em ${species}`;
 
   return {
     patient: { name, species, breed, age, weight: weightStr, tutorName, tutorPhone, ownerId: 'owner-current' },

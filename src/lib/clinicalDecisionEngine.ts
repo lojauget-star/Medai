@@ -35,7 +35,8 @@ export function generateCarePlanForHypothesis(context: ClinicalDecisionContext):
 
   const isOtitis = combined.includes('otit') || combined.includes('auricular') || combined.includes('coceira') || combined.includes('prurid');
   const isHerniaProstate = combined.includes('hernia') || combined.includes('prostat') || combined.includes('tenesmo') || combined.includes('disquezia') || combined.includes('fezes em fita') || combined.includes('fitiform') || combined.includes('diverticul');
-  const isOrtho = combined.includes('tplo') || combined.includes('joelho') || combined.includes('claudic') || combined.includes('mancand') || combined.includes('ligamento') || combined.includes('ortop') || combined.includes('fratur') || combined.includes('luxac') || combined.includes('trauma');
+  const isOrtho = combined.includes('tplo') || combined.includes('joelho') || combined.includes('ligamento') || combined.includes('patela');
+  const isNeuro = combined.includes('cervical') || combined.includes('pescoço') || combined.includes('pescoco') || combined.includes('coluna') || combined.includes('disco') || combined.includes('ivdd') || combined.includes('srma') || combined.includes('wobbler') || combined.includes('neurolog') || combined.includes('ataxia') || combined.includes('paresia') || combined.includes('plegia') || combined.includes('rigidez') || combined.includes('grito');
   const isRenal = combined.includes('cistit') || combined.includes('renal') || combined.includes('urin') || combined.includes('urolit') || combined.includes('dtuif') || combined.includes('azotem') || combined.includes('bexiga') || combined.includes('disuria');
   const isVector = combined.includes('erliqu') || combined.includes('babes') || combined.includes('carrap') || combined.includes('hemopar') || combined.includes('trombocit');
   const isRespiratory = combined.includes('toss') || combined.includes('traqu') || combined.includes('bronq') || combined.includes('pneumon') || combined.includes('respirat');
@@ -207,6 +208,36 @@ export function generateCarePlanForHypothesis(context: ClinicalDecisionContext):
     return { goals, recommended_tests, recommended_interventions, monitoring, alerts, supporting_references: ['ACVIM Consensus Statement on Respiratory Diseases in Dogs and Cats'] };
   }
 
+  if (isNeuro) {
+    const goals: ClinicalGoal[] = [
+      { id: 'goal-1', title: 'Alívio da Dor Neuropática Aguda e Descompressão Inflamatória', priority: 'Alta', justification: 'Controlar a hiperestesia radicular/cervical severa decorrente de compressão ou inflamação discal.', status: 'Aceito' },
+      { id: 'goal-2', title: 'Restrição Absoluta de Mobilidade em Recinto / Gaiola', priority: 'Alta', justification: 'Evitar movimentação ativa brusca ou saltos para prevenir protrusão/extravasamento discal adicional.', status: 'Aceito' },
+      { id: 'goal-3', title: 'Preservação da Função Motora e Proprioceptiva', priority: 'Alta', justification: 'Monitorar reflexos segmencares e marcha para afastar progressão de paresia/plegia.', status: 'Aceito' }
+    ];
+
+    const recommended_tests: RecommendedTestItem[] = [
+      { id: 'test-1', name: 'Ressonância Magnética (RM) ou Tomografia Computadorizada (TC) de Coluna Cervical', motive: 'Visualizar compressão de medula espinhal, extrusão discal C2-C7 ou prolapso.', confirmationGoal: 'Padrão-ouro para diagnóstico cirúrgico de IVDD ou SRMA.', urgency: 'Alta', guidelineSource: 'ACVIM Neurology Consensus 2024', status: 'Aceito' },
+      { id: 'test-2', name: 'Exame Neurológico Detalhado (Propriocepção e Tônus Muscular)', motive: 'Avaliar grau de déficit neuropático (Grau I a V) e dor à manipulação cervical.', confirmationGoal: 'Determina indicação conservadora vs cirúrgica.', urgency: 'Alta', guidelineSource: 'ACVIM Guidelines', status: 'Aceito' }
+    ];
+
+    const recommended_interventions: RecommendedInterventionItem[] = [
+      { id: 'rx-1', description: 'Analgesia Neuropática Multimodal: Gabapentina (10-15 mg/kg VO a cada 8-12h) + Dipirona (25 mg/kg VO/SC a cada 8h).', justification: 'Controle direto do estímulo doloroso radicular e alívio da hiperestesia.', reference: 'Olby N.J. et al. JVIM 2024', guidelineSource: 'ACVIM 2024', status: 'Aceito' },
+      { id: 'rx-2', description: 'Corticoterapia Anti-inflamatória (Prednisolona 0.5 mg/kg VO a cada 24h por 5-7 dias) ou AINE (Meloxicam 0,1 mg/kg VO).', justification: 'Reduz edema radicular e vascular em torno do disco ou meninge acometida.', reference: 'Plumb Veterinary Handbook', guidelineSource: 'Plumb 9th Ed', status: 'Aceito' },
+      { id: 'rx-3', description: 'Substituição Obrigatória de Coleira por Peitoral + Repouso em Gaiola por 3-4 semanas.', justification: 'Elimina tração ou pressão mecânica no segmento cervical.', reference: 'AAHA Pain Guidelines', guidelineSource: 'AAHA 2023', status: 'Aceito' }
+    ];
+
+    const monitoring: MonitoringParamItem[] = [
+      { id: 'mon-1', parameter: 'Propriocepção e Capacidade de Deambulação', frequency: 'A cada 6 horas', reason: 'Detectar perda súbita de função motora (indicação de slot ventral de urgência)', status: 'Aceito' },
+      { id: 'mon-2', parameter: 'Escore de Dor Cervical (Escala de Glasgow)', frequency: 'A cada 4-6 horas', reason: 'Ajustar resgates analgésicos', status: 'Aceito' }
+    ];
+
+    const alerts: ClinicalAlertItem[] = [
+      { id: 'alert-1', title: 'Alerta de Progressão Neurológica', message: 'Caso o paciente perca propriocepção ou capacidade de caminhar, indicar neurocirurgia emergencial para descompressão (Slot Ventral).', severity: 'alerta' }
+    ];
+
+    return { goals, recommended_tests, recommended_interventions, monitoring, alerts, supporting_references: ['ACVIM Consensus Statement on Canine Cervical IVDD (2024)', 'Nelson & Couto - Medicina Interna de Pequenos Animais (Cap. 62)'] };
+  }
+
   if (isPancreatitis) {
     const goals: ClinicalGoal[] = [
       { id: 'goal-1', title: 'Controlar Êmese e Prevenir Desidratação / Aspirativo', priority: 'Alta', justification: 'O vômito contínuo agrava a perda de eletrólitos e o risco de desidratação e estresse visceral.', status: 'Aceito' },
@@ -235,17 +266,17 @@ export function generateCarePlanForHypothesis(context: ClinicalDecisionContext):
     return { goals, recommended_tests, recommended_interventions, monitoring, alerts, supporting_references: ['ACVIM Consensus Statement on Canine Pancreatitis (2024)'] };
   }
 
-  // DEFAULT / GASTROENTERITE / GENERIC CASE SPECIFIC TO THE HYPOTHESIS
-  const hypTitle = context.hypothesisName || 'Gastroenterite e Enteropatia Aguda';
+  // DEFAULT / DYNAMIC CASE SPECIFIC TO THE HYPOTHESIS AND ANAMNESIS
+  const hypTitle = context.hypothesisName || 'Investigação Clínica';
   const goals: ClinicalGoal[] = [
-    { id: 'goal-1', title: `Estabilização Sintomática e Controle de Vômitos/Diarréia`, priority: 'Alta', justification: `Reduzir perda de fluidos e restaurar o conforto digestivo do paciente.`, status: 'Aceito' },
-    { id: 'goal-2', title: 'Reidratação e Manutenção de Volemia', priority: 'Alta', justification: 'Corrigir o déficit hídrico calculado para a condição clínica.', status: 'Aceito' },
-    { id: 'goal-3', title: 'Restauração da Barreira Intestinal e Dieta Adequada', priority: 'Média', justification: 'Fornecer substrato para enterócitos e flora comutativa.', status: 'Aceito' }
+    { id: 'goal-1', title: `Investigação e Controle Clínico do Quadro: ${hypTitle}`, priority: 'Alta', justification: `Atender aos sinais descritos no relato da anamnese para ${context.patient?.name || 'paciente'}.`, status: 'Aceito' },
+    { id: 'goal-2', title: 'Estabilização e Suporte Sintomático', priority: 'Alta', justification: 'Proporcionar alívio e segurança no manejo ambulatorial.', status: 'Aceito' },
+    { id: 'goal-3', title: 'Acompanhamento do Tutor e Ajuste de Protocolo', priority: 'Média', justification: 'Orientar o tutor quanto a sinais de alerta e retorno.', status: 'Aceito' }
   ];
 
   const recommended_tests: RecommendedTestItem[] = [
-    { id: 'test-1', name: 'Ultrassonografia Abdominal Total', motive: 'Avaliar motilidade, espessamento de mucosa e descartar corpo estranho ou intussuscepção.', confirmationGoal: `Confirmar achados e afastar abdome agudo cirúrgico para ${hypTitle}.`, urgency: 'Alta', guidelineSource: 'Consenso de Gastroenterologia Veterinária', status: 'Aceito' },
-    { id: 'test-2', name: 'Hemograma Completo + Painel Renal e Hepático (Uréia/Creatinina/ALT/FA)', motive: 'Avaliar grau de hemoconcentração e lesão orgânica secundária.', confirmationGoal: 'Guia reidratação e descarta complicações sistêmicas.', urgency: 'Alta', guidelineSource: 'Nelson & Couto - Medicina Interna', status: 'Aceito' }
+    { id: 'test-1', name: `Exame Clínico-Físico e Imagem Direcionada para ${hypTitle}`, motive: 'Investigar detalhadamente o segmento afetado e confirmar a suspeita principal.', confirmationGoal: `Confirmar achados para ${hypTitle}.`, urgency: 'Alta', guidelineSource: 'Diretrizes de Clínica Médica Veterinária', status: 'Aceito' },
+    { id: 'test-2', name: 'Hemograma Completo e Perfil Bioquímico Geral', motive: 'Triagem de parâmetros sistêmicos, inflamatórios e orgânicos.', confirmationGoal: 'Garantir segurança na terapia sistêmica.', urgency: 'Alta', guidelineSource: 'Nelson & Couto - Medicina Interna', status: 'Aceito' }
   ];
 
   const recommended_interventions: RecommendedInterventionItem[] = [

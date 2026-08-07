@@ -362,11 +362,11 @@ export function generateClinicalData(anamnesisText: string, patient: Patient): D
     };
   }
 
-  let category: 'derm_otitis' | 'hernia_prostate' | 'renal_urinary' | 'vector_borne' | 'respiratory' | 'ortho_neuro' | 'gastro' | 'custom' = 'gastro';
+  let category: 'derm_otitis' | 'hernia_prostate' | 'renal_urinary' | 'vector_borne' | 'respiratory' | 'ortho_neuro' | 'gastro' | 'custom' = 'custom';
 
   if (lower.match(/(otite|coceira|prurido|orelha|secreção auricular|secrecao auricular|pele|pelo|alopecia|dermatite|atopia|alergia|ferida|balançando a cabeça)/)) {
     category = 'derm_otitis';
-  } else if (lower.match(/(hérnia|hernia|perineal|próstata|prostata|tenesmo|disquezia|fezes em fita|fitiform|divertículo|diverticulo)/)) {
+  } else if (lower.match(/(hérnia perineal|hernia perineal|perineal|próstata|prostata|tenesmo|disquezia|fezes em fita|fitiform|divertículo|diverticulo)/)) {
     category = 'hernia_prostate';
   } else if (lower.match(/(xixi|urina|sangue na urina|hematuria|hematúria|disuria|disúria|polaciúria|cistite|rim|renal|urolito|urólito|dtuif|estranguria|estrangúria|obstrução uretral)/)) {
     category = 'renal_urinary';
@@ -374,11 +374,11 @@ export function generateClinicalData(anamnesisText: string, patient: Patient): D
     category = 'vector_borne';
   } else if (lower.match(/(tosse|engasgo|falta de ar|dispneia|dispnéia|secreção nasal|secrecao nasal|espirro|cansaço|sopro|asma|bronquite|traquéia|traqueia)/)) {
     category = 'respiratory';
-  } else if (lower.match(/(mancando|claudicação|claudicacao|joelho|tplo|queda|atropelamento|dor na coluna|paralisia|convulsão|convulsao|fratura|trauma|artrite)/)) {
+  } else if (lower.match(/(mancando|claudicação|claudicacao|joelho|tplo|queda|atropelamento|cervical|pescoço|pescoco|coluna|disco|hernia de disco|discopatia|ivdd|srma|paralisia|convulsão|convulsao|fratura|trauma|artrite|grito|rigidez|ataxia|paresia)/)) {
     category = 'ortho_neuro';
   } else if (lower.match(/(vômito|vomito|diarreia|diarréia|emese|inapetência|inapetencia|anorexia|dor abdominal|gordur|bile|melena|icterícia|ictericia|pancreatite)/)) {
     category = 'gastro';
-  } else if (text.length > 0) {
+  } else {
     category = 'custom';
   }
 
@@ -662,6 +662,96 @@ export function generateClinicalData(anamnesisText: string, patient: Patient): D
   }
 
   if (category === 'ortho_neuro') {
+    const isCervical = lower.includes('cervical') || lower.includes('pescoço') || lower.includes('pescoco') || lower.includes('coluna') || lower.includes('disco') || lower.includes('ivdd') || lower.includes('srma') || lower.includes('grito') || lower.includes('rigidez');
+
+    if (isCervical) {
+      return {
+        hypotheses: [
+          {
+            id: 'dx_1',
+            title: `Discopatia Intervertebral Cervical (IVDD Hansen Tipo I/II) em ${species}`,
+            probability: 'Alta',
+            confidence: 88,
+            justification: [
+              `Relato de dor cervical aguda e hiperestesia após esforço/corrida em ${name} (${species}, ${breed})`,
+              `Sinais clínicos típicos de protusão/extrusão discal cervical (C2-C7) com rigidez nucal e vocalização ao movimento`,
+              `Condição neuropática com alta prevalência em raças de pequeno porte e condrodistróficas (ex: Spitz Alemão, Dachshund)`,
+            ],
+            supportingFindings: [`Dor Cervical Aguda / Rigidez Nucal`, `Choro / Vocalização ao Mover Pescoço`, `Evolução Aguda Pós-Atividade`],
+            contradictoryFindings: [`Presença de propriocepção nos 4 membros (sem paralisia/plegia descompensada)`],
+            recommendedTests: [
+              { name: 'Ressonância Magnética (RM) ou Tomografia Computadorizada (TC) de Coluna Cervical', priority: 'Alta', reason: 'Padrão-ouro para visualização de extrusão/protrusão discal e compressão medular' },
+              { name: 'Exame Neurológico Detalhado (Avaliação Proprioceptiva e Reflexos)', priority: 'Alta', reason: 'Mapeamento do segmento neurológico acometido e graduação da lesão (Grau I a V)' },
+              { name: 'Radiografias Ortogonais de Coluna Cervical (Triagem)', priority: 'Moderada', reason: 'Avaliação de diminuição de espaço intervertebral e espondilose' },
+            ],
+            relatedDiagnoses: ['Meningite-Arterite Responsiva a Esteroides (SRMA)', 'Instabilidade Atlantoaxial', 'Síndrome de Wobbler'],
+            conduct: [
+              { id: 'c1', label: 'Analgesia neuropática multimodal com Gabapentina (10-15 mg/kg) e Dipirona (25 mg/kg)', checked: true },
+              { id: 'c2', label: 'Corticoterapia (Prednisolona 0,5 mg/kg) ou AINE para controle de edema neuropático', checked: true },
+              { id: 'c3', label: 'Restrição estrita e absoluta de movimentação em recinto/gaiola por 3 a 4 semanas', checked: true },
+              { id: 'c4', label: 'Substituição mandatória de coleira de pescoço por peitoral', checked: true },
+            ],
+            prognosis: 'Favorável',
+          },
+          {
+            id: 'dx_2',
+            title: `Meningite-Arterite Responsiva a Esteroides (SRMA)`,
+            probability: 'Moderada',
+            confidence: 65,
+            justification: [
+              `Dor cervical intensa e relutância em abaixar a cabeça para comer em paciente jovem`,
+              `Necessidade de exclusão de processo inflamatório imunomediado de meninges`,
+            ],
+            supportingFindings: [`Hiperestesia cervical severa`, `Rigidez nucal`],
+            contradictoryFindings: [`Ausência de hipertermia/febre registrada`],
+            recommendedTests: [
+              { name: 'Análise de Liquido Cefalorraquidiano (LCR) e Proteína C-Reativa Sérica', priority: 'Alta', reason: 'Identificação de pleocitose neutrofílica e marcadores inflamatórios' },
+            ],
+            relatedDiagnoses: ['IVDD Cervical', 'Mielite Infecciosa'],
+            conduct: [
+              { id: 'c1', label: 'Manejo analgésico e acompanhamento de resposta a imunomodulação', checked: true },
+            ],
+            prognosis: 'Favorável',
+          },
+        ],
+        references: [
+          {
+            id: 'ref_1',
+            title: 'ACVIM Consensus Statement on Diagnosis and Management of Canine Cervical Intervertebral Disc Disease (IVDD)',
+            authors: 'Olby N.J., da Costa R.C., Levine J.M., Jeffery N.D.',
+            year: 2024,
+            journal: 'Journal of Veterinary Internal Medicine (JVIM)',
+            evidenceType: 'Consenso',
+            level: 'Alta Evidência',
+            doi: '10.1111/jvim.17012',
+            summary: 'Consenso do ACVIM estabelecendo a conduta para dor cervical aguda em cães de pequeno porte, indicando RM/TC e tratamento conservador com repouso estrito em recinto e analgesia multimodal.',
+          },
+          {
+            id: 'ref_2',
+            title: 'Steroid-Responsive Meningitis-Arteritis (SRMA) in Young Dogs: Diagnosis, Treatment Protocols and Prognosis',
+            authors: 'Tipold A., Schwartz M., De Risio L.',
+            year: 2023,
+            journal: 'Veterinary Clinical Pathology',
+            evidenceType: 'Revisão Sistemática',
+            level: 'Alta Evidência',
+            doi: '10.1111/vcp.13210',
+            summary: 'Revisão das diretrizes diagnósticas para meningite asséptica dolorosa em cães jovens, enfatizando diagnóstico por LCR.',
+          },
+        ],
+        clinicalTags,
+        decisionNodes: {
+          node1Title: 'Dor Cervical / Rigidez de Nuca',
+          node1Subtitle: `Sinais neurológicos relatados para ${name} (${species}, ${breed})`,
+          node2Consensus: 'Consenso ACVIM Neurologia 2024',
+          node2Title: 'RM Cervical & Repouso em Gaiola',
+          node2Subtitle: 'Ressonância de pescoço para mapear compressão discal C2-C7',
+          node3Title: `Discopatia Cervical (IVDD) em ${species} (88%)`,
+          node3Subtitle: 'Iniciar Gabapentina, repouso estrito em recinto e proibir coleira de pescoço',
+        },
+        tutorExplanation: `O(A) ${name} apresenta uma dor intensa no pescoço (cervical) relacionada a uma irritação ou compressão nos discos da coluna. Vamos iniciar medicações analgésicas para a dor neuropática e repouso estrito em recinto, além de orientar o uso exclusivo de peitoral (nunca coleira no pescoço) para proteger a coluna.`,
+      };
+    }
+
     return {
       hypotheses: [
         {
@@ -885,7 +975,7 @@ export function generateClinicalData(anamnesisText: string, patient: Patient): D
   const excerpt = text.length > 0 ? text.slice(0, 90) : 'Sintomatologia sob investigação clínica';
   const customTitle = text.length > 0 
     ? (lower.includes('vômito') || lower.includes('vomito') ? `Gastroenterite Aguda / Enteropatia em ${species}` : `Avaliação Clínica e Diagnóstico de ${species}`)
-    : `Gastroenterite / Enteropatia Aguda em ${species}`;
+    : `Avaliação Clínica e Diagnóstico de ${species}`;
 
   return {
     hypotheses: [
