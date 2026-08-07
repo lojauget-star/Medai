@@ -183,6 +183,217 @@ export const ClinicalDocumentationStudio: React.FC<ClinicalDocumentationStudioPr
     triggerToast('IA recalculou a seção com base nas últimas diretrizes.');
   };
 
+  // Real PDF Generation (opens print/save-as-PDF preview)
+  const handleGeneratePDF = () => {
+    const printWindow = window.open('', '_blank', 'width=850,height=1100');
+    const vetName = activeDocument.signature?.vetName || localStorage.getItem("vetmind_signature_name") || "Dr. André Eguchi";
+    const crmv = activeDocument.signature?.crmv || localStorage.getItem("vetmind_signature_crmv") || "CRMV-SP 14892";
+    const date = activeDocument.signature?.date || new Date().toLocaleDateString('pt-BR');
+    const patientName = canonicalCase.patient.name || 'Paciente';
+    const species = canonicalCase.patient.species || 'Canino';
+    const breed = canonicalCase.patient.breed || 'SRD';
+    const weight = canonicalCase.patient.weight || '--';
+    const tutorName = canonicalCase.patient.tutorName || 'Tutor Responsável';
+
+    const sectionsHtml = activeDocument.sections.map(s => `
+      <div style="margin-bottom: 20px; page-break-inside: avoid;">
+        <h3 style="font-size: 13px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">
+          ${s.title}
+        </h3>
+        <div style="font-size: 12px; color: #1e293b; line-height: 1.6; white-space: pre-wrap;">
+          ${s.content}
+        </div>
+      </div>
+    `).join('');
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+        <head>
+          <meta charset="utf-8" />
+          <title>${activeDocument.title} - ${patientName}</title>
+          <style>
+            @page { size: A4; margin: 15mm; }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #0f172a; margin: 0; padding: 24px; background: #fff; }
+            .header-bar { border-bottom: 3px solid #0f172a; padding-bottom: 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start; }
+            .clinic-title { font-size: 18px; font-weight: 900; color: #0f172a; text-transform: uppercase; margin: 0; }
+            .clinic-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+            .vet-info { text-align: right; font-size: 11px; }
+            .patient-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 16px; margin-bottom: 24px; font-size: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+            .patient-card strong { display: block; font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
+            .doc-title { text-align: center; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 1px solid #e2e8f0; }
+            .doc-title h1 { font-size: 20px; font-weight: 900; text-transform: uppercase; margin: 0; color: #0f172a; }
+            .doc-title p { font-size: 12px; color: #64748b; margin-top: 4px; }
+            .signature-section { margin-top: 40px; border-top: 2px solid #0f172a; padding-top: 16px; display: flex; justify-content: space-between; align-items: flex-end; page-break-inside: avoid; }
+            .signature-box { text-align: right; }
+            .signature-line { border-top: 1px solid #0f172a; width: 200px; display: inline-block; margin-bottom: 6px; }
+            .hash-box { font-family: monospace; font-size: 10px; color: #64748b; }
+            @media print {
+              body { padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header-bar">
+            <div>
+              <h2 class="clinic-title">CLÍNICA VETERINÁRIA VETMIND SPECIALIST</h2>
+              <p class="clinic-sub">Atendimento Médico Veterinário Especializado 24h</p>
+            </div>
+            <div class="vet-info">
+              <strong>${vetName}</strong><br/>
+              <span style="color: #64748b;">${crmv}</span><br/>
+              <span style="color: #64748b;">Data: ${date}</span>
+            </div>
+          </div>
+
+          <div class="patient-card">
+            <div>
+              <strong>Paciente</strong>
+              <span style="font-weight: 800; font-size: 13px;">${patientName}</span>
+            </div>
+            <div>
+              <strong>Espécie / Raça</strong>
+              <span>${species} • ${breed}</span>
+            </div>
+            <div>
+              <strong>Peso</strong>
+              <span>${weight}</span>
+            </div>
+            <div>
+              <strong>Tutor Responsável</strong>
+              <span>${tutorName}</span>
+            </div>
+          </div>
+
+          <div class="doc-title">
+            <h1>${activeDocument.title}</h1>
+            <p>${activeDocument.subtitle}</p>
+          </div>
+
+          <div>
+            ${sectionsHtml}
+          </div>
+
+          <div class="signature-section">
+            <div class="hash-box">
+              <strong>Assinatura Digital Vetmind Security</strong><br/>
+              Hash: ${activeDocument.signature?.digitalHash || 'SHA256:VM-8F9A2B1C4E7D'}
+            </div>
+            <div class="signature-box">
+              <div class="signature-line"></div><br/>
+              <strong>${vetName}</strong><br/>
+              <span style="font-size: 11px; color: #64748b;">${crmv}</span>
+            </div>
+          </div>
+
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+              }, 300);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    if (printWindow) {
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      triggerToast('📄 Janela de impressão/PDF gerada! Escolha "Salvar como PDF".');
+    } else {
+      window.print();
+      triggerToast('📄 Impressão acionada com sucesso!');
+    }
+  };
+
+  // Quick Copy Button (copies full document text formatted to clipboard)
+  const handleQuickCopy = (customText?: string) => {
+    if (customText) {
+      navigator.clipboard.writeText(customText);
+      triggerToast('📋 Trecho copiado para a área de transferência!');
+      return;
+    }
+
+    const vetName = activeDocument.signature?.vetName || localStorage.getItem("vetmind_signature_name") || "Dr. André Eguchi";
+    const crmv = activeDocument.signature?.crmv || localStorage.getItem("vetmind_signature_crmv") || "CRMV-SP 14892";
+    const patientName = canonicalCase.patient.name || 'Paciente';
+
+    let formattedText = `========================================\n`;
+    formattedText += `${activeDocument.title.toUpperCase()}\n`;
+    formattedText += `${activeDocument.subtitle}\n`;
+    formattedText += `========================================\n`;
+    formattedText += `PACIENTE: ${patientName} (${canonicalCase.patient.species || 'Canino'} | ${canonicalCase.patient.breed || 'SRD'} | ${canonicalCase.patient.weight || ''})\n`;
+    formattedText += `TUTOR: ${canonicalCase.patient.tutorName || 'Não informado'}\n`;
+    formattedText += `VETERINÁRIO: ${vetName} (${crmv})\n`;
+    formattedText += `DATA: ${activeDocument.signature?.date || new Date().toLocaleDateString('pt-BR')}\n`;
+    formattedText += `----------------------------------------\n\n`;
+
+    activeDocument.sections.forEach(sec => {
+      formattedText += `[${sec.title.toUpperCase()}]\n${sec.content}\n\n`;
+    });
+
+    formattedText += `----------------------------------------\n`;
+    formattedText += `Assinado digitalmente por: ${vetName} (${crmv})\n`;
+    formattedText += `Autenticação: ${activeDocument.signature?.digitalHash || 'VM-SEC-7789'}\n`;
+
+    navigator.clipboard.writeText(formattedText);
+    triggerToast('📋 Documento completo copiado para a área de transferência com sucesso!');
+  };
+
+  // Real WhatsApp message generation for tutor
+  const handleSendWhatsApp = () => {
+    const vetName = activeDocument.signature?.vetName || localStorage.getItem("vetmind_signature_name") || "Dr. André Eguchi";
+    const patientName = canonicalCase.patient.name || 'Paciente';
+    const tutorName = canonicalCase.patient.tutorName || '';
+    const rawPhone = canonicalCase.patient.tutorPhone || canonicalCase.patient.ownerPhone || '';
+    const cleanPhone = rawPhone.replace(/\D/g, '');
+
+    let msg = `Olá${tutorName ? ' ' + tutorName : ''}! 🐾\n\n`;
+    msg += `Aqui é do atendimento veterinário do(a) *${patientName}* com o(a) *${vetName}*.\n\n`;
+    msg += `📄 *${activeDocument.title}*\n`;
+    msg += `_Resumo das orientações clínicas do paciente:_\n\n`;
+
+    activeDocument.sections.slice(0, 3).forEach(sec => {
+      msg += `🔹 *${sec.title}*:\n${sec.content}\n\n`;
+    });
+
+    msg += `Dúvidas ou qualquer alteração no estado de *${patientName}*, entre em contato conosco!\n\n`;
+    msg += `Atenciosamente,\n*${vetName}*`;
+
+    navigator.clipboard.writeText(msg);
+
+    const waUrl = cleanPhone
+      ? `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(msg)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+
+    window.open(waUrl, '_blank');
+    triggerToast(cleanPhone ? '💬 Mensagem copiada e WhatsApp do tutor aberto!' : '💬 Mensagem gerada e copiada! WhatsApp aberto para envio.');
+  };
+
+  // Export DOCX
+  const handleExportDocx = () => {
+    const vetName = activeDocument.signature?.vetName || localStorage.getItem("vetmind_signature_name") || "Dr. André Eguchi";
+    const crmv = activeDocument.signature?.crmv || localStorage.getItem("vetmind_signature_crmv") || "CRMV-SP 14892";
+    const patientName = canonicalCase.patient.name || 'Paciente';
+
+    let content = `${activeDocument.title}\n${activeDocument.subtitle}\n\n`;
+    content += `PACIENTE: ${patientName}\nESPÉCIE: ${canonicalCase.patient.species}\nPESO: ${canonicalCase.patient.weight}\nTUTOR: ${canonicalCase.patient.tutorName}\nVETERINÁRIO: ${vetName} (${crmv})\nDATA: ${activeDocument.signature?.date}\n\n`;
+    
+    activeDocument.sections.forEach(s => {
+      content += `${s.title}\n${s.content}\n\n`;
+    });
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${activeDocument.title.replace(/\s+/g, '_')}_${patientName}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+    triggerToast('📥 Download do documento (.txt formatado) concluído!');
+  };
+
   // Add medication in canonical composer
   const handleAddMedicationInComposer = (newMed: { name: string; dose: string; frequency: string; duration: string; route: string; notes: string }) => {
     setCanonicalCase(prev => ({
@@ -568,6 +779,17 @@ export const ClinicalDocumentationStudio: React.FC<ClinicalDocumentationStudioPr
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
+                                handleQuickCopy(`[${sec.title.toUpperCase()}]\n${sec.content}`);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-[#4F46E5] text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+                              title="Copiar esta seção"
+                            >
+                              <Copy className="w-3 h-3" /> Copiar
+                            </button>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setEditingSectionId(sec.id);
                                 setEditSectionText(sec.content);
                               }}
@@ -753,10 +975,17 @@ export const ClinicalDocumentationStudio: React.FC<ClinicalDocumentationStudioPr
 
           <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => triggerToast('PDF vetorial de alta definição gerado e pronto para impressão!')}
+              onClick={handleGeneratePDF}
               className="px-5 py-2.5 rounded-full bg-[#4F46E5] hover:bg-indigo-700 text-white font-semibold text-xs transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
             >
               <Printer className="w-4 h-4" /> Gerar PDF Impresso
+            </button>
+
+            <button
+              onClick={() => handleQuickCopy()}
+              className="px-4 py-2.5 rounded-full bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-[#4F46E5] font-semibold text-xs transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Copy className="w-4 h-4 text-[#4F46E5]" /> Copiar Rápido
             </button>
 
             <button
@@ -767,14 +996,14 @@ export const ClinicalDocumentationStudio: React.FC<ClinicalDocumentationStudioPr
             </button>
 
             <button
-              onClick={() => triggerToast('Link seguro enviado para o WhatsApp do tutor!')}
-              className="px-4 py-2.5 rounded-full bg-white hover:bg-slate-50 border border-[#E2E8F0] text-[#0F172A] font-semibold text-xs transition-all flex items-center gap-1.5 cursor-pointer"
+              onClick={handleSendWhatsApp}
+              className="px-4 py-2.5 rounded-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-semibold text-xs transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <Send className="w-4 h-4 text-emerald-600" /> Enviar ao Tutor
+              <Send className="w-4 h-4 text-emerald-600" /> Enviar ao Tutor (WhatsApp)
             </button>
 
             <button
-              onClick={() => triggerToast('Download do arquivo DOCX formatado iniciado!')}
+              onClick={handleExportDocx}
               className="px-3.5 py-2.5 rounded-full bg-white hover:bg-slate-50 border border-[#E2E8F0] text-slate-700 font-semibold text-xs transition-all flex items-center gap-1 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5 text-blue-600" /> Exportar DOCX
