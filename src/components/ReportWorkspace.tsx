@@ -1045,6 +1045,7 @@ export default function ReportWorkspace({
         createdAt: serverTimestamp(),
       };
 
+      let finalDocId = savedReportId;
       if (savedReportId) {
         const reportDocRef = doc(db, "reports", savedReportId);
         const updateData = { ...reportData, updatedAt: serverTimestamp() };
@@ -1053,8 +1054,29 @@ export default function ReportWorkspace({
       } else {
         const docRef = await addDoc(collection(db, "reports"), reportData);
         if (docRef?.id) {
+          finalDocId = docRef.id;
           setSavedReportId(docRef.id);
         }
+      }
+
+      // Sync to local storage backup for immediate UI reactivity
+      try {
+        const localRaw = localStorage.getItem('vetmind_saved_reports');
+        const localCases: any[] = localRaw ? JSON.parse(localRaw) : [];
+        const newCaseObj = {
+          ...reportData,
+          id: finalDocId || `local_${Date.now()}`,
+          createdAt: Date.now()
+        };
+        const idx = localCases.findIndex(c => c.id === finalDocId);
+        if (idx >= 0) {
+          localCases[idx] = newCaseObj;
+        } else {
+          localCases.unshift(newCaseObj);
+        }
+        localStorage.setItem('vetmind_saved_reports', JSON.stringify(localCases));
+      } catch (e) {
+        console.error("Erro ao salvar backup em localStorage:", e);
       }
 
       // Elegant modular visual notification overlay

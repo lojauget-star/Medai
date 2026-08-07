@@ -20,6 +20,7 @@ import MarketingWorkspace from './components/MarketingWorkspace';
 import IntegrationsSandbox from './components/IntegrationsSandbox';
 import SignatureDashboard from './components/SignatureDashboard';
 import Login from './components/Login';
+import CasesWorkspace from './components/CasesWorkspace';
 
 import Library from './components/Library';
 
@@ -55,7 +56,7 @@ const menuGroups = [
 ];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'workspace' | 'prescriptions' | 'dashboard' | 'profile' | 'calendar' | 'bi' | 'quiz' | 'guidelines' | 'feedbacks' | 'marketing' | 'integrations' | 'signature'>('workspace');
+  const [activeTab, setActiveTab] = useState<'workspace' | 'prescriptions' | 'dashboard' | 'profile' | 'calendar' | 'bi' | 'quiz' | 'guidelines' | 'feedbacks' | 'marketing' | 'integrations' | 'signature' | 'cases' | 'patients'>('workspace');
   const [isSidebarPinned, setIsSidebarPinned] = useState<boolean>(() => {
     const saved = localStorage.getItem('vetmind_sidebar_pinned');
     return saved !== null ? JSON.parse(saved) : true;
@@ -541,6 +542,20 @@ export default function App() {
                       />
                     </motion.div>
                   )}
+                  {(activeTab === 'cases' || activeTab === 'patients') && (
+                    <motion.div 
+                      key="cases"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                    >
+                      <CasesWorkspace 
+                        onSelectReport={handleOpenReport}
+                        onNewCase={handleNewReport}
+                        onToggleMenu={() => setIsMobileMenuOpen(true)}
+                      />
+                    </motion.div>
+                  )}
                   {activeTab === 'profile' && (
                     <motion.div 
                       key="profile"
@@ -823,8 +838,8 @@ export default function App() {
 
             {/* Tab 2: Casos */}
             <button 
-              onClick={() => {setActiveTab('dashboard'); setSelectedReport(null);}}
-              className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-full transition-all ${activeTab === 'dashboard' && selectedReport ? 'text-[#4F46E5] font-bold' : 'text-slate-400 hover:text-slate-600'}`}
+              onClick={() => {setActiveTab('cases'); setSelectedReport(null);}}
+              className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-full transition-all ${activeTab === 'cases' ? 'text-[#4F46E5] font-bold' : 'text-slate-400 hover:text-slate-600'}`}
               title="Casos"
             >
               <ClipboardList className="w-5 h-5" />
