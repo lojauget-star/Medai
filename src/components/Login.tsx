@@ -53,16 +53,15 @@ export default function Login({ onLoginSuccess }: LoginProps) {
             console.log('User doc set.');
           }
         } catch (innerErr: any) {
-          console.error('🔥 FIRESTORE ERROR DETAILS', {
-            code: innerErr?.code,
-            message: innerErr?.message,
-            name: innerErr?.name,
-            stack: innerErr?.stack,
-            uid: user?.uid,
-            path: docRef?.path,
-            projectId: firebaseConfig?.projectId,
-            databaseId: firebaseConfig?.firestoreDatabaseId,
-          });
+          console.error('🔥🔥🔥 FIRESTORE DIAGNOSTIC 🔥🔥🔥');
+          console.error('projectId:', firebaseConfig?.projectId);
+          console.error('databaseId:', firebaseConfig?.firestoreDatabaseId);
+          console.error('authDomain:', firebaseConfig?.authDomain);
+          console.error('uid:', user?.uid);
+          console.error('auth.currentUser.uid:', auth.currentUser?.uid);
+          console.error('document:', docRef?.path);
+          console.error('error.code:', innerErr?.code);
+          console.error('error.message:', innerErr?.message);
           console.error('Error during getDoc/setDoc for users (ignoring to allow login):', innerErr);
         }
         

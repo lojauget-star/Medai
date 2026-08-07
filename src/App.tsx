@@ -126,15 +126,14 @@ export default function App() {
             setUserPlan('free');
           }
         } catch (err: any) {
-          console.error('🔥 FIRESTORE ERROR DETAILS (App.tsx profile load)', {
-            code: err?.code,
-            message: err?.message,
-            name: err?.name,
-            stack: err?.stack,
-            uid: u?.uid,
-            projectId: firebaseConfig?.projectId,
-            databaseId: firebaseConfig?.firestoreDatabaseId,
-          });
+          console.error('🔥🔥🔥 FIRESTORE DIAGNOSTIC (App.tsx) 🔥🔥🔥');
+          console.error('projectId:', firebaseConfig?.projectId);
+          console.error('databaseId:', firebaseConfig?.firestoreDatabaseId);
+          console.error('authDomain:', firebaseConfig?.authDomain);
+          console.error('uid:', u?.uid);
+          console.error('auth.currentUser.uid:', auth.currentUser?.uid);
+          console.error('error.code:', err?.code);
+          console.error('error.message:', err?.message);
           console.error("Error loading user profile:", err);
         }
       }
