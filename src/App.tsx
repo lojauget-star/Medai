@@ -96,7 +96,13 @@ export default function App() {
       if (u) {
         try {
           const docRef = doc(db, "users", u.uid);
-          const docSnap = await getDoc(docRef);
+          let docSnap;
+          try {
+            docSnap = await getDoc(docRef);
+          } catch (firstErr) {
+            await new Promise((res) => setTimeout(res, 500));
+            docSnap = await getDoc(docRef);
+          }
           if (docSnap.exists()) {
             const data = docSnap.data();
             if (data.name) {

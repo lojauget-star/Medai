@@ -30,7 +30,14 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         const docRef = doc(db, 'users', user.uid);
         try {
           console.log('Fetching user doc...');
-          const docSnap = await getDoc(docRef);
+          let docSnap;
+          try {
+            docSnap = await getDoc(docRef);
+          } catch (firstErr) {
+            // Wait 500ms for Firebase Auth token to propagate to Firestore instance
+            await new Promise((res) => setTimeout(res, 500));
+            docSnap = await getDoc(docRef);
+          }
           console.log('User doc exists:', docSnap.exists());
           
           if (!docSnap.exists()) {
@@ -54,14 +61,16 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       }
     } catch (err: any) {
       console.error('Google Auth Error:', err);
-      if (err.code === 'auth/popup-blocked') {
+      if (err.code === 'auth/unauthorized-domain' || err.message?.includes('unauthorized-domain')) {
+        setError('O domínio atual (ex: appvetmind.netlify.app) precisa ser adicionado no Firebase Console em Authentication -> Settings -> Domínios Autorizados. Enquanto realiza essa configuração, você pode entrar normalmente usando o "Modo Convidado (Demo)" abaixo.');
+      } else if (err.code === 'auth/popup-blocked') {
         setError('O pop-up de login foi bloqueado pelo seu navegador. Por favor, libere a abertura de pop-ups e tente novamente.');
       } else if (err.code === 'auth/popup-closed-by-user') {
         setError('A janela de login foi fechada antes da conclusão do acesso. Clique em "Entrar com o Google" para tentar de novo.');
       } else if (err.code === 'auth/cancelled-popup-request') {
         setError('A solicitação de login foi cancelada. Por favor, tente novamente.');
       } else {
-        setError('Não conseguimos conectar com sua conta Google agora. Por favor, tente novamente.');
+        setError('Não conseguimos conectar com sua conta Google agora. Por favor, certifique-se de que o domínio está autorizado no Firebase Auth ou entre via Modo Convidado.');
       }
     } finally {
       setLoading(false);
@@ -152,10 +161,20 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                className="w-full mt-6 bg-rose-50 border border-rose-100 rounded-2xl p-4 flex gap-3 text-rose-700 text-xs font-semibold leading-relaxed"
+                className="w-full mt-6 bg-rose-50 border border-rose-100 rounded-2xl p-4 flex flex-col gap-2.5 text-rose-700 text-xs font-semibold leading-relaxed"
               >
-                <ShieldAlert className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />
-                <span>{error}</span>
+                <div className="flex gap-3 items-start">
+                  <ShieldAlert className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />
+                  <span>{error}</span>
+                </div>
+                {error.includes('Firebase Console') && (
+                  <button
+                    onClick={handleGuestLogin}
+                    className="mt-1 self-start px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-2xs"
+                  >
+                    Acessar via Convidado Agora
+                  </button>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
