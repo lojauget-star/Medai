@@ -108,7 +108,7 @@ export const MOCK_CLINICAL_CASES: ClinicalCase[] = [
     specialty: 'Gastroenterologia / Intensivismo',
     affectedSystem: 'Sistema Digestório / Pâncreas',
     procedure: 'Fluidoterapia Agressiva + Antiemético NK-1 + Ultrassom Epigástrico',
-    vetName: 'Dra. Camila Ribeiro',
+    vetName: (typeof window !== 'undefined' && localStorage.getItem("vetmind_signature_name")) || 'Dr. André Eguchi',
     summary: 'Paciente Golden Retriever de 5 anos apresentou quadro agudo de emese biliosa e prostração. A hipótese inicial de gastroenterite simples foi corrigida para Pancreatite Aguda após ultrassonografia focada e teste positivo Spec cPL. Respondeu excelentemente ao protocolo com Maropitant, Buprenorfina e nutrição enteral precoce.',
     learnedLessons: [
       {
@@ -279,7 +279,7 @@ export const MOCK_CLINICAL_CASES: ClinicalCase[] = [
     specialty: 'Cirurgia de Pequenos Animais',
     affectedSystem: 'Sistema Digestório / Intestino Delgado',
     procedure: 'Enterotomia Exploratória + Remoção de Objeto Estranho + Omentopexia',
-    vetName: 'Dra. Camila Ribeiro',
+    vetName: (typeof window !== 'undefined' && localStorage.getItem("vetmind_signature_name")) || 'Dr. André Eguchi',
     summary: 'Bulldog Francês de 3 anos com histórico de indiscreção alimentar e dor abdominal intensa. Ultrassonografia revelou estrutura intraluminal obstrutiva em duodeno gerando sombra acústica distal e dilatação de alças a montante. Submetido à cirurgia de enterotomia emergencial com recuperação plena.',
     learnedLessons: [
       {

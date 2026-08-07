@@ -264,6 +264,11 @@ export function buildDocumentsFromCanonicalCase(canonical: CanonicalCaseData): C
   const dateStr = new Date().toLocaleDateString('pt-BR');
   const isAwaitingAnamnesis = canonical.activeHypothesis === 'Aguardando Anamnese' || !canonical.anamnesisSummary;
 
+  // Retrieve user registered profile dynamically
+  const vetName = (typeof window !== 'undefined' && localStorage.getItem("vetmind_signature_name")) || 'Dr. André Eguchi';
+  const rawCrmv = (typeof window !== 'undefined' && localStorage.getItem("vetmind_signature_crmv")) || 'CRMV-SP 14892';
+  const crmv = rawCrmv.toUpperCase().startsWith('CRMV') ? rawCrmv : `CRMV-${rawCrmv}`;
+
   // 1. PRESCRICAO
   const prescriptionDoc: ClinicalDocument = {
     id: 'doc-presc-1',
@@ -276,8 +281,8 @@ export function buildDocumentsFromCanonicalCase(canonical: CanonicalCaseData): C
     edited_by_user: false,
     export_formats: ['PDF', 'DOCX'],
     signature: {
-      vetName: 'Dra. Camila Ribeiro',
-      crmv: 'CRMV-SP 45.892',
+      vetName,
+      crmv,
       date: dateStr,
       digitalHash: 'SHA256:8f9a2b1c4e7d3f6a5b8c9d0e1f2a3b4c'
     },
@@ -325,8 +330,8 @@ export function buildDocumentsFromCanonicalCase(canonical: CanonicalCaseData): C
     edited_by_user: false,
     export_formats: ['PDF', 'DOCX'],
     signature: {
-      vetName: 'Dra. Camila Ribeiro',
-      crmv: 'CRMV-SP 45.892',
+      vetName,
+      crmv,
       date: dateStr,
       digitalHash: 'SHA256:9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d'
     },
@@ -388,8 +393,8 @@ export function buildDocumentsFromCanonicalCase(canonical: CanonicalCaseData): C
     edited_by_user: false,
     export_formats: ['PDF', 'DOCX'],
     signature: {
-      vetName: 'Dra. Camila Ribeiro',
-      crmv: 'CRMV-SP 45.892',
+      vetName,
+      crmv,
       date: dateStr,
       digitalHash: 'SHA256:1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d'
     },
@@ -465,8 +470,8 @@ export function buildDocumentsFromCanonicalCase(canonical: CanonicalCaseData): C
     edited_by_user: false,
     export_formats: ['PDF', 'DOCX'],
     signature: {
-      vetName: 'Dra. Camila Ribeiro',
-      crmv: 'CRMV-SP 45.892',
+      vetName,
+      crmv,
       date: dateStr,
       digitalHash: 'SHA256:2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e'
     },
@@ -514,8 +519,8 @@ export function buildDocumentsFromCanonicalCase(canonical: CanonicalCaseData): C
     edited_by_user: false,
     export_formats: ['PDF', 'DOCX'],
     signature: {
-      vetName: 'Dra. Camila Ribeiro',
-      crmv: 'CRMV-SP 45.892',
+      vetName,
+      crmv,
       date: dateStr,
       digitalHash: 'SHA256:3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f'
     },
@@ -575,8 +580,8 @@ export function buildDocumentsFromCanonicalCase(canonical: CanonicalCaseData): C
     edited_by_user: false,
     export_formats: ['PDF', 'DOCX'],
     signature: {
-      vetName: 'Dra. Camila Ribeiro',
-      crmv: 'CRMV-SP 45.892',
+      vetName,
+      crmv,
       date: dateStr,
       digitalHash: 'SHA256:4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a'
     },
@@ -624,8 +629,8 @@ export function buildDocumentsFromCanonicalCase(canonical: CanonicalCaseData): C
     edited_by_user: false,
     export_formats: ['PDF', 'DOCX'],
     signature: {
-      vetName: 'Dra. Camila Ribeiro',
-      crmv: 'CRMV-SP 45.892',
+      vetName,
+      crmv,
       date: dateStr,
       digitalHash: 'SHA256:5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b'
     },
@@ -659,8 +664,8 @@ export function buildDocumentsFromCanonicalCase(canonical: CanonicalCaseData): C
     edited_by_user: false,
     export_formats: ['PDF', 'DOCX'],
     signature: {
-      vetName: 'Dra. Camila Ribeiro',
-      crmv: 'CRMV-SP 45.892',
+      vetName,
+      crmv,
       date: dateStr,
       digitalHash: 'SHA256:6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c'
     },

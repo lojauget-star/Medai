@@ -108,10 +108,22 @@ export const ClinicalDocumentationStudio: React.FC<ClinicalDocumentationStudioPr
     setTimeout(() => setToastMessage(null), 3200);
   };
 
-  // Re-sync documents when canonical case changes (DOCUMENTATION COMPOSER)
+  // Re-sync documents when canonical case changes or vet profile is updated (DOCUMENTATION COMPOSER)
   useEffect(() => {
     const updatedDocs = buildDocumentsFromCanonicalCase(canonicalCase);
     setDocuments(updatedDocs);
+  }, [canonicalCase]);
+
+  useEffect(() => {
+    const handleProfileUpdate = () => {
+      setDocuments(buildDocumentsFromCanonicalCase(canonicalCase));
+    };
+    window.addEventListener("vetmind_profile_updated", handleProfileUpdate);
+    window.addEventListener("storage", handleProfileUpdate);
+    return () => {
+      window.removeEventListener("vetmind_profile_updated", handleProfileUpdate);
+      window.removeEventListener("storage", handleProfileUpdate);
+    };
   }, [canonicalCase]);
 
   // Handle section edit save
@@ -729,8 +741,8 @@ export const ClinicalDocumentationStudio: React.FC<ClinicalDocumentationStudioPr
 
       </div>
 
-      {/* FIXED BOTTOM ACTION BAR */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#E2E8F0] p-4 shadow-xl">
+      {/* STICKY BOTTOM ACTION BAR */}
+      <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-md border-t border-[#E2E8F0] p-4 shadow-xl mt-6">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-[#10B981] animate-pulse"></span>
@@ -809,7 +821,7 @@ export const ClinicalDocumentationStudio: React.FC<ClinicalDocumentationStudioPr
                 <div className="p-3.5 rounded-2xl border border-indigo-200 bg-indigo-50/60 flex items-center justify-between">
                   <div>
                     <span className="text-xs font-bold text-[#0F172A]">Versão v{canonicalCase.version} (Atual)</span>
-                    <p className="text-[11px] text-slate-600 mt-0.5">Editado por Dra. Camila Ribeiro há poucos instantes</p>
+                    <p className="text-[11px] text-slate-600 mt-0.5">Editado por {activeDocument.signature?.vetName || 'Veterinário Responsável'} há poucos instantes</p>
                   </div>
                   <span className="bg-[#10B981] text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full">
                     Ativa

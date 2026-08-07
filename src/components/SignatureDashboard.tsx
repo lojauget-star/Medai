@@ -95,6 +95,7 @@ export default function SignatureDashboard() {
     localStorage.setItem("vetmind_signature_signed", String(signed));
     localStorage.setItem("vetmind_signature_date", date);
     localStorage.setItem("vetmind_signature_hash", hash);
+    window.dispatchEvent(new Event("vetmind_profile_updated"));
   };
 
   const handleSign = async (e: React.FormEvent) => {

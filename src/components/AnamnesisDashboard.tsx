@@ -53,6 +53,23 @@ export default function AnamnesisDashboard({
 }: AnamnesisDashboardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Dynamic Vet Profile from localStorage
+  const [vetName, setVetName] = React.useState(() => localStorage.getItem("vetmind_signature_name") || "Dr. André Eguchi");
+  const [vetCrmv, setVetCrmv] = React.useState(() => localStorage.getItem("vetmind_signature_crmv") || "CRMV-SP 14892");
+
+  React.useEffect(() => {
+    const handleProfileUpdate = () => {
+      setVetName(localStorage.getItem("vetmind_signature_name") || "Dr. André Eguchi");
+      setVetCrmv(localStorage.getItem("vetmind_signature_crmv") || "CRMV-SP 14892");
+    };
+    window.addEventListener("vetmind_profile_updated", handleProfileUpdate);
+    window.addEventListener("storage", handleProfileUpdate);
+    return () => {
+      window.removeEventListener("vetmind_profile_updated", handleProfileUpdate);
+      window.removeEventListener("storage", handleProfileUpdate);
+    };
+  }, []);
+
   // Vital signs parameters
   const vitals = {
     fc: patient.fc ? (patient.fc.endsWith('bpm') ? patient.fc : `${patient.fc} bpm`) : '--',
@@ -99,11 +116,11 @@ export default function AnamnesisDashboard({
           {/* Active Vet Avatar */}
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-full border border-[#E2E8F0] overflow-hidden bg-slate-100 shrink-0">
-              <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=André" alt="Dr. André Eguchi" className="w-full h-full object-cover" />
+              <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(vetName)}`} alt={vetName} className="w-full h-full object-cover" />
             </div>
             <div className="hidden sm:block">
-              <p className="text-xs font-semibold text-[#0F172A] leading-tight font-sans">Dr. André Eguchi</p>
-              <p className="text-[10px] text-[#10B981] font-medium tracking-tight font-sans">CRMV-SP 14892</p>
+              <p className="text-xs font-semibold text-[#0F172A] leading-tight font-sans">{vetName}</p>
+              <p className="text-[10px] text-[#10B981] font-medium tracking-tight font-sans">{vetCrmv.toUpperCase().startsWith('CRMV') ? vetCrmv : `CRMV-${vetCrmv}`}</p>
             </div>
           </div>
         </div>

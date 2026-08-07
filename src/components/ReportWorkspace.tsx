@@ -421,6 +421,54 @@ export default function ReportWorkspace({
     });
   };
 
+  // Helper to extract patient details dynamically from anamnesis text
+  const parsePatientDetailsFromText = (text: string) => {
+    if (!text) return;
+    setPatient((prev) => {
+      const next = { ...prev };
+      let changed = false;
+
+      // Extract weight (e.g. 28kg, 28 kg, 28,5 kg, peso: 28kg)
+      if (!next.weight) {
+        const weightMatch = text.match(/(?:peso[:\s]*)?(\d+(?:[\.,]\d+)?)\s*kg\b/i);
+        if (weightMatch) {
+          next.weight = weightMatch[1].replace(',', '.');
+          changed = true;
+        }
+      }
+
+      // Extract species
+      if (!next.species || next.species === 'Canino') {
+        if (/\b(felino|felina|gato|gata|cat)\b/i.test(text)) {
+          next.species = 'Felino';
+          changed = true;
+        } else if (/\b(canino|canina|cão|cao|cadela|cachorro|dog)\b/i.test(text)) {
+          next.species = 'Canino';
+          changed = true;
+        }
+      }
+
+      // Extract name (e.g. Paciente: Thor, Nome: Mel, cadela Luna, cão Thor, gato Bob, paciente Mel)
+      if (!next.name || next.name === 'Paciente sem nome' || next.name === 'Paciente Anon' || next.name === 'Luna') {
+        const nameMatch = text.match(/(?:paciente|nome)[:\s]+([A-ZÀ-Ú][a-zà-ú0-9]+)/i) ||
+                          text.match(/(?:cão|cao|cadela|gato|gata|pet|felino|canino)\s+([A-ZÀ-Ú][a-zà-ú0-9]+)/i);
+        if (nameMatch && nameMatch[1]) {
+          const candidate = nameMatch[1];
+          const ignoredWords = ['com', 'sem', 'que', 'para', 'anos', 'meses', 'dias', 'com', 'kg', 'apresenta'];
+          if (!ignoredWords.includes(candidate.toLowerCase())) {
+            next.name = candidate;
+            changed = true;
+          }
+        }
+      }
+
+      if (changed) {
+        savePatientToSession(next);
+      }
+      return changed ? next : prev;
+    });
+  };
+
   // Handler for updating anamnesis reactively
   const handleUpdateAnamnesis = (text: string) => {
     setAnamnesis(text);
@@ -702,6 +750,7 @@ export default function ReportWorkspace({
 
     let updatedAnamnesis = anamnesis;
     if (textToSend) {
+      parsePatientDetailsFromText(textToSend);
       updatedAnamnesis = anamnesis ? `${anamnesis}\n\n[Atualização do Tutor/Clínica]: ${textToSend}` : textToSend;
       setAnamnesis(updatedAnamnesis);
 
@@ -818,6 +867,10 @@ export default function ReportWorkspace({
 
     const textToSend = (textToUse || currentMessageText).trim();
     if (!textToSend && uploadedExamFiles.length === 0) return;
+
+    if (textToSend) {
+      parsePatientDetailsFromText(textToSend);
+    }
 
     setCurrentMessageText(""); // instantly clear for elite responsiveness
 

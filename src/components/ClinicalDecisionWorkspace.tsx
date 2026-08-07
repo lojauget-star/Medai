@@ -930,8 +930,8 @@ export const ClinicalDecisionWorkspace: React.FC<ClinicalDecisionWorkspaceProps>
 
       </div>
 
-      {/* FIXED BOTTOM BAR WITH ACTION BUTTONS */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#E2E8F0] p-4 shadow-xl">
+      {/* STICKY BOTTOM BAR WITH ACTION BUTTONS */}
+      <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-md border-t border-[#E2E8F0] p-4 shadow-xl mt-6">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-[#10B981] animate-pulse"></span>

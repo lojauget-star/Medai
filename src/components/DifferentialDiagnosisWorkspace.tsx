@@ -1561,13 +1561,13 @@ export default function DifferentialDiagnosisWorkspace({
         </div>
       </div>
 
-      {/* PAINEL INFERIOR FIXO (FIXED BOTTOM ACTION BAR) */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-[#E2E8F0] py-3 px-4 sm:px-8 z-30 shadow-lg">
+      {/* PAINEL INFERIOR (STICKY BOTTOM ACTION BAR) */}
+      <div className="sticky bottom-0 bg-white/95 backdrop-blur-md border-t border-[#E2E8F0] py-3 px-4 sm:px-8 z-20 shadow-lg mt-6">
         <div className="max-w-[2160px] mx-auto flex items-center justify-between gap-3 overflow-x-auto no-scrollbar">
           
           <div className="hidden sm:flex items-center gap-2 text-xs font-sans text-[#64748B] shrink-0">
             <ShieldCheck className="w-4 h-4 text-[#10B981]" />
-            <span>Conduta parametrizada para <strong>{patient.name || "Luna"}</strong> ({patient.weight || "28"} kg)</span>
+            <span>Conduta parametrizada para <strong>{patient.name || "Paciente"}</strong>{patient.weight ? ` (${patient.weight} kg)` : ""}</span>
           </div>
 
           <div className="flex items-center gap-2 shrink-0 ml-auto">
@@ -1697,7 +1697,8 @@ export default function DifferentialDiagnosisWorkspace({
                 <button
                   type="button"
                   onClick={() => {
-                    navigator.clipboard.writeText(`Resumo para o Tutor da ${patient.name || 'Luna'}: A paciente apresenta sinais inflamatórios abdominais com queixa de emese. Iniciaremos soroterapia e medicação antiemética.`);
+                    const petName = patient.name || 'Paciente';
+                    navigator.clipboard.writeText(`Resumo para o Tutor de ${petName}: ${clinicalData.tutorExplanation}`);
                     showToast('Mensagem para o tutor copiada!');
                   }}
                   className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer font-sans"

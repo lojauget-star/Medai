@@ -80,8 +80,8 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // User Profile States
-  const [profileName, setProfileName] = useState(() => localStorage.getItem("vetmind_signature_name") || "Dr. Roberto Silva");
-  const [profileCrmv, setProfileCrmv] = useState(() => localStorage.getItem("vetmind_signature_crmv") || "SP-14892");
+  const [profileName, setProfileName] = useState(() => localStorage.getItem("vetmind_signature_name") || "Dr. André Eguchi");
+  const [profileCrmv, setProfileCrmv] = useState(() => localStorage.getItem("vetmind_signature_crmv") || "CRMV-SP 14892");
   const [profileSpecialty, setProfileSpecialty] = useState(() => localStorage.getItem("vetmind_signature_specialty") || "Clínica Geral de Pequenos Animais");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
@@ -117,6 +117,7 @@ export default function App() {
               setProfileSpecialty(data.specialty);
               localStorage.setItem("vetmind_signature_specialty", data.specialty);
             }
+            window.dispatchEvent(new Event("vetmind_profile_updated"));
             if (data.plan) {
               setUserPlan(data.plan);
             } else {
@@ -183,6 +184,7 @@ export default function App() {
       localStorage.setItem("vetmind_signature_crmv", uppercaseCrmv);
       localStorage.setItem("vetmind_signature_specialty", profileSpecialty);
       localStorage.setItem("vetmind_signature_signed", "true");
+      window.dispatchEvent(new Event("vetmind_profile_updated"));
 
       if (user) {
         const docRef = doc(db, "users", user.uid);
@@ -805,8 +807,8 @@ export default function App() {
           )}
         </main>
 
-        {/* Bottom Navigation - Mobile Only (5 Tabs as requested in Vetmind Design Specs) */}
-        <div className="fixed xl:hidden bottom-3 left-0 w-full flex justify-center px-3 z-40 pointer-events-none">
+        {/* Bottom Navigation Dock (5 Tabs as requested in Vetmind Design Specs) */}
+        <div className="fixed bottom-3 left-0 w-full flex justify-center px-3 z-40 pointer-events-none">
           <nav className="bg-white/90 backdrop-blur-xl border border-slate-200/60 flex items-center justify-around p-1.5 rounded-full w-full max-w-sm shadow-[0_12px_35px_rgba(15,23,42,0.12)] pointer-events-auto relative">
             
             {/* Tab 1: Início */}

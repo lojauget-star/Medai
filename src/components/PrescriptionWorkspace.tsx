@@ -116,8 +116,8 @@ export default function PrescriptionWorkspace({
   const [copiedTutor, setCopiedTutor] = useState(false);
 
   // Signature Config Loaded from localStorage
-  const [vetName, setVetName] = useState(() => localStorage.getItem("vetmind_signature_name") || "Dr(a). Roberto Silva");
-  const [vetCrmv, setVetCrmv] = useState(() => localStorage.getItem("vetmind_signature_crmv") || "SP-14892");
+  const [vetName, setVetName] = useState(() => localStorage.getItem("vetmind_signature_name") || "Dr. André Eguchi");
+  const [vetCrmv, setVetCrmv] = useState(() => localStorage.getItem("vetmind_signature_crmv") || "CRMV-SP 14892");
   const [vetSpecialty, setVetSpecialty] = useState(() => localStorage.getItem("vetmind_signature_specialty") || "Clínica Geral de Pequenos Animais");
 
   const stages = [
@@ -130,12 +130,16 @@ export default function PrescriptionWorkspace({
   // Refresh signature metadata
   useEffect(() => {
     const handleStorageChange = () => {
-      setVetName(localStorage.getItem("vetmind_signature_name") || "Dr(a). Roberto Silva");
-      setVetCrmv(localStorage.getItem("vetmind_signature_crmv") || "SP-14892");
+      setVetName(localStorage.getItem("vetmind_signature_name") || "Dr. André Eguchi");
+      setVetCrmv(localStorage.getItem("vetmind_signature_crmv") || "CRMV-SP 14892");
       setVetSpecialty(localStorage.getItem("vetmind_signature_specialty") || "Clínica Geral de Pequenos Animais");
     };
     window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
+    window.addEventListener("vetmind_profile_updated", handleStorageChange);
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("vetmind_profile_updated", handleStorageChange);
+    };
   }, []);
 
   // Fetch past prescriptions
