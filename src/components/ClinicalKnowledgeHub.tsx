@@ -162,6 +162,7 @@ export const ClinicalKnowledgeHub: React.FC<ClinicalKnowledgeHubProps> = ({
   // Case Selection for Comparison (Clinical Case Comparison)
   const [selectedForComparison, setSelectedForComparison] = useState<string[]>(['case-001', 'case-003']);
   const [showComparisonModal, setShowComparisonModal] = useState<boolean>(false);
+  const [isActionsMenuOpen, setIsActionsMenuOpen] = useState<boolean>(false);
 
   // Toast Notification
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -762,58 +763,162 @@ export const ClinicalKnowledgeHub: React.FC<ClinicalKnowledgeHubProps> = ({
 
       </div>
 
-      {/* STICKY BOTTOM ACTION BAR */}
-      <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-md border-t border-[#E2E8F0] p-4 shadow-xl mt-6">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#10B981] animate-pulse"></span>
-            <span className="text-xs font-semibold text-[#0F172A]">
-              Central do Conhecimento: <strong className="text-[#4F46E5]">{stats.totalCases} Casos Ativos</strong>
-            </span>
+      {/* FLOATING ACTION MENU (DROPDOWN SUSPENSO - SEM POLUIÇÃO) */}
+      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end">
+        <AnimatePresence>
+          {isActionsMenuOpen && (
+            <>
+              {/* Backdrop para fechar ao clicar fora */}
+              <div 
+                className="fixed inset-0 z-30 bg-slate-900/10 backdrop-blur-[1px]"
+                onClick={() => setIsActionsMenuOpen(false)}
+              />
+              
+              <motion.div
+                initial={{ opacity: 0, scale: 0.92, y: 12 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.92, y: 12 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+                className="relative z-40 mb-3 w-80 max-w-[calc(100vw-2rem)] bg-white/95 backdrop-blur-xl border border-slate-200/90 rounded-2xl shadow-2xl p-3 text-slate-800"
+              >
+                {/* Cabeçalho do Menu */}
+                <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100 pb-2.5 mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-xs font-bold text-slate-800">
+                      Central do Conhecimento
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-100/80">
+                    {stats.totalCases} Casos Ativos
+                  </span>
+                </div>
+
+                {/* Opções do Menu */}
+                <div className="flex flex-col gap-1 py-1">
+                  {/* 1. Novo Caso */}
+                  <button
+                    onClick={() => {
+                      setIsActionsMenuOpen(false);
+                      triggerToast('Abertura de formulário de novo caso!');
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100/80 text-left transition-colors cursor-pointer group"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors shrink-0">
+                      <Plus className="w-4 h-4" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="font-bold text-xs text-slate-800 group-hover:text-indigo-600">Novo Caso</span>
+                      <span className="text-[10px] text-slate-400 font-normal">Registrar novo atendimento</span>
+                    </div>
+                  </button>
+
+                  {/* 2. Comparar Casos */}
+                  <button
+                    onClick={() => {
+                      if (selectedForComparison.length >= 2) {
+                        setIsActionsMenuOpen(false);
+                        setShowComparisonModal(true);
+                      }
+                    }}
+                    disabled={selectedForComparison.length < 2}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors group ${
+                      selectedForComparison.length >= 2
+                        ? 'hover:bg-indigo-50/80 cursor-pointer'
+                        : 'opacity-50 cursor-not-allowed'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
+                      <Scale className="w-4 h-4" />
+                    </div>
+                    <div className="flex flex-col flex-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-bold text-xs text-slate-800 group-hover:text-indigo-600">Comparar Casos</span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-700">
+                          {selectedForComparison.length} sel.
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-normal">
+                        {selectedForComparison.length >= 2 ? 'Analisar lado a lado' : 'Selecione 2+ casos abaixo'}
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* 3. Criar Apresentação */}
+                  <button
+                    onClick={() => {
+                      setIsActionsMenuOpen(false);
+                      triggerToast('Apresentação em slides (PowerPoint/Keynote) gerada!');
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100/80 text-left transition-colors cursor-pointer group"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors shrink-0">
+                      <Presentation className="w-4 h-4" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="font-bold text-xs text-slate-800 group-hover:text-purple-600">Criar Apresentação</span>
+                      <span className="text-[10px] text-slate-400 font-normal">Exportar slides clínicos</span>
+                    </div>
+                  </button>
+
+                  {/* 4. Gerar Revisão de Literatura */}
+                  <button
+                    onClick={() => {
+                      setIsActionsMenuOpen(false);
+                      triggerToast('Síntese de literatura gerada com referências das diretrizes!');
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100/80 text-left transition-colors cursor-pointer group"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors shrink-0">
+                      <BookOpen className="w-4 h-4" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="font-bold text-xs text-slate-800 group-hover:text-emerald-600">Revisão de Literatura</span>
+                      <span className="text-[10px] text-slate-400 font-normal">Síntese com referências RAG</span>
+                    </div>
+                  </button>
+
+                  {/* 5. Compartilhar Caso */}
+                  <button
+                    onClick={() => {
+                      setIsActionsMenuOpen(false);
+                      triggerToast('Link de compartilhamento anônimo gerado para discussão!');
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100/80 text-left transition-colors cursor-pointer group"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors shrink-0">
+                      <Share2 className="w-4 h-4" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="font-bold text-xs text-slate-800 group-hover:text-blue-600">Compartilhar Caso</span>
+                      <span className="text-[10px] text-slate-400 font-normal">Link para discussão médica</span>
+                    </div>
+                  </button>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* Botão Flutuante Principal */}
+        <button
+          onClick={() => setIsActionsMenuOpen(!isActionsMenuOpen)}
+          className={`px-4 py-2.5 rounded-full font-bold text-xs shadow-xl flex items-center gap-2 transition-all cursor-pointer border ${
+            isActionsMenuOpen
+              ? 'bg-slate-900 text-white border-slate-800 shadow-slate-900/30'
+              : 'bg-[#4F46E5] hover:bg-indigo-700 text-white border-indigo-400/30 hover:scale-105 active:scale-95 shadow-indigo-500/25'
+          }`}
+        >
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
           </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => triggerToast('Abertura de formulário de novo caso!')}
-              className="px-5 py-2.5 rounded-full bg-[#4F46E5] hover:bg-indigo-700 text-white font-semibold text-xs transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" /> Novo Caso
-            </button>
-
-            <button
-              onClick={() => setShowComparisonModal(true)}
-              disabled={selectedForComparison.length < 2}
-              className={`px-4 py-2.5 rounded-full font-semibold text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
-                selectedForComparison.length >= 2
-                  ? 'bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-[#4F46E5]'
-                  : 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
-              }`}
-            >
-              <Scale className="w-4 h-4 text-[#4F46E5]" /> Comparar Casos ({selectedForComparison.length})
-            </button>
-
-            <button
-              onClick={() => triggerToast('Apresentação em slides (PowerPoint/Keynote) gerada!')}
-              className="px-4 py-2.5 rounded-full bg-white hover:bg-slate-50 border border-[#E2E8F0] text-[#0F172A] font-semibold text-xs transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              <Presentation className="w-4 h-4 text-purple-600" /> Criar Apresentação
-            </button>
-
-            <button
-              onClick={() => triggerToast('Sintese de literatura gerada com referências das diretrizes!')}
-              className="px-4 py-2.5 rounded-full bg-white hover:bg-slate-50 border border-[#E2E8F0] text-[#0F172A] font-semibold text-xs transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              <BookOpen className="w-4 h-4 text-emerald-600" /> Gerar Revisão de Literatura
-            </button>
-
-            <button
-              onClick={() => triggerToast('Link de compartilhamento anônimo gerado para discussão!')}
-              className="px-3.5 py-2.5 rounded-full bg-white hover:bg-slate-50 border border-[#E2E8F0] text-slate-700 font-semibold text-xs transition-all flex items-center gap-1 cursor-pointer"
-            >
-              <Share2 className="w-3.5 h-3.5 text-blue-600" /> Compartilhar Caso
-            </button>
-          </div>
-        </div>
+          <span>Ações da Central</span>
+          <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-semibold">
+            {stats.totalCases}
+          </span>
+          <ChevronUp className={`w-3.5 h-3.5 transition-transform duration-200 ${isActionsMenuOpen ? 'rotate-180' : ''}`} />
+        </button>
       </div>
 
       {/* CLINICAL CASE COMPARISON MODAL (FEATURE REVOLUCIONÁRIA) */}
