@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   FileText,
   Plus,
@@ -1022,21 +1022,34 @@ export default function ReportWorkspace({
     }
   };
 
-  // Sync / Save report with Firebase
+  // Sync / Save report with Firebase & LocalStorage
   const handleSaveReport = async () => {
-    const user = getCurrentUser();
-    if (!generatedReport || !user) return;
+    const user = getCurrentUser() || { uid: "guest_vet", email: "vet@vetmind.ai" };
+    const currentAnamnesis = (anamnesis || currentMessageText || "").trim();
+
+    if (!currentAnamnesis && !patient.name) {
+      alert("Por favor, preencha as informações do paciente ou descreva a anamnese para salvar o caso.");
+      return;
+    }
+
     try {
+      const activeSoap = generatedReport || {
+        s: `Subjetivo: ${currentAnamnesis || 'Anamnese informada em consulta.'}`,
+        o: `Objetivo: Exame físico de ${patient.species || 'Canino'}, ${patient.breed || 'SRD'}, ${patient.age || 'idade N/I'}. ${examData || ''}`,
+        a: `Avaliação: Suspeita clínica sob investigação (${patient.name || 'Paciente'}).`,
+        p: `Plano: Monitoramento e exames complementares.`
+      };
+
       const reportData: any = {
-        patientId: patient.name || "Paciente Anon",
+        patientId: patient.name || "Paciente sem nome",
         patientSpecies: patient.species || "Canino",
         patientBreed: patient.breed || "SRD",
         patientAge: patient.age || "Não informada",
         patientSex: patient.sex || "Fêmea inteira",
         patientWeight: patient.weight || "10",
-        anamnesis,
+        anamnesis: currentAnamnesis,
         examData: examData || "Exame clínico físico geral.",
-        soapContent: generatedReport,
+        soapContent: activeSoap,
         prescription,
         sources: sources.map((s: any) => (typeof s === "object" ? s.topic : String(s))),
         uploadedExamFiles: uploadedExamFiles.map((f) => ({ name: f.name, size: f.size })),
@@ -1046,17 +1059,21 @@ export default function ReportWorkspace({
       };
 
       let finalDocId = savedReportId;
-      if (savedReportId) {
-        const reportDocRef = doc(db, "reports", savedReportId);
-        const updateData = { ...reportData, updatedAt: serverTimestamp() };
-        delete updateData.createdAt;
-        await updateDoc(reportDocRef, updateData);
-      } else {
-        const docRef = await addDoc(collection(db, "reports"), reportData);
-        if (docRef?.id) {
-          finalDocId = docRef.id;
-          setSavedReportId(docRef.id);
+      try {
+        if (savedReportId) {
+          const reportDocRef = doc(db, "reports", savedReportId);
+          const updateData = { ...reportData, updatedAt: serverTimestamp() };
+          delete updateData.createdAt;
+          await updateDoc(reportDocRef, updateData);
+        } else {
+          const docRef = await addDoc(collection(db, "reports"), reportData);
+          if (docRef?.id) {
+            finalDocId = docRef.id;
+            setSavedReportId(docRef.id);
+          }
         }
+      } catch (fErr) {
+        console.warn("Firestore sync offline or pending auth, saving to local storage:", fErr);
       }
 
       // Sync to local storage backup for immediate UI reactivity
@@ -1065,10 +1082,11 @@ export default function ReportWorkspace({
         const localCases: any[] = localRaw ? JSON.parse(localRaw) : [];
         const newCaseObj = {
           ...reportData,
-          id: finalDocId || `local_${Date.now()}`,
+          id: finalDocId || savedReportId || `local_${Date.now()}`,
           createdAt: Date.now()
         };
-        const idx = localCases.findIndex(c => c.id === finalDocId);
+        const targetId = newCaseObj.id;
+        const idx = localCases.findIndex(c => c.id === targetId);
         if (idx >= 0) {
           localCases[idx] = newCaseObj;
         } else {
@@ -1089,7 +1107,7 @@ export default function ReportWorkspace({
            </div>
            <div class="space-y-1">
             <h3 class="text-xl font-extrabold text-white font-display">Prontuário Sincronizado!</h3>
-            <p class="text-xs text-gray-500 font-medium leading-relaxed">Atendimento do paciente <b>${patient.name || "Paciente"}</b> salvo no histórico clínico com sucesso.</p>
+            <p class="text-xs text-gray-400 font-medium leading-relaxed">Atendimento do paciente <b>${patient.name || "Paciente"}</b> salvo no histórico clínico com sucesso.</p>
            </div>
            <button id="closeModal" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold py-3.5 rounded-xl shadow-lg cursor-pointer transition-all text-xs uppercase tracking-wider">Continuar</button>
         </div>
@@ -1101,9 +1119,19 @@ export default function ReportWorkspace({
 
     } catch (error) {
       console.error(error);
-      alert("Erro ao salvar prontuário.");
+      alert("Erro ao salvar o caso clínico.");
     }
   };
+
+  // Compute effective combined anamnesis text so typed search/message text doesn't override base anamnesis
+  const effectiveAnamnesisText = useMemo(() => {
+    const base = (anamnesis || "").trim();
+    const extra = (currentMessageText || "").trim();
+    if (base && extra && extra !== base) {
+      return `${base}\n\n[Nova Informação / Dúvida]: ${extra}`;
+    }
+    return base || extra || "Consulta clínica geral.";
+  }, [anamnesis, currentMessageText]);
 
   // Full clean reset of active case
   const handleClear = () => {
@@ -1191,6 +1219,15 @@ export default function ReportWorkspace({
 
               {chatMessages.length > 1 && (
                 <>
+                  <button
+                    onClick={handleSaveReport}
+                    className="px-2.5 py-1.5 sm:px-3 sm:py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer shadow-3xs hover:scale-[1.02]"
+                    title="Salvar prontuário no histórico de casos"
+                  >
+                    <Save className="w-3 h-3 text-white shrink-0" />
+                    <span className="hidden xs:inline">Salvar</span>
+                  </button>
+
                   <button
                     onClick={() => {
                       setActiveViewMode('pipeline');
@@ -1355,7 +1392,7 @@ export default function ReportWorkspace({
                 {isGenerating || activeViewMode === 'pipeline' ? (
                   <ClinicalReasoningEngine
                     patient={patient as Patient}
-                    anamnesisText={currentMessageText || anamnesis}
+                    anamnesisText={effectiveAnamnesisText}
                     isGenerating={isGenerating}
                     onComplete={() => {
                       setIsGenerating(false);
@@ -1371,7 +1408,7 @@ export default function ReportWorkspace({
                   /* MÓDULO 08: Clinical Knowledge Hub — Central de Conhecimento */
                   <ClinicalKnowledgeHub
                     patient={patient as Patient}
-                    anamnesisText={currentMessageText || anamnesis}
+                    anamnesisText={effectiveAnamnesisText}
                     onGoToDecision={() => setActiveViewMode('decision')}
                     onGoToDocumentation={() => setActiveViewMode('documentation')}
                   />
@@ -1379,7 +1416,7 @@ export default function ReportWorkspace({
                   /* MÓDULO 07: Clinical Documentation Studio — Documentação Clínica Unificada */
                   <ClinicalDocumentationStudio
                     patient={patient as Patient}
-                    anamnesisText={currentMessageText || anamnesis}
+                    anamnesisText={effectiveAnamnesisText}
                     onGoToAnamnesis={() => setActiveViewMode('anamnesis')}
                     onGoToDecision={() => setActiveViewMode('decision')}
                   />
@@ -1387,9 +1424,10 @@ export default function ReportWorkspace({
                   /* MÓDULO 06: Clinical Decision Workspace — Decisão Clínica e Plano Estruturado */
                   <ClinicalDecisionWorkspace
                     patient={patient as Patient}
-                    anamnesisText={currentMessageText || anamnesis}
+                    anamnesisText={effectiveAnamnesisText}
                     onGoToAnamnesis={() => setActiveViewMode('anamnesis')}
                     onGoToEvidence={() => setActiveViewMode('evidence')}
+                    onSaveCase={handleSaveReport}
                     onGoToPrescription={() => {
                       const fallbackDiag = "Pancreatite / Gastroenterite Aguda";
                       if (chatMessages.length > 1) {
@@ -1408,14 +1446,14 @@ export default function ReportWorkspace({
                   /* MÓDULO 05: Evidence Workspace — Evidências Científicas e Grafo */
                   <EvidenceWorkspace
                     patient={patient as Patient}
-                    anamnesisText={currentMessageText || anamnesis}
+                    anamnesisText={effectiveAnamnesisText}
                     onGoToAnamnesis={() => setActiveViewMode('anamnesis')}
                   />
                 ) : activeViewMode === 'workspace' || (chatMessages.length > 1 && activeViewMode !== 'anamnesis' && activeViewMode !== 'evidence' && activeViewMode !== 'decision') ? (
                   /* MÓDULO 04: Clinical Workspace — Diagnósticos Diferenciais (3 Colunas) */
                   <DifferentialDiagnosisWorkspace 
                     patient={patient as Patient}
-                    anamnesisText={currentMessageText || anamnesis}
+                    anamnesisText={effectiveAnamnesisText}
                     uploadedFiles={uploadedExamFiles as { name: string; size: string; data: string; mimeType: string; }[]}
                     aiReportText={generatedReport || (chatMessages.length > 0 ? (chatMessages[chatMessages.length - 1]?.soap?.raw || chatMessages[chatMessages.length - 1]?.text) : undefined)}
                     sources={sources}
@@ -1439,7 +1477,7 @@ export default function ReportWorkspace({
                   <AnamnesisDashboard 
                     patient={patient as Patient}
                     onUpdatePatient={(p) => setPatient((prev) => ({ ...prev, ...p }))}
-                    anamnesisText={currentMessageText || anamnesis}
+                    anamnesisText={effectiveAnamnesisText}
                     onAnamnesisChange={(text) => {
                       setCurrentMessageText(text);
                       setAnamnesis(text);
@@ -1477,7 +1515,7 @@ export default function ReportWorkspace({
 
         {/* Dynamic bottom controls and ultra-clean chat input bar (Shown only on chat follow-up) */}
         {chatMessages.length > 1 && (
-          <div className="bg-white border-t border-slate-100 p-2.5 sm:p-4 flex flex-col gap-2 sm:gap-3 shrink-0 z-10 animate-in slide-in-from-bottom duration-300">
+          <div className="bg-white border-t border-slate-100 p-2.5 sm:p-4 pb-24 sm:pb-24 flex flex-col gap-2 sm:gap-3 shrink-0 z-10 animate-in slide-in-from-bottom duration-300">
             
             {/* List of uploaded files */}
             {uploadedExamFiles.length > 0 && (

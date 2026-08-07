@@ -86,7 +86,7 @@ export default function AnamnesisDashboard({
   };
 
   return (
-    <div className="w-full flex flex-col bg-[#F8FAFC] min-h-full font-sans text-[#0F172A] selection:bg-indigo-100 selection:text-indigo-700">
+    <div className="w-full flex flex-col bg-[#F8FAFC] min-h-full font-sans text-[#0F172A] selection:bg-indigo-100 selection:text-indigo-700 pb-24">
       
       {/* 56px Compact Desktop Header */}
       <header className="h-[56px] bg-white border-b border-[#E2E8F0] px-6 flex items-center justify-between shrink-0 z-10">

@@ -44,6 +44,7 @@ interface ClinicalDecisionWorkspaceProps {
   onGoToAnamnesis?: () => void;
   onGoToEvidence?: () => void;
   onGoToPrescription?: () => void;
+  onSaveCase?: () => void;
 }
 
 export const ClinicalDecisionWorkspace: React.FC<ClinicalDecisionWorkspaceProps> = ({
@@ -51,7 +52,8 @@ export const ClinicalDecisionWorkspace: React.FC<ClinicalDecisionWorkspaceProps>
   anamnesisText,
   onGoToAnamnesis,
   onGoToEvidence,
-  onGoToPrescription
+  onGoToPrescription,
+  onSaveCase
 }) => {
   // Compute dynamic clinical data based on active patient and anamnesis
   const dynamicData = useMemo(() => {
@@ -980,8 +982,14 @@ export const ClinicalDecisionWorkspace: React.FC<ClinicalDecisionWorkspaceProps>
             </button>
 
             <button
-              onClick={() => triggerToast('Caso Clínico salvo com sucesso no histórico!')}
-              className="px-3.5 py-2.5 rounded-full bg-white hover:bg-slate-50 border border-[#E2E8F0] text-slate-700 font-semibold text-xs transition-all flex items-center gap-1 cursor-pointer"
+              onClick={() => {
+                if (onSaveCase) {
+                  onSaveCase();
+                } else {
+                  triggerToast('Caso Clínico salvo com sucesso no histórico!');
+                }
+              }}
+              className="px-4 py-2.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-indigo-600/20 active:scale-95"
             >
               <Save className="w-3.5 h-3.5" /> Salvar Caso
             </button>
