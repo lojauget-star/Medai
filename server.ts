@@ -1349,6 +1349,13 @@ app.post('/api/generate-report', async (req, res) => {
       ## D (Diferenciais): Liste EXATAMENTE 3 diagnósticos diferenciais prováveis ranqueados em ordem de plausibilidade (1º, 2º, 3º). Para cada diagnóstico, retorne OBRIGATORIAMENTE nesta estrutura:
          - **[Nome da Patologia] - [Porcentagem de Assertividade, ex: 85%] de Probabilidade**
          - **Revisão Sistemática (RAG) / Por que esta causa?**: Uma revisão crítica detalhada e sistemática justificando clinicamente por que essa patologia é compatível com os exames e a anamnese fornecidos.
+         - **Achados Compatíveis**: Liste de 2 a 4 sinais específicos relatados na anamnese ou exames que corroboram esta suspeita.
+         - **Exames Complementares Sugeridos**:
+            - [Nome do Exame 1] (Prioridade: Alta) - Razão clínica detalhada
+            - [Nome do Exame 2] (Prioridade: Alta ou Moderada) - Razão clínica detalhada
+         - **Conduta Inicial Recomendada**:
+            - [Manejo 1 - Ex: Estabilização e fluidoterapia]
+            - [Manejo 2 - Ex: Antimicrobiano ou Analgesia]
          - **Embasamento Literário (Múltiplas Referências Cruzadas)**: Forneça OBRIGATORIAMENTE de 2 a 3 referências bibliográficas distintas, complementares e de alto impacto (cruzando os livros clássicos integrados com os artigos, consensos científicos e PDFs ativos fornecidos pelo RAG). Cada uma deve ser EXTREMAMENTE RASTREÁVEL e completamente CLICÁVEL em formato de link Markdown, utilizando o seguinte padrão:
             - Clássico de Referência (Tratado/Livro): \`[Nome do Livro (ex: Nelson - Medicina Interna de Pequenos Animais, Fossum - Cirurgia de Pequenos Animais ou Blackwell's Five-Minute Veterinary Consult), Cap. X, pág. Y](https://scholar.google.com/scholar?q=Nelson+Internal+Medicine+Small+Animals+Chapter+X+Page+Y)\`
             - Consenso Clínico ou Artigo Periódico Recente: \`[Título do Artigo/Consenso (ex: ACVIM Consensus Statement ou Journal of Veterinary Internal Medicine)](https://scholar.google.com/scholar?q=Nome+do+Artigo+Ou+Consenso)\` ou se houver DOI: \`[DOI: 10.xxxx/yyyy](https://doi.org/10.xxxx/yyyy)\`

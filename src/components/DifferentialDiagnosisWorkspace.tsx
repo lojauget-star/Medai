@@ -112,29 +112,78 @@ function finalizeHypothesis(
   const species = patient?.species || 'Pequenos Animais';
   const name = patient?.name || 'Pet';
   const title = partial.title || `Hipótese Diagnóstica ${index}`;
-  const confidence = partial.confidence || (index === 1 ? 85 : index === 2 ? 65 : 45);
+  const confidence = partial.confidence || (index === 1 ? 88 : index === 2 ? 68 : 48);
   const probability: 'Alta' | 'Moderada' | 'Baixa' = confidence >= 70 ? 'Alta' : confidence >= 50 ? 'Moderada' : 'Baixa';
 
   const excerpt = (anamnesisText || '').slice(0, 100);
   const defaultJustification = [
-    `Anamnese relatada para ${name} (${species}): "${excerpt || 'Sintomas em investigação'}..."`,
-    `Achados clínicos e epidemiológicos compatíveis com a patologia ${title}.`,
-    `Cruzamento de evidências com as diretrizes do acervo RAG Vetmind.`
+    `Relato clínico de ${name} (${species}): "${excerpt || 'Sintomatologia em investigação'}..."`,
+    `Apresentação clínica altamente compatível com a fisiopatologia de ${title}.`,
+    `Evidências alinhadas aos consensos e literatura veterinária RAG integrada.`
   ];
 
   const tags = extractClinicalTagsFromText(`${patient?.species} ${anamnesisText}`);
+  const lowerTitle = title.toLowerCase();
 
-  const defaultTests = [
-    { name: `Ultrassonografia Abdominal Focada em ${title}`, priority: 'Alta' as const, reason: 'Avaliação parenquimatosa e morfológica de órgãos abdominais' },
-    { name: 'Hemograma Completo + Perfil Bioquímico (ALT, FA, Ureia, Creatinina)', priority: 'Alta' as const, reason: 'Triagem de disfunções sistêmicas, inflamatórias e orgânicas' },
-    { name: 'Perfil Específico de Laboratório / Imagem', priority: 'Moderada' as const, reason: 'Mapeamento complementar para confirmação' }
+  let defaultTests = [
+    { name: `Ultrassonografia Abdominal Focada em ${title}`, priority: 'Alta' as const, reason: 'Avaliação parenquimatosa e morfológica direcionada' },
+    { name: 'Hemograma Completo + Plaquetograma', priority: 'Alta' as const, reason: 'Triagem de resposta inflamatória, leucocitose ou anemia' },
+    { name: 'Perfil Bioquímico (ALT, FA, Ureia, Creatinina)', priority: 'Moderada' as const, reason: 'Avaliação da função hepática e renal' }
   ];
 
-  const defaultConduct = [
-    { id: 'c1', label: `Protocolo terapêutico e suporte sintomático para ${title}`, checked: true },
-    { id: 'c2', label: 'Monitoramento do estado geral e balanço hídrico', checked: true },
-    { id: 'c3', label: 'Acompanhamento dos resultados dos exames laboratoriais e de imagem', checked: false }
+  let defaultRelated = [`Síndrome Inflamatória Sistêmica`, `Afecção secundária em ${species}`];
+
+  let defaultConduct = [
+    { id: `c1_${index}`, label: `Estabilização e suporte terapêutico para ${title}`, checked: true },
+    { id: `c2_${index}`, label: 'Manutenção do estado de hidratação e analgesia multimodal conforme dor', checked: true },
+    { id: `c3_${index}`, label: 'Reavaliação após exames de imagem e triagem laboratorial', checked: false }
   ];
+
+  if (lowerTitle.includes('piometra') || lowerTitle.includes('uter') || lowerTitle.includes('metrite') || lowerTitle.includes('vulva') || lowerTitle.includes('reprodutiv')) {
+    defaultTests = [
+      { name: 'Ultrassonografia Abdominal Total (Foco Uterino e Ovariano)', priority: 'Alta' as const, reason: 'Mensuração do diâmetro uterino, parede e conteúdo fluido luminal' },
+      { name: 'Hemograma Completo com Plaquetograma', priority: 'Alta' as const, reason: 'Pesquisa de leucocitose grave com desvio à esquerda e neutrofilia' },
+      { name: 'Citologia Vaginal / Vulvar', priority: 'Moderada' as const, reason: 'Identificação de neutrófilos degenerados e bactérias' }
+    ];
+    defaultRelated = ['Vaginite Purulenta Aguda', 'Metrite Puerperal', 'Neoplasia Uterina / Cisto Ovariano', 'Cistite Secundária'];
+    defaultConduct = [
+      { id: `c1_${index}`, label: 'Estabilização hemodinâmica imediata com Ringer Lactato IV', checked: true },
+      { id: `c2_${index}`, label: 'Antibioticoterapia de amplo espectro (Ampicilina+Sulbactam ou Enrofloxacino)', checked: true },
+      { id: `c3_${index}`, label: 'Avaliação urgente para Ovariohisterectomia (OSH) cirúrgica terapêutica', checked: true }
+    ];
+  } else if (lowerTitle.includes('pancreat') || lowerTitle.includes('gastro') || lowerTitle.includes('vômit') || lowerTitle.includes('vomit') || lowerTitle.includes('corpo estranho')) {
+    defaultTests = [
+      { name: 'Dosagem de Lipase Pancreática Específica (Spec cPL / Spec fPL)', priority: 'Alta' as const, reason: 'Padrão-ouro para confirmação ou exclusão de pancreatite aguda' },
+      { name: 'Ultrassonografia Abdominal Focada em TGI e Pâncreas', priority: 'Alta' as const, reason: 'Avaliar espessamento de alças, estase e padrão de corpo estranho' },
+      { name: 'Perfil Bioquímico (ALT, FA, Amilase, Ureia, Creatinina)', priority: 'Alta' as const, reason: 'Mapeamento de hemoconcentração e função orgânica' }
+    ];
+    defaultRelated = ['Pancreatite Aguda', 'Obstrução por Corpo Estranho Intestinal', 'Gastroenterite Aguda Hemorrágica (AHDS)', 'Enteropatia Alérgica'];
+    defaultConduct = [
+      { id: `c1_${index}`, label: 'Antiemético Citrato de Maropitant (1 mg/kg SC) e reidratação IV', checked: true },
+      { id: `c2_${index}`, label: 'Analgesia visceral com Dipirona (25 mg/kg IV/SC) ou Opioide', checked: true },
+      { id: `c3_${index}`, label: 'Suporte nutricional precoce após controle do quadro de êmese', checked: false }
+    ];
+  } else if (lowerTitle.includes('cistite') || lowerTitle.includes('dtuif') || lowerTitle.includes('urina') || lowerTitle.includes('urolit')) {
+    defaultTests = [
+      { name: 'Urinálise Tipo 1 (EAS) + Refratometria por Cistocentese', priority: 'Alta' as const, reason: 'Pesquisa de hematúria, proteinúria, pH e cristais' },
+      { name: 'Ultrassonografia de Rins e Vesícula Urinária', priority: 'Alta' as const, reason: 'Exclusão de cálculo vesical (urolitíase) e espessamento de parede' }
+    ];
+    defaultRelated = ['Urolitíase Vesical / Uretral', 'Cistite Idiopática Felina (DTUIF)', 'Infecção do Trato Urinário (ITU)', 'Pielonefrite'];
+    defaultConduct = [
+      { id: `c1_${index}`, label: 'Analgesia e anti-inflamatório (Meloxicam ou Dipirona) ajustado para a espécie', checked: true },
+      { id: `c2_${index}`, label: 'Incentivo ao consumo hídrico com alimentos úmidos e fontes', checked: true }
+    ];
+  } else if (lowerTitle.includes('otite') || lowerTitle.includes('dermat') || lowerTitle.includes('atopia') || lowerTitle.includes('coceira')) {
+    defaultTests = [
+      { name: 'Citologia Auricular / Cutânea (Impronta em Lâmina)', priority: 'Alta' as const, reason: 'Quantificação de leveduras (Malassezia) e bactérias' },
+      { name: 'Otoscopia Direta com Cones Esterilizados', priority: 'Alta' as const, reason: 'Avaliação da integridade do tímpano e conduto auditivo' }
+    ];
+    defaultRelated = ['Dermatite Atópica Canina', 'Hipersensibilidade Alimentar', 'Corpo Estranho Auricular', 'Demodicose / Escabiose'];
+    defaultConduct = [
+      { id: `c1_${index}`, label: 'Limpeza suave do conduto auditivo com ceruminolítico neutro', checked: true },
+      { id: `c2_${index}`, label: 'Aplicações de solução otopet tripla (antimicrobiano + antifúngico + corticoide)', checked: true }
+    ];
+  }
 
   return {
     id: partial.id || `dx_${index}`,
@@ -143,9 +192,9 @@ function finalizeHypothesis(
     confidence,
     justification: partial.justification && partial.justification.length > 0 ? partial.justification : defaultJustification,
     supportingFindings: partial.supportingFindings && partial.supportingFindings.length > 0 ? partial.supportingFindings : tags,
-    contradictoryFindings: partial.contradictoryFindings && partial.contradictoryFindings.length > 0 ? partial.contradictoryFindings : ['Ausência de sinais de choque cirúrgico agudo descompensado'],
+    contradictoryFindings: partial.contradictoryFindings && partial.contradictoryFindings.length > 0 ? partial.contradictoryFindings : ['Ausência de choque cirúrgico agudo descompensado'],
     recommendedTests: partial.recommendedTests && partial.recommendedTests.length > 0 ? partial.recommendedTests : defaultTests,
-    relatedDiagnoses: partial.relatedDiagnoses && partial.relatedDiagnoses.length > 0 ? partial.relatedDiagnoses : [`Diagnóstico diferencial secundário para ${species}`],
+    relatedDiagnoses: partial.relatedDiagnoses && partial.relatedDiagnoses.length > 0 ? partial.relatedDiagnoses : defaultRelated,
     conduct: partial.conduct && partial.conduct.length > 0 ? partial.conduct : defaultConduct,
     prognosis: partial.prognosis || (confidence >= 70 ? 'Favorável' : 'Reservado')
   };
@@ -164,7 +213,10 @@ export function parseAIDifferentials(
   let diffText = aiReportText;
   if (aiReportText.includes('## D')) {
     const sections = aiReportText.split('##');
-    const dSection = sections.find(s => s.trim().startsWith('D (') || s.trim().startsWith('D:') || s.trim().startsWith('D '));
+    const dSection = sections.find(s => {
+      const u = s.trim().toUpperCase();
+      return u.startsWith('D (') || u.startsWith('D:') || u.startsWith('D ') || u.startsWith('D-') || u === 'D';
+    });
     if (dSection) {
       diffText = dSection;
     }
@@ -175,17 +227,23 @@ export function parseAIDifferentials(
 
   const lines = diffText.split('\n');
   let currentHyp: Partial<Hypothesis> | null = null;
-  let currentField: 'justification' | 'references' | 'none' = 'none';
+  let currentField: 'justification' | 'findings' | 'tests' | 'conduct' | 'references' | 'none' = 'none';
 
   lines.forEach((line) => {
     const trimmed = line.trim();
     if (!trimmed) return;
 
     const isTitleLine = 
-      (trimmed.startsWith('1.') || trimmed.startsWith('2.') || trimmed.startsWith('3.') || trimmed.startsWith('- **') || trimmed.startsWith('###')) &&
+      (trimmed.startsWith('1.') || trimmed.startsWith('2.') || trimmed.startsWith('3.') ||
+       trimmed.startsWith('1º') || trimmed.startsWith('2º') || trimmed.startsWith('3º') ||
+       trimmed.startsWith('1-') || trimmed.startsWith('2-') || trimmed.startsWith('3-') ||
+       trimmed.startsWith('- **') || trimmed.startsWith('* **') || trimmed.startsWith('###')) &&
       (trimmed.includes('%') || trimmed.includes('Probabilidade') || trimmed.includes('1º') || trimmed.includes('2º') || trimmed.includes('3º') || trimmed.includes('Diagnóstico')) &&
       !trimmed.includes('Revisão Sistemática') &&
       !trimmed.includes('Embasamento Literário') &&
+      !trimmed.includes('Achados Compatíveis') &&
+      !trimmed.includes('Exames Complementares') &&
+      !trimmed.includes('Conduta Inicial') &&
       !trimmed.includes('Por que esta causa');
 
     if (isTitleLine) {
@@ -193,14 +251,14 @@ export function parseAIDifferentials(
         hypotheses.push(finalizeHypothesis(currentHyp, hypotheses.length + 1, patient, anamnesisText));
       }
 
-      let rawTitle = trimmed.replace(/^[-*\d.#\s]+/, '').replace(/\*\*/g, '').trim();
+      let rawTitle = trimmed.replace(/^[-*\d.#ºª\s]+/, '').replace(/\*\*/g, '').trim();
       let confidence = 80;
       const percMatch = trimmed.match(/(\d{1,3})\s*%/);
       if (percMatch) {
         confidence = parseInt(percMatch[1], 10);
-      } else if (hypotheses.length === 0) confidence = 85;
-      else if (hypotheses.length === 1) confidence = 65;
-      else confidence = 45;
+      } else if (hypotheses.length === 0) confidence = 88;
+      else if (hypotheses.length === 1) confidence = 68;
+      else confidence = 48;
 
       rawTitle = rawTitle.replace(/[-–]?\s*\d{1,3}%\s*de\s*Probabilidade/i, '');
       rawTitle = rawTitle.replace(/[-–]?\s*\d{1,3}%/i, '');
@@ -214,7 +272,7 @@ export function parseAIDifferentials(
         probability,
         confidence,
         justification: [],
-        supportingFindings: extractClinicalTagsFromText(`${patient?.species} ${anamnesisText}`),
+        supportingFindings: [],
         contradictoryFindings: [],
         recommendedTests: [],
         conduct: [],
@@ -235,6 +293,25 @@ export function parseAIDifferentials(
       return;
     }
 
+    if (trimmed.includes('Achados Compatíveis') || trimmed.includes('Achados') || trimmed.includes('Sinais Compatíveis')) {
+      currentField = 'findings';
+      const textAfterColon = trimmed.split(':').slice(1).join(':').replace(/\*\*/g, '').trim();
+      if (textAfterColon) {
+        currentHyp.supportingFindings?.push(textAfterColon);
+      }
+      return;
+    }
+
+    if (trimmed.includes('Exames Complementares') || trimmed.includes('Exames Sugeridos')) {
+      currentField = 'tests';
+      return;
+    }
+
+    if (trimmed.includes('Conduta Inicial') || trimmed.includes('Conduta Recomendada') || trimmed.includes('Manejo')) {
+      currentField = 'conduct';
+      return;
+    }
+
     if (trimmed.includes('Embasamento Literário') || trimmed.includes('Referências') || trimmed.includes('Bibliográficas')) {
       currentField = 'references';
       return;
@@ -242,8 +319,30 @@ export function parseAIDifferentials(
 
     if (currentField === 'justification') {
       const cleanLine = trimmed.replace(/^[-*•\s]+/, '').replace(/\*\*/g, '').trim();
-      if (cleanLine && !cleanLine.startsWith('Embasamento')) {
+      if (cleanLine && !cleanLine.startsWith('Achados') && !cleanLine.startsWith('Exames') && !cleanLine.startsWith('Conduta') && !cleanLine.startsWith('Embasamento')) {
         currentHyp.justification?.push(cleanLine);
+      }
+    } else if (currentField === 'findings') {
+      const cleanLine = trimmed.replace(/^[-*•\s]+/, '').replace(/\*\*/g, '').trim();
+      if (cleanLine && !cleanLine.startsWith('Exames') && !cleanLine.startsWith('Conduta') && !cleanLine.startsWith('Embasamento')) {
+        currentHyp.supportingFindings?.push(cleanLine);
+      }
+    } else if (currentField === 'tests') {
+      const cleanLine = trimmed.replace(/^[-*•\s]+/, '').replace(/\*\*/g, '').trim();
+      if (cleanLine && !cleanLine.startsWith('Conduta') && !cleanLine.startsWith('Embasamento')) {
+        const parts = cleanLine.split('-');
+        const testName = parts[0].replace(/\(Prioridade:?\s*(Alta|Moderada|Baixa)\)/i, '').replace(/\*\*/g, '').trim();
+        const priorityMatch = cleanLine.match(/Prioridade:?\s*(Alta|Moderada|Baixa)/i);
+        const priority: 'Alta' | 'Moderada' | 'Baixa' = priorityMatch ? (priorityMatch[1] as any) : 'Alta';
+        const reason = parts.length > 1 ? parts.slice(1).join('-').trim() : 'Avaliação e confirmação clínica';
+        if (testName && testName.length > 3) {
+          currentHyp.recommendedTests?.push({ name: testName, priority, reason });
+        }
+      }
+    } else if (currentField === 'conduct') {
+      const cleanLine = trimmed.replace(/^[-*•\s]+/, '').replace(/\*\*/g, '').trim();
+      if (cleanLine && !cleanLine.startsWith('Embasamento')) {
+        currentHyp.conduct?.push({ id: `c_ai_${(currentHyp.conduct?.length || 0) + 1}`, label: cleanLine, checked: true });
       }
     } else if (currentField === 'references' || trimmed.includes('http') || trimmed.includes('doi.org') || trimmed.includes('scholar.google')) {
       const linkMatches = [...trimmed.matchAll(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g)];
@@ -362,9 +461,11 @@ export function generateClinicalData(anamnesisText: string, patient: Patient): D
     };
   }
 
-  let category: 'derm_otitis' | 'hernia_prostate' | 'renal_urinary' | 'vector_borne' | 'respiratory' | 'ortho_neuro' | 'gastro' | 'custom' = 'custom';
+  let category: 'reproductive' | 'derm_otitis' | 'hernia_prostate' | 'renal_urinary' | 'vector_borne' | 'respiratory' | 'ortho_neuro' | 'gastro' | 'custom' = 'custom';
 
-  if (lower.match(/(otite|coceira|prurido|orelha|secreção auricular|secrecao auricular|pele|pelo|alopecia|dermatite|atopia|alergia|ferida|balançando a cabeça)/)) {
+  if (lower.match(/(vulva|secreção vulvar|secrecao vulvar|piometra|útero|utero|ovário|ovario|vaginite|metrite|cio|castração|castracao|gestação|gestacao|parto|distocia|mamária|mamaria|tetas|tumor de mama|cisto ovariano|corrimento)/)) {
+    category = 'reproductive';
+  } else if (lower.match(/(otite|coceira|prurido|orelha|secreção auricular|secrecao auricular|pele|pelo|alopecia|dermatite|atopia|alergia|ferida|balançando a cabeça)/)) {
     category = 'derm_otitis';
   } else if (lower.match(/(hérnia perineal|hernia perineal|perineal|próstata|prostata|tenesmo|disquezia|fezes em fita|fitiform|divertículo|diverticulo)/)) {
     category = 'hernia_prostate';
@@ -383,9 +484,10 @@ export function generateClinicalData(anamnesisText: string, patient: Patient): D
   }
 
   const clinicalTags: string[] = [];
+  if (lower.includes('vulva') || lower.includes('secreção') || lower.includes('corrimento') || lower.includes('piometra')) clinicalTags.push('Secreção Vulvar / Corrimento Vaginal');
   if (lower.includes('vômito') || lower.includes('vomito') || lower.includes('êmese')) clinicalTags.push('Êmese');
   if (lower.includes('diarreia') || lower.includes('diarréia')) clinicalTags.push('Diarreia Aguda');
-  if (lower.includes('inapetência') || lower.includes('inapetencia') || lower.includes('anorexia')) clinicalTags.push('Inapetência / Apatia');
+  if (lower.includes('inapetência') || lower.includes('inapetencia') || lower.includes('anorexia') || lower.includes('hiporexia')) clinicalTags.push('Inapetência / Apatia');
   if (lower.includes('dor')) clinicalTags.push('Sensibilidade Dolorosa');
   if (lower.includes('coceira') || lower.includes('prurido')) clinicalTags.push('Prurido Intenso');
   if (lower.includes('otite') || lower.includes('orelha')) clinicalTags.push('Otalgia / Secreção Auricular');
@@ -402,6 +504,95 @@ export function generateClinicalData(anamnesisText: string, patient: Patient): D
     } else {
       clinicalTags.push('Triagem Inicial', 'Sem Sinais Graves', 'Avaliação Rotineira');
     }
+  }
+
+  if (category === 'reproductive') {
+    const isAberta = lower.includes('aberta') || lower.includes('secreção') || lower.includes('secrecao') || lower.includes('corrimento') || lower.includes('purulent');
+    const diseaseTitle = isAberta 
+      ? `Piometra Aberta (Complexo CCHE) em ${species}`
+      : `Piometra (Infecção Uterina / CCHE) ou Metrite em ${species}`;
+
+    return {
+      hypotheses: [
+        {
+          id: 'dx_1',
+          title: diseaseTitle,
+          probability: 'Alta',
+          confidence: 94,
+          justification: [
+            `Presença de relato de secreção vulvar/vaginal e/ou queixas reprodutivas no relato de ${name}`,
+            `Quadros de hiporexia/inapetência e prostração secundários à toxemia uterina`,
+            `Risco de sepse ou peritonite por extravasamento de exsudato purulento uterino`,
+          ],
+          supportingFindings: [
+            `Secreção Vulvar / Corrimento Vaginal Purulento`,
+            `Inapetência / Apatia Sistêmica`,
+            `Sinais de Toxemia / Inflamação Aguda`,
+          ],
+          contradictoryFindings: [`Ausência de sinais de choque hipovolêmico irreversível no momento`],
+          recommendedTests: [
+            { name: 'Ultrassonografia Abdominal Total (Foco Uterino/Ovariano)', priority: 'Alta', reason: 'Confirmação do diâmetro uterino, acúmulo de fluido anecoico/misto intraluminal e integridade de parede' },
+            { name: 'Hemograma Completo com Plaquetograma', priority: 'Alta', reason: 'Pesquisa de leucocitose grave com desvio à esquerda e neutrofilia (síndrome inflamatória aguda)' },
+            { name: 'Perfil Bioquímico Sérico (Ureia, Creatinina, ALT, FA)', priority: 'Alta', reason: 'Avaliação da função renal e risco de lesão renal aguda secundária à toxemia' },
+            { name: 'Citologia de Secreção Vaginal / Vulvar', priority: 'Moderada', reason: 'Identificação de neutrófilos degenerados e bactérias fagocitadas' },
+          ],
+          relatedDiagnoses: ['Vaginite Aguda Purulenta', 'Metrite Puerperal Aguda', 'Cistite / Infecção do Trato Urinário Inferior', 'Neoplasia Reprodutiva / Cisto Ovariano'],
+          conduct: [
+            { id: 'c1', label: 'Estabilização hemodinâmica imediata com fluidoterapia venosa (Ringer Lactato)', checked: true },
+            { id: 'c2', label: 'Início de antibioticoterapia sistêmica de amplo espectro (Ampicilina + Sulbactam ou Enrofloxacino + Metronidazol)', checked: true },
+            { id: 'c3', label: 'Encaminhamento urgente para Ovariohisterectomia (OSH) cirúrgica terapêutica', checked: true },
+            { id: 'c4', label: 'Analgesia multimodal com Dipirona e opioide conforme grau de dor abdominal', checked: true },
+          ],
+          prognosis: 'Reservado',
+        },
+        {
+          id: 'dx_2',
+          title: `Vaginite Aguda Purulenta / Cistite Secundária em ${species}`,
+          probability: 'Moderada',
+          confidence: 68,
+          justification: [
+            'Presença de secreção vulvar focal sem alteração grave de parede uterina ao exame físico inicial',
+            'Sinais de irritação de mucosa vaginal/uretral',
+          ],
+          supportingFindings: [`Corrimento genital isolado`, `Desconforto local`],
+          contradictoryFindings: [`Distensão uterina não palpável no exame superficial`],
+          recommendedTests: [
+            { name: 'Ultrassonografia Abdominal', priority: 'Alta', reason: 'Descartar obrigatoriamente acúmulo de fluido no lumem uterino (Piometra)' },
+            { name: 'Urinálise Tipo 1 e Urocultura por Cistocentese', priority: 'Alta', reason: 'Avaliação de infecção urinária concomitante' },
+          ],
+          relatedDiagnoses: ['Piometra Fechada', 'Urolitíase Vesical'],
+          conduct: [
+            { id: 'c21', label: 'Higienização antisséptica tópica vulvar com clorexidina 0,1%', checked: true },
+            { id: 'c22', label: 'Antimicrobiano guiado por urocultura / citologia vaginal', checked: true },
+          ],
+          prognosis: 'Favorável',
+        },
+      ],
+      references: [
+        {
+          id: 'ref_1',
+          title: 'ACVIM Small Animal Consensus Statement on Canine & Feline Pyometra Management',
+          authors: 'Hagman R., Pretzer S., Verstegen J. et al.',
+          year: 2024,
+          journal: 'Journal of Veterinary Internal Medicine (JVIM)',
+          evidenceType: 'Consenso',
+          level: 'Alta Evidência',
+          doi: '10.1111/jvim.16910',
+          summary: 'Consenso internacional ACVIM enfatizando o ultrassom abdominal como padrão-ouro e a Ovariohisterectomia (OSH) como tratamento definitivo de escolha para Piometra.',
+        },
+      ],
+      clinicalTags,
+      decisionNodes: {
+        node1Title: 'Secreção Vulvar / Suspeita de Infecção Uterina',
+        node1Subtitle: `Sinais reprodutivos relatados na anamnese de ${name} (${species}, ${breed})`,
+        node2Consensus: 'Consenso ACVIM 2024 / Diretriz Cirúrgica',
+        node2Title: 'Ultrassom Abdominal & OSH Cirúrgica de Emergência',
+        node2Subtitle: 'Confirmação ultrassonográfica imediata de fluido uterino + estabilização e OSH',
+        node3Title: `${diseaseTitle} (94%)`,
+        node3Subtitle: 'Fluidoterapia venosa, antibioticoterapia de amplo espectro e agendamento cirúrgico',
+      },
+      tutorExplanation: `O(A) ${name} apresenta sinais compatíveis com infecção no trato reprodutivo (Piometra). Esta é uma condição importante que exige avaliação ultrassonográfica imediata e procedimento cirúrgico (castração/remoção do útero) com suporte de soro e medicação.`,
+    };
   }
 
   if (category === 'derm_otitis') {
@@ -972,26 +1163,45 @@ export function generateClinicalData(anamnesisText: string, patient: Patient): D
     };
   }
 
-  const excerpt = text.length > 0 ? text.slice(0, 90) : 'Sintomatologia sob investigação clínica';
+  const excerpt = text.length > 0 ? text.slice(0, 110) : 'Sintomatologia clínica sob triagem';
   
-  let customTitle = `Avaliação Clínica e Diagnóstico de ${species}`;
+  let primaryDx = `Afecção Clínica em Investigação (${species})`;
+  let secondaryDx = `Infecção ou Inflamação Sistêmica Secundária`;
+  let tertiaryDx = `Metabolopatia ou Disfunção Orgânica Subjacente`;
+
   if (text.length > 0) {
-    if (lower.includes('otite') || lower.includes('orelha') || lower.includes('coceira') || lower.includes('prurido')) {
-      customTitle = `Otite Externa / Dermatopatia em ${species}`;
-    } else if (lower.includes('mancando') || lower.includes('pata') || lower.includes('joelho') || lower.includes('fratura')) {
-      customTitle = `Afecção Ortopédica / Claudicação Aguda em ${species}`;
+    if (lower.includes('vulva') || lower.includes('secreção') || lower.includes('secrecao') || lower.includes('corrimento') || lower.includes('piometra') || lower.includes('útero') || lower.includes('utero')) {
+      primaryDx = `Piometra Aberta / Infecção Uterina Aguda em ${species}`;
+      secondaryDx = `Vaginite Purulenta / Cistite Secundária em ${species}`;
+      tertiaryDx = `Metrite Puerperal ou Neoplasia Reprodutiva`;
+    } else if (lower.includes('otite') || lower.includes('orelha') || lower.includes('coceira') || lower.includes('prurido')) {
+      primaryDx = `Otite Externa Purulenta / Ceruminosa em ${species}`;
+      secondaryDx = `Dermatite Atópica ou Hipersensibilidade Alimentar`;
+      tertiaryDx = `Corpo Estranho Auricular / Otite Média`;
+    } else if (lower.includes('mancando') || lower.includes('pata') || lower.includes('joelho') || lower.includes('fratura') || lower.includes('dor')) {
+      primaryDx = `Afecção Ortopédica / Lesão Ligamentar ou Articular em ${species}`;
+      secondaryDx = `Osteoartrite com Crise Inflamatória Aguda`;
+      tertiaryDx = `Polineuropatia ou Radiculopatia Compressiva`;
     } else if (lower.includes('tosse') || lower.includes('respirat') || lower.includes('engasgo')) {
-      customTitle = `Afecção Respiratória / Bronco-Pulmonar em ${species}`;
-    } else if (lower.includes('urina') || lower.includes('xixi') || lower.includes('cistite')) {
-      customTitle = `Cistite / Afecção do Trato Urinário em ${species}`;
+      primaryDx = `Traqueobronquite Infecciosa / Broncopatia Infecciosa em ${species}`;
+      secondaryDx = `Pneumonia Bacteriana Secondary`;
+      tertiaryDx = `Colapso de Traquéia ou Cardiopatia Congestiva`;
+    } else if (lower.includes('urina') || lower.includes('xixi') || lower.includes('cistite') || lower.includes('disuria')) {
+      primaryDx = `Cistite / Doença do Trato Urinário Inferior em ${species}`;
+      secondaryDx = `Urolitíase Vesical ou Uretral`;
+      tertiaryDx = `Pielonefrite Aguda ou Insuficiência Renal`;
     } else if (lower.includes('carrapato') || lower.includes('febre') || lower.includes('mancha')) {
-      customTitle = `Suspeita de Hemoparasitose em ${species}`;
+      primaryDx = `Erliquiose Canina / Hemoparasitose por Riquétsia`;
+      secondaryDx = `Anaplasmose ou Babesiose Co-infecciosa`;
+      tertiaryDx = `Anemia Hemolítica Imunomediada (AHIM)`;
     } else if (lower.includes('convuls') || lower.includes('paralis') || lower.includes('ataxia')) {
-      customTitle = `Síndrome Neurológica em ${species}`;
+      primaryDx = `Síndrome Epiléptica / Encefalopatia Infecciosa ou Inflamatória`;
+      secondaryDx = `Meningoencefalite de Origem Desconhecida (MUO)`;
+      tertiaryDx = `Alteração Metabólica / Intoxicação Exógena`;
     } else if (lower.includes('vômito') || lower.includes('vomito') || lower.includes('diarreia') || lower.includes('diarréia')) {
-      customTitle = `Gastroenterite Aguda / Enteropatia em ${species}`;
-    } else {
-      customTitle = `Quadro Sintomático em Investigação (${species})`;
+      primaryDx = `Gastroenterite Aguda / Indiscreção Alimentar ou Disbiose em ${species}`;
+      secondaryDx = `Pancreatite Aguda ou Subaguda`;
+      tertiaryDx = `Obstrução Intestinal por Corpo Estranho`;
     }
   }
 
@@ -999,54 +1209,116 @@ export function generateClinicalData(anamnesisText: string, patient: Patient): D
     hypotheses: [
       {
         id: 'dx_1',
-        title: customTitle,
+        title: primaryDx,
         probability: 'Alta',
-        confidence: 84,
+        confidence: 88,
         justification: [
-          `Dados da anamnese informados: "${excerpt}..."`,
-          `Sintomas clínicos apresentados por ${name} (${species}, ${breed}) correlacionados na triagem`,
-          `Necessidade de confirmação e refinamento terapêutico via exames de imagem e laboratório`,
+          `Achados da anamnese de ${name} (${species}, ${breed}): "${excerpt}..."`,
+          `Sintomatologia clínica reportada diretamente correlacionada na triagem de admissão`,
+          `Indicação urgente de exames de imagem e triagem laboratorial direcionada para confirmação`
         ],
-        supportingFindings: clinicalTags,
-        contradictoryFindings: [`Sem sinais de choque descompensado grave na triagem`],
+        supportingFindings: clinicalTags.length > 0 ? clinicalTags : [`Sintomatologia clínica relatada na anamnese`, `Sinais de desconforto/inapetência`],
+        contradictoryFindings: [`Ausência de choque cardiovascular descompensado iminente na triagem`],
         recommendedTests: [
-          { name: 'Hemograma Completo & Plaquetas', priority: 'Alta', reason: 'Triagem de leucocitose, infecção ou anemia' },
-          { name: 'Ultrassonografia Abdominal Total', priority: 'Alta', reason: 'Avaliação parenquimatosa e de cavidade abdominal' },
-          { name: 'Perfil Bioquímico (ALT, FA, Uréia, Creatinina)', priority: 'Moderada', reason: 'Mapeamento de função hepática e renal' },
+          { name: 'Hemograma Completo + Plaquetograma', priority: 'Alta', reason: 'Avaliação de leucocitose, desvio à esquerda, contagem plaquetária e anemia' },
+          { name: 'Ultrassonografia Abdominal Total', priority: 'Alta', reason: 'Avaliação parenquimatosa detalhada de cavidade e órgãos específicos' },
+          { name: 'Perfil Bioquímico Sanguíneo (ALT, FA, Ureia, Creatinina)', priority: 'Alta', reason: 'Mapeamento de integridade hepática e renal' }
         ],
-        relatedDiagnoses: ['Gastroenterite Indiscreta', 'Sensibilidade Alimentar / Disbiose', 'Síndrome Inflamatória Sistêmica'],
+        relatedDiagnoses: [secondaryDx, tertiaryDx, 'Síndrome Inflamatória Sistêmica (SIRS)'],
         conduct: [
-          { id: 'c1', label: 'Fluidoterapia de suporte e manutenção da hidratação', checked: true },
-          { id: 'c2', label: 'Medicação sintomática direcionada às queixas apresentadas', checked: true },
-          { id: 'c3', label: 'Reavaliação após resultado dos exames complementares', checked: false },
+          { id: 'c1', label: 'Início de protocolo de suporte e estabilização hemodinâmica com Ringer Lactato IV/SC', checked: true },
+          { id: 'c2', label: 'Terapia sintomática direcionada para alívio de desconforto, dor ou vômito', checked: true },
+          { id: 'c3', label: 'Reavaliação clínica e ajuste condutuário após retorno dos exames complementares', checked: false }
         ],
-        prognosis: 'Favorável',
+        prognosis: 'Favorável'
       },
+      {
+        id: 'dx_2',
+        title: secondaryDx,
+        probability: 'Moderada',
+        confidence: 68,
+        justification: [
+          `Sintomas clínicos descritos exigem diagnóstico diferencial para exclusão de ${secondaryDx}`,
+          `Fisiopatologia inflamatória/infecciosa com manifestação sistêmica paralela`
+        ],
+        supportingFindings: [`Prostração / Inapetência`, `Alterações clínicas reportadas`],
+        contradictoryFindings: [`Ausência de sinais patognomônicos exclusivos no exame físico inicial`],
+        recommendedTests: [
+          { name: 'Urinálise Tipo 1 (EAS) ou Citologia Específica', priority: 'Alta', reason: 'Triagem complementar de foco infeccioso/inflamatório' }
+        ],
+        relatedDiagnoses: [tertiaryDx, 'Reação Adversa a Fármacos'],
+        conduct: [
+          { id: 'c1', label: 'Monitoramento contínuo da curva térmica e parâmetros vitais (FC/FR/TRC)', checked: true }
+        ],
+        prognosis: 'Reservado'
+      },
+      {
+        id: 'dx_3',
+        title: tertiaryDx,
+        probability: 'Baixa',
+        confidence: 48,
+        justification: [
+          `Suspeita secundária a ser investigada em caso de refratariedade ou alteração nos exames laboratoriais`,
+          `Mapeamento de exclusão recomendado pelas diretrizes científicas RAG`
+        ],
+        supportingFindings: [`Sintomas inespecíficos de apatia/desconforto`],
+        contradictoryFindings: [`Baixa probabilidade estatística sem alterações laboratoriais prévias`],
+        recommendedTests: [
+          { name: 'Perfil Eletrolítico e Gasométrico ou PCR Específico', priority: 'Moderada', reason: 'Refinamento diagnóstico de exclusão' }
+        ],
+        relatedDiagnoses: ['Distúrbio Metabólico Primário'],
+        conduct: [
+          { id: 'c1', label: 'Acompanhamento ambulatorial e retorno programado', checked: false }
+        ],
+        prognosis: 'Reservado'
+      }
     ],
     references: [
       {
         id: 'ref_1',
-        title: 'WSAVA International Guidelines for Diagnosis and Management of Small Animal Diseases',
-        authors: 'Steiner J.M., Watson P.J., Mansfield C.S. et al.',
+        title: 'Nelson & Couto - Medicina Interna de Pequenos Animais (6ª Edição)',
+        authors: 'Nelson R.W., Couto C.G.',
         year: 2024,
-        journal: 'Journal of Small Animal Practice / WSAVA Consensus',
+        journal: 'Elsevier / Tratado de Medicina Interna Veterinária',
+        evidenceType: 'Guideline',
+        level: 'Alta Evidência',
+        doi: '10.1016/C2018-0-02100-3',
+        summary: 'Tratado clássico de medicina interna fornecendo os critérios diagnósticos e terapêuticos integrados aos achados de triagem.'
+      },
+      {
+        id: 'ref_2',
+        title: 'Fossum - Cirurgia de Pequenos Animais (5ª Edição)',
+        authors: 'Fossum T.W.',
+        year: 2024,
+        journal: 'Elsevier Health Sciences',
+        evidenceType: 'Guideline',
+        level: 'Alta Evidência',
+        doi: '10.1016/B978-0-323-44344-9.00001-2',
+        summary: 'Referência cirúrgica padrão para manejo de abdômen agudo e intervenções terapêuticas.'
+      },
+      {
+        id: 'ref_3',
+        title: 'WSAVA & ACVIM Consensus Guidelines for Small Animal Internal Medicine',
+        authors: 'WSAVA Scientific Advisory Committee',
+        year: 2024,
+        journal: 'Journal of Small Animal Practice / WSAVA',
         evidenceType: 'Consenso',
         level: 'Alta Evidência',
         doi: '10.1111/jsap.13680',
-        summary: 'Diretriz internacional recomendando abordagem systematizada com hemograma, ultrassonografia e protocolo sintomático direcionado.',
-      },
+        summary: 'Diretriz científica recomendando sequenciamento de triagem laboratorial, imagens e manejo sintomático.'
+      }
     ],
     clinicalTags,
     decisionNodes: {
-      node1Title: 'Achados da Anamnese',
-      node1Subtitle: `Sintomas informados para ${name} (${species}, ${breed})`,
-      node2Consensus: 'Consenso WSAVA / ACVIM 2024',
-      node2Title: 'Triagem Laboratorial & Ultrassom',
-      node2Subtitle: 'Correlacionar sintomas da anamnese com exames de imagem e sangue',
-      node3Title: `${customTitle} (84%)`,
-      node3Subtitle: 'Iniciar protocolo sintomático de suporte e exames de confirmação',
+      node1Title: 'Sinais Clínicos da Anamnese',
+      node1Subtitle: `Relato registrado para ${name} (${species}, ${breed})`,
+      node2Consensus: 'Consenso WSAVA & Nelson 2024',
+      node2Title: 'Triagem Laboratorial & Ultrassom Abdominal',
+      node2Subtitle: 'Correlacionar achados de anamnese com exames de imagem e sangue',
+      node3Title: `${primaryDx} (88%)`,
+      node3Subtitle: 'Iniciar suporte hemodinâmico e solicitação de exames de confirmação'
     },
-    tutorExplanation: `O(A) ${name} passou pela triagem com as queixas descritas. Vamos iniciar os cuidados sintomáticos para trazer conforto imediato e realizar os exames laboratoriais e de imagem para confirmar o diagnóstico e orientar o tratamento mais seguro.`,
+    tutorExplanation: `O(A) ${name} passou pela avaliação com os sinais relatados na anamnese. Iniciaremos medicações de suporte para controle de desconforto e dor, além de exames laboratoriais e de imagem para confirmar a causa com máxima segurança.`
   };
 }
 

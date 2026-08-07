@@ -1479,9 +1479,8 @@ export default function ReportWorkspace({
                   <AnamnesisDashboard 
                     patient={patient as Patient}
                     onUpdatePatient={(p) => setPatient((prev) => ({ ...prev, ...p }))}
-                    anamnesisText={effectiveAnamnesisText}
+                    anamnesisText={anamnesis}
                     onAnamnesisChange={(text) => {
-                      setCurrentMessageText(text);
                       setAnamnesis(text);
                     }}
                     uploadedFiles={uploadedExamFiles as { name: string; size: string; data: string; mimeType: string; }[]}
