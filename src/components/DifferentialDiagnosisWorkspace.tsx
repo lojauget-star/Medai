@@ -425,6 +425,7 @@ export function processClinicalSessionData(
       certainty: 0,
       certaintyLabel: 'Não aferido no Exame Físico',
       source: 'physical_exam',
+      confirmedByVet: false,
       importance: 'MEDIUM',
       reasonMissing: 'Exclusão de Glaucoma Secundário ou Uveíte Anterior'
     });
@@ -436,6 +437,7 @@ export function processClinicalSessionData(
       certainty: 0,
       certaintyLabel: 'Exame Pendente',
       source: 'lab',
+      confirmedByVet: false,
       importance: 'CRITICAL',
       reasonMissing: 'Confirmação de acúmulo intraluminal purulento em piometra de cérvix aberta'
     });
@@ -447,6 +449,7 @@ export function processClinicalSessionData(
       certainty: 0,
       certaintyLabel: 'Não informado na Anamnese',
       source: 'anamnesis',
+      confirmedByVet: false,
       importance: 'HIGH',
       reasonMissing: 'Importante para determinar gravidade e velocidade de progressão'
     });

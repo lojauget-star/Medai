@@ -1319,6 +1319,30 @@ app.delete('/api/admin/guidelines-pdfs/:name', (req, res) => {
   }
 });
 
+function normalizePatientPayload(patient: any, textContext: string = ''): any {
+  const norm = { ...(patient || {}) };
+  const combined = `${norm.name || ''} ${norm.species || ''} ${norm.breed || ''} ${textContext || ''}`.toLowerCase();
+
+  // 1. Species normalization based on clinical text context
+  if (/\b(felino|felina|gato|gata|cat|feline)\b/i.test(combined)) {
+    norm.species = 'Felino';
+  } else if (/\b(canino|canina|cão|cao|cadela|cachorro|dog|canine)\b/i.test(combined)) {
+    if (!norm.species) {
+      norm.species = 'Canino';
+    }
+  }
+
+  // 2. Name normalization - filter out false positives like "ha", "há", "pet", etc.
+  const invalidNames = new Set([
+    'ha', 'há', 'pet', 'paciente', 'aguardando', 'aguardando cadastro...', 'não informado', 'nao informado', 'srd', 'canino', 'felino', 'macho', 'fêmea', 'femea', ''
+  ]);
+  if (norm.name && invalidNames.has(norm.name.toString().trim().toLowerCase())) {
+    norm.name = 'Não informado';
+  }
+
+  return norm;
+}
+
 app.post('/api/generate-report', async (req, res) => {
   try {
     const { patient, anamnesis, examData, files, disabledReferences = [] } = req.body;
@@ -1326,6 +1350,8 @@ app.post('/api/generate-report', async (req, res) => {
     if (!anamnesis && (!files || files.length === 0)) {
       return res.status(400).json({ error: 'Faltam dados de anamnese ou anexos.' });
     }
+
+    const normPatient = normalizePatientPayload(patient, `${anamnesis || ''} ${examData || ''}`);
 
     let currentGuidelines = await getFullGuidelines();
     if (disabledReferences && disabledReferences.length > 0) {
@@ -1382,9 +1408,9 @@ app.post('/api/generate-report', async (req, res) => {
 
     const userPrompt = `
       DADOS DO PACIENTE:
-      Nome: ${patient.name}
-      Espécie/Raça: ${patient.species} / ${patient.breed}
-      Idade: ${patient.age}
+      Nome: ${normPatient.name || 'Não informado'}
+      Espécie/Raça: ${normPatient.species || 'Canino'} / ${normPatient.breed || 'SRD'}
+      Idade: ${normPatient.age || 'Não informada'}
 
       ANAMNESE / HISTÓRICO:
       ${anamnesis}
@@ -1396,7 +1422,7 @@ app.post('/api/generate-report', async (req, res) => {
     `;
 
     // Extract precise clinical terms to run search without prompt boilerplates (avoiding RAG keyword pollution)
-    const cleanQueryForRAG = `${patient.species || ''} ${patient.breed || ''} ${anamnesis || ''} ${examData || ''}`.trim();
+    const cleanQueryForRAG = `${normPatient.species || ''} ${normPatient.breed || ''} ${anamnesis || ''} ${examData || ''}`.trim();
 
     // Prepare contents for multimodal
     const parts: any[] = [{ text: userPrompt }];
@@ -1495,6 +1521,8 @@ app.post('/api/chat-followup', async (req, res) => {
       return res.status(400).json({ error: 'Nenhuma mensagem enviada.' });
     }
 
+    const normPatient = normalizePatientPayload(patient, `${message || ''} ${soapContent || ''}`);
+
     // 1. Fazer busca de chunks relevantes na literatura científica (RAG) baseada na dúvida do usuário
     let currentGuidelines = await getFullGuidelines();
     if (disabledReferences && disabledReferences.length > 0) {
@@ -1505,7 +1533,7 @@ app.post('/api/chat-followup', async (req, res) => {
       });
     }
     const consultedSources: any[] = [];
-    const cleanQueryForRAG = `${patient?.species || ''} ${message}`.trim();
+    const cleanQueryForRAG = `${normPatient.species || ''} ${message}`.trim();
     
     // Obter PDFs do admin (livros, diretrizes)
     const adminPDFParts = await getAdminGuidelinesFiles(cleanQueryForRAG, consultedSources, disabledReferences);
@@ -1519,11 +1547,11 @@ app.post('/api/chat-followup', async (req, res) => {
       
       Você tem acesso a:
       1. Dados do Paciente Atual:
-         - Nome: ${patient?.name || 'Não informado'}
-         - Espécie/Raça: ${patient?.species || 'Canino'} / ${patient?.breed || 'SRD'}
-         - Idade: ${patient?.age || 'Não informada'}
-         - Peso: ${patient?.weight || 'Não informado'} kg
-         - Sexo: ${patient?.sex || 'Não informado'}
+         - Nome: ${normPatient.name || 'Não informado'}
+         - Espécie/Raça: ${normPatient.species || 'Canino'} / ${normPatient.breed || 'SRD'}
+         - Idade: ${normPatient.age || 'Não informada'}
+         - Peso: ${normPatient.weight || 'Não informado'} kg
+         - Sexo: ${normPatient.sex || 'Não informado'}
       
       2. Ficha SOAP e Diagnósticos Gerados (se houver):
          ${soapContent ? `\n--- FICHA SOAP GERADA ---\n${soapContent}\n` : 'Nenhuma ficha SOAP gerada ainda.'}
@@ -1618,6 +1646,8 @@ app.post('/api/generate-prescription', async (req, res) => {
   try {
     const { soapContent, patient, disabledReferences = [], selectedDiagnosis, routeOfAdmin } = req.body;
 
+    const normPatient = normalizePatientPayload(patient, `${soapContent || ''} ${selectedDiagnosis || ''}`);
+
     let currentGuidelines = await getFullGuidelines();
     if (disabledReferences && disabledReferences.length > 0) {
       currentGuidelines = currentGuidelines.filter(g => {
@@ -1627,7 +1657,7 @@ app.post('/api/generate-prescription', async (req, res) => {
       });
     }
     const consultedSources: any[] = [];
-    const cleanQueryForRAG = `${patient?.species || ''} ${patient?.breed || ''} ${soapContent || ''} ${selectedDiagnosis || ''}`.substring(0, 500).trim();
+    const cleanQueryForRAG = `${normPatient.species || ''} ${normPatient.breed || ''} ${soapContent || ''} ${selectedDiagnosis || ''}`.substring(0, 500).trim();
 
     let routeInstruction = "";
     if (routeOfAdmin && routeOfAdmin !== "auto") {
@@ -1649,7 +1679,7 @@ app.post('/api/generate-prescription', async (req, res) => {
       Sua missão é sugerir uma prescrição farmacológica rigorosa, precisa e cientificamente amparada pela literatura clássica veterinária e pelas diretrizes fornecidas.
       
       IMPORTANTE:
-      1. Sugira medicamentos com dosagens reais e consagradas internacionalmente (em mg/kg ou UI/kg), adaptadas especificamente à espécie (${patient?.species || 'Canino/Felino'}) e ao peso de ${patient?.weight || '10'}kg informado.
+      1. Sugira medicamentos com dosagens reais e consagradas internacionalmente (em mg/kg ou UI/kg), adaptadas especificamente à espécie (${normPatient.species || 'Canino/Felino'}) e ao peso de ${normPatient.weight || '10'}kg informado.
       2. Inclua via de administração, frequência de intervalo ideal (ex: a cada 8h, 12h, 24h) e o período total em dias de tratamento.${routeInstruction}
       3. ${selectedDiagnosis ? `A prescrição DEVE ser gerada especificamente para o diagnóstico selecionado pelo veterinário: "${selectedDiagnosis}". Baseie as condutas farmacológicas inteiramente nesse diagnóstico.` : 'Consulte as diretrizes embutidas e os arquivos de literatura anexos para ratificar a escolha de primeira linha dos fármacos recomendados para a suspeita identificada.'}
       4. Liste efeitos colaterais comuns que merecem monitoramento e as principais contraindicações relativas ou absolutas dos princípios ativos.
@@ -1664,11 +1694,11 @@ app.post('/api/generate-prescription', async (req, res) => {
 
     const userPrompt = `
       DADOS DO PACIENTE:
-      Nome: ${patient?.name || 'Não informado'}
-      Espécie: ${patient?.species || 'Não informada'}
-      Raça: ${patient?.breed || 'SRD'}
-      Idade: ${patient?.age || 'Não informada'}
-      Peso: ${patient?.weight || '10'} kg
+      Nome: ${normPatient.name || 'Não informado'}
+      Espécie: ${normPatient.species || 'Não informada'}
+      Raça: ${normPatient.breed || 'SRD'}
+      Idade: ${normPatient.age || 'Não informada'}
+      Peso: ${normPatient.weight || '10'} kg
       
       ${selectedDiagnosis ? `DIAGNÓSTICO SELECIONADO:
       O veterinário selecionou o seguinte diagnóstico para esta prescrição: "${selectedDiagnosis}"` : ''}

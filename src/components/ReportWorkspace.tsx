@@ -421,51 +421,122 @@ export default function ReportWorkspace({
     });
   };
 
+  // Invalid patient name stop-words to prevent false positive captures (e.g. "ha", "dias", "com", "apresenta")
+  const INVALID_PATIENT_NAMES = new Set([
+    'ha', 'há', 'com', 'sem', 'que', 'para', 'por', 'de', 'da', 'do', 'em', 'no', 'na', 'sobre', 'entre', 'até', 'ate', 'como', 'e', 'ou', 'se', 'mas', 'mais', 'após', 'apos', 'a', 'o', 'as', 'os', 'um', 'uma', 'uns', 'umas',
+    'dias', 'dia', 'meses', 'mês', 'mes', 'anos', 'ano', 'horas', 'hora', 'semanas', 'semana', 'hoje', 'ontem', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'dois', 'duas', 'três', 'tres', 'quatro', 'cinco',
+    'apresenta', 'apresentando', 'relata', 'relatando', 'trazido', 'trazida', 'chega', 'chegou', 'atendido', 'atendida', 'veio', 'sendo', 'tendo', 'faz', 'fazem', 'iniciou', 'manifesta', 'observado', 'observada',
+    'mancando', 'vomitando', 'tosse', 'secreção', 'secrecao', 'dor', 'febre', 'apatia', 'prostração', 'prostracao', 'inapetência', 'inapetencia', 'vômito', 'vomito', 'diarreia', 'diarréia', 'lesão', 'lesao', 'fratura', 'otite', 'olho', 'olhos', 'orelha', 'ouvido', 'pata', 'patas', 'joelho', 'coluna', 'urina', 'xixi', 'sangue', 'peso', 'kg', 'kilos', 'quilos', 'g', 'gramas',
+    'canino', 'canina', 'felino', 'felina', 'gato', 'gata', 'cão', 'cao', 'cadela', 'cachorro', 'filhote', 'idoso', 'idosa', 'adulto', 'adulta', 'macho', 'fêmea', 'femea', 'pet', 'tutor', 'tutora', 'proprietário', 'proprietario', 'paciente', 'animal', 'sem', 'anon', 'aguardando', 'editar', 'cadastro'
+  ]);
+
   // Helper to extract patient details dynamically from anamnesis text
-  const parsePatientDetailsFromText = (text: string) => {
-    if (!text) return;
-    setPatient((prev) => {
-      const next = { ...prev };
-      let changed = false;
+  const extractPatientDetailsFromText = (text: string, currentPatient: any): { nextPatient: any; changed: boolean } => {
+    if (!text) return { nextPatient: currentPatient, changed: false };
+    
+    const next = { ...currentPatient };
+    let changed = false;
 
-      // Extract weight (e.g. 28kg, 28 kg, 28,5 kg, peso: 28kg)
-      if (!next.weight) {
-        const weightMatch = text.match(/(?:peso[:\s]*)?(\d+(?:[\.,]\d+)?)\s*kg\b/i);
-        if (weightMatch) {
-          next.weight = weightMatch[1].replace(',', '.');
-          changed = true;
+    // 1. Extract Weight (e.g. 28kg, 28,5 kg, peso: 4.2kg)
+    if (!next.weight) {
+      const weightMatch = text.match(/(?:peso[:\s]*)?(\d+(?:[\.,]\d+)?)\s*kg\b/i);
+      if (weightMatch) {
+        next.weight = weightMatch[1].replace(',', '.');
+        changed = true;
+      }
+    }
+
+    // 2. Extract Species (felino vs canino priority)
+    if (/\b(felino|felina|gato|gata|cat|feline)\b/i.test(text)) {
+      if (next.species !== 'Felino') {
+        next.species = 'Felino';
+        changed = true;
+      }
+    } else if (/\b(canino|canina|cão|cao|cadela|cachorro|dog|canine)\b/i.test(text)) {
+      if (next.species !== 'Canino') {
+        next.species = 'Canino';
+        changed = true;
+      }
+    }
+
+    // 3. Extract Sex
+    if (!next.sex || next.sex === 'Macho') {
+      if (/\b(fêmea|femea|cadela|gata)\b/i.test(text)) {
+        next.sex = 'Fêmea';
+        changed = true;
+      } else if (/\b(macho|gato|cão|cao|cachorro)\b/i.test(text)) {
+        next.sex = 'Macho';
+        changed = true;
+      }
+    }
+
+    // 4. Extract Age (e.g. 3 anos, 5 meses)
+    if (!next.age) {
+      const ageMatch = text.match(/(\d+)\s*(anos|ano|meses|mes)\b/i);
+      if (ageMatch) {
+        next.age = `${ageMatch[1]} ${ageMatch[2].toLowerCase()}`;
+        changed = true;
+      }
+    }
+
+    // 5. Extract Name (strict verification against stop words)
+    const isGenericName = !next.name || next.name === 'Paciente sem nome' || next.name === 'Paciente Anon' || next.name === 'Aguardando cadastro...' || next.name === 'ha' || next.name === 'há' || next.name === 'Pet';
+
+    if (isGenericName) {
+      let candidateName = '';
+
+      // Priority A: Explicit colon match (e.g. Paciente: Thor, Nome: Mel)
+      const explicitKeyMatch = text.match(/(?:paciente|nome|pet)[:\s=]+([A-ZÀ-Úa-zà-ú0-9_]+)/i);
+      if (explicitKeyMatch && explicitKeyMatch[1]) {
+        const candidate = explicitKeyMatch[1].trim();
+        if (candidate.length > 1 && !INVALID_PATIENT_NAMES.has(candidate.toLowerCase())) {
+          candidateName = candidate;
         }
       }
 
-      // Extract species
-      if (!next.species || next.species === 'Canino') {
-        if (/\b(felino|felina|gato|gata|cat)\b/i.test(text)) {
-          next.species = 'Felino';
-          changed = true;
-        } else if (/\b(canino|canina|cão|cao|cadela|cachorro|dog)\b/i.test(text)) {
-          next.species = 'Canino';
-          changed = true;
-        }
-      }
-
-      // Extract name (e.g. Paciente: Thor, Nome: Mel, cadela Luna, cão Thor, gato Bob, paciente Mel)
-      if (!next.name || next.name === 'Paciente sem nome' || next.name === 'Paciente Anon' || next.name === 'Luna') {
-        const nameMatch = text.match(/(?:paciente|nome)[:\s]+([A-ZÀ-Ú][a-zà-ú0-9]+)/i) ||
-                          text.match(/(?:cão|cao|cadela|gato|gata|pet|felino|canino)\s+([A-ZÀ-Ú][a-zà-ú0-9]+)/i);
-        if (nameMatch && nameMatch[1]) {
-          const candidate = nameMatch[1];
-          const ignoredWords = ['com', 'sem', 'que', 'para', 'anos', 'meses', 'dias', 'com', 'kg', 'apresenta'];
-          if (!ignoredWords.includes(candidate.toLowerCase())) {
-            next.name = candidate;
-            changed = true;
+      // Priority B: Explicit "de nome" phrase (e.g., felino de nome Bob)
+      if (!candidateName) {
+        const deNomeMatch = text.match(/(?:paciente|gato|gata|felino|canino|cão|cao|cadela|cachorro)\s+de\s+nome\s+([A-ZÀ-Ú][a-zà-ú0-9]+)/i);
+        if (deNomeMatch && deNomeMatch[1]) {
+          const candidate = deNomeMatch[1].trim();
+          if (candidate.length > 1 && !INVALID_PATIENT_NAMES.has(candidate.toLowerCase())) {
+            candidateName = candidate;
           }
         }
       }
 
-      if (changed) {
-        savePatientToSession(next);
+      // Priority C: Pet descriptor + Capitalized Name (e.g. "gato Bob", "cadela Luna", "cão Thor")
+      if (!candidateName) {
+        const petTitleMatch = text.match(/(?:cão|cao|cadela|gato|gata|felino|canino)\s+([A-ZÀ-Ú][a-zà-ú0-9]+)/);
+        if (petTitleMatch && petTitleMatch[1]) {
+          const candidate = petTitleMatch[1].trim();
+          if (candidate.length > 1 && !INVALID_PATIENT_NAMES.has(candidate.toLowerCase())) {
+            candidateName = candidate;
+          }
+        }
       }
-      return changed ? next : prev;
+
+      if (candidateName) {
+        next.name = candidateName;
+        changed = true;
+      } else if (next.name === 'ha' || next.name === 'há') {
+        next.name = '';
+        changed = true;
+      }
+    }
+
+    return { nextPatient: next, changed };
+  };
+
+  const parsePatientDetailsFromText = (text: string) => {
+    if (!text) return;
+    setPatient((prev) => {
+      const { nextPatient, changed } = extractPatientDetailsFromText(text, prev);
+      if (changed) {
+        savePatientToSession(nextPatient);
+        return nextPatient;
+      }
+      return prev;
     });
   };
 
@@ -473,6 +544,7 @@ export default function ReportWorkspace({
   const handleUpdateAnamnesis = (text: string) => {
     setAnamnesis(text);
     saveAnamnesisToSession(text);
+    parsePatientDetailsFromText(text);
   };
   const [examData, setExamData] = useState(initialReport?.examData || "");
   const [uploadedExamFiles, setUploadedExamFiles] = useState<
@@ -749,14 +821,22 @@ export default function ReportWorkspace({
     setCurrentMessageText(""); // instantly clear for elite responsiveness
 
     let updatedAnamnesis = anamnesis;
+    let activePatient = patient;
+
     if (textToSend) {
-      parsePatientDetailsFromText(textToSend);
       if (anamnesis && textToSend !== anamnesis && !anamnesis.includes(textToSend)) {
         updatedAnamnesis = `${anamnesis}\n\n[Atualização do Tutor/Clínica]: ${textToSend}`;
       } else {
         updatedAnamnesis = textToSend;
       }
       setAnamnesis(updatedAnamnesis);
+
+      const { nextPatient, changed } = extractPatientDetailsFromText(updatedAnamnesis, patient);
+      if (changed) {
+        activePatient = nextPatient;
+        setPatient(nextPatient);
+        savePatientToSession(nextPatient);
+      }
 
       const userMsg: ChatMessage = {
         id: "msg-" + Date.now(),
@@ -766,6 +846,12 @@ export default function ReportWorkspace({
       };
       setChatMessages((prev) => [...prev, userMsg]);
     } else if (uploadedExamFiles.length > 0) {
+      const { nextPatient, changed } = extractPatientDetailsFromText(updatedAnamnesis, patient);
+      if (changed) {
+        activePatient = nextPatient;
+        setPatient(nextPatient);
+        savePatientToSession(nextPatient);
+      }
       const userMsg: ChatMessage = {
         id: "msg-" + Date.now(),
         sender: "user",
@@ -783,7 +869,7 @@ export default function ReportWorkspace({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          patient,
+          patient: activePatient,
           anamnesis: updatedAnamnesis,
           examData: examData || "Exame físico geral veterinário",
           files: uploadedExamFiles.map((f) => ({
