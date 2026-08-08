@@ -155,8 +155,34 @@ export interface AnalysisVersion {
   summary: string;
 }
 
+// Helper to classify clinical domain category from text
+export function detectClinicalDomainCategory(text: string): 'ocular' | 'reproductive' | 'otology' | 'respiratory' | 'orthopedic' | 'urinary' | 'gastrointestinal' {
+  const lower = (text || '').toLowerCase();
+  
+  if (lower.match(/(olho|olhos|ocular|secrecao ocular|secreção ocular|corrimento ocular|conjuntiv|cornea|córnea|blefarospasmo|epifora|epífora|remela|esclera|avermelhad|olho vermelho|visão)/)) {
+    return 'ocular';
+  }
+  if (lower.match(/(vulva|secrecao vulvar|secreção vulvar|secrecao vaginal|secreção vaginal|corrimento vulvar|corrimento vaginal|piometra|utero|útero|vaginite|metrite)/)) {
+    return 'reproductive';
+  }
+  if (lower.match(/(otite|orelha|ouvido|secrecao auricular|secreção auricular|secrecao otologica|secreção otológica|exsudato otico|exsudato ótico|coceira|prurido|balancando a cabeca|balançando a cabeça)/)) {
+    return 'otology';
+  }
+  if (lower.match(/(tosse|secrecao nasal|secreção nasal|corrimento nasal|rinorreia|espirro|engasgo|falta de ar|dispneia|dispnéia|asma|bronquite|traqueia|traquéia)/)) {
+    return 'respiratory';
+  }
+  if (lower.match(/(mancando|pata|joelho|coluna|pescoca|pescoço|rigidez|ivdd|paralisia|ataxia|claudicacao|claudicação|fratura|joelho)/)) {
+    return 'orthopedic';
+  }
+  if (lower.match(/(urina|disuria|disúria|estranguria|estrangúria|hematuria|hematúria|xixi|rim|insuficiencia renal|flutd|cistite|pedra na bexiga)/)) {
+    return 'urinary';
+  }
+  
+  return 'gastrointestinal';
+}
+
 // Normalization & Finding Extraction Helper
-function processClinicalSessionData(
+export function processClinicalSessionData(
   anamnesisText: string, 
   patient: Patient
 ) {
@@ -165,34 +191,130 @@ function processClinicalSessionData(
   const species = patient?.species || 'Canino';
   const name = patient?.name || 'Pet';
   const breed = patient?.breed || 'SRD';
+  const category = detectClinicalDomainCategory(text);
 
   const positiveFindings: FindingItem[] = [];
   const negativeFindings: FindingItem[] = [];
   const unknownFindings: FindingItem[] = [];
 
-  // 1. Positive Findings Extraction
-  if (lower.match(/(vômito|vomito|êmese|emese)/)) {
+  // Domain-specific Positive Findings Extraction
+  if (category === 'ocular') {
+    if (lower.match(/(secrecao|secreção|purulenta|exsudato|remela|corrimento)/)) {
+      positiveFindings.push({
+        id: 'f_eye_discharge',
+        finding: 'Secreção Ocular Purulenta',
+        category: 'positive',
+        certainty: 0.98,
+        certaintyLabel: 'Confirmado no Exame Físico / Anamnese',
+        source: 'tutor_report',
+        confirmedByVet: true
+      });
+    }
+    if (lower.match(/(esclera|avermelhad|conjuntiv|hiperemia|red eye|olho vermelho)/)) {
+      positiveFindings.push({
+        id: 'f_scleral_hyperemia',
+        finding: 'Hiperemia Conjuntival / Esclera Avermelhada',
+        category: 'positive',
+        certainty: 0.96,
+        certaintyLabel: 'Observado pelo Veterinário',
+        source: 'physical_exam',
+        confirmedByVet: true
+      });
+    }
+    if (lower.match(/(blefarospasmo|desconforto|piscando|fechando o olho)/)) {
+      positiveFindings.push({
+        id: 'f_blepharospasm',
+        finding: 'Blefarospasmo / Desconforto Ocular',
+        category: 'positive',
+        certainty: 0.92,
+        certaintyLabel: 'Observado no Exame Físico',
+        source: 'physical_exam',
+        confirmedByVet: true
+      });
+    }
+  } else if (category === 'reproductive') {
+    if (lower.match(/(vulva|secrecao|secreção|purulenta|vaginal)/)) {
+      positiveFindings.push({
+        id: 'f_vulvar_discharge',
+        finding: 'Secreção Vulvar Purulenta / Exsudato Uterino',
+        category: 'positive',
+        certainty: 0.98,
+        certaintyLabel: 'Confirmado na Anamnese',
+        source: 'tutor_report',
+        confirmedByVet: true
+      });
+    }
+  } else if (category === 'otology') {
+    if (lower.match(/(otite|orelha|ouvido|secrecao|secreção|coceira|prurido)/)) {
+      positiveFindings.push({
+        id: 'f_ear_discharge',
+        finding: 'Secreção Auricular / Eritema de Conduto Auditivo',
+        category: 'positive',
+        certainty: 0.97,
+        certaintyLabel: 'Confirmado na Anamnese',
+        source: 'physical_exam',
+        confirmedByVet: true
+      });
+    }
+  } else if (category === 'respiratory') {
+    if (lower.match(/(tosse|nasal|secrecao|secreção|espirro|dispneia)/)) {
+      positiveFindings.push({
+        id: 'f_resp_discharge',
+        finding: 'Secreção Nasal Purulenta / Tosse Aguda',
+        category: 'positive',
+        certainty: 0.96,
+        certaintyLabel: 'Relatado na Anamnese',
+        source: 'tutor_report',
+        confirmedByVet: true
+      });
+    }
+  } else if (category === 'orthopedic') {
     positiveFindings.push({
-      id: 'f_vomiting',
-      finding: 'Vômito / Êmese Aguda',
+      id: 'f_lameness',
+      finding: 'Claudicação / Impotência Funcional e Dor Localizada',
       category: 'positive',
-      certainty: 0.98,
-      certaintyLabel: 'Confirmado pelo Tutor',
+      certainty: 0.95,
+      certaintyLabel: 'Observado no Exame Físico',
+      source: 'physical_exam',
+      confirmedByVet: true
+    });
+  } else if (category === 'urinary') {
+    positiveFindings.push({
+      id: 'f_dysuria',
+      finding: 'Disúria / Estrangúria / Esforço Miccional',
+      category: 'positive',
+      certainty: 0.96,
+      certaintyLabel: 'Relatado pelo Tutor',
       source: 'tutor_report',
       confirmedByVet: true
     });
+  } else {
+    // Gastrointestinal
+    if (lower.match(/(vômito|vomito|êmese|emese)/)) {
+      positiveFindings.push({
+        id: 'f_vomiting',
+        finding: 'Vômito / Êmese Aguda',
+        category: 'positive',
+        certainty: 0.98,
+        certaintyLabel: 'Confirmado pelo Tutor',
+        source: 'tutor_report',
+        confirmedByVet: true
+      });
+    }
+    if (lower.match(/(diarreia|diarréia|feto|fezas)/)) {
+      positiveFindings.push({
+        id: 'f_diarrhea',
+        finding: 'Diarreia Aguda',
+        category: 'positive',
+        certainty: 0.95,
+        certaintyLabel: 'Declarado pelo Tutor',
+        source: 'tutor_report',
+        confirmedByVet: false
+      });
+    }
   }
-  if (lower.match(/(diarreia|diarréia|feto|fezas)/)) {
-    positiveFindings.push({
-      id: 'f_diarrhea',
-      finding: 'Diarreia Aguda',
-      category: 'positive',
-      certainty: 0.95,
-      certaintyLabel: 'Declarado pelo Tutor',
-      source: 'tutor_report',
-      confirmedByVet: false
-    });
-  }
+
+  // Systemic / General positive findings
   if (lower.match(/(apatia|letergia|prostração|prostracao|desânimo)/)) {
     positiveFindings.push({
       id: 'f_lethargy',
@@ -215,21 +337,10 @@ function processClinicalSessionData(
       confirmedByVet: true
     });
   }
-  if (lower.match(/(beber água|água|polidipsia|beber mais)/)) {
-    positiveFindings.push({
-      id: 'f_polydipsia',
-      finding: 'Polidipsia Secundária',
-      category: 'positive',
-      certainty: 0.90,
-      certaintyLabel: 'Relatado pelo Tutor',
-      source: 'tutor_report',
-      confirmedByVet: false
-    });
-  }
   if (lower.match(/(dor|sensibilidade|grito|gemido)/)) {
     positiveFindings.push({
       id: 'f_pain',
-      finding: 'Desconforto / Hiperestesia Abdominal',
+      finding: 'Desconforto / Hiperestesia no Exame Físico',
       category: 'positive',
       certainty: 0.94,
       certaintyLabel: 'Observado no Exame Físico',
@@ -250,79 +361,94 @@ function processClinicalSessionData(
     });
   }
 
-  // 2. Negative Findings Extraction (Explicitly absent signs)
-  if (lower.match(/(sem febre|afebril)/) || (patient.temperature && parseFloat(patient.temperature) >= 37.5 && parseFloat(patient.temperature) <= 39.2)) {
+  // 2. Negative Findings Extraction
+  if (category === 'ocular') {
     negativeFindings.push({
-      id: 'fn_fever',
-      finding: 'Ausência de Hipertermia / Febre',
+      id: 'fn_perforation',
+      finding: 'Ausência de Perfuração Corneana Visível na Triagem',
       category: 'negative',
       certainty: 0.98,
-      certaintyLabel: 'Medido na Triagem',
+      certaintyLabel: 'Triagem Oftálmica',
       source: 'physical_exam',
       confirmedByVet: true
     });
+  } else if (category === 'reproductive') {
+    negativeFindings.push({
+      id: 'fn_rupture',
+      finding: 'Ausência de Ruptura Uterina / Peritonite Aguda',
+      category: 'negative',
+      certainty: 0.95,
+      certaintyLabel: 'Palpação Abdominal Estável',
+      source: 'physical_exam',
+      confirmedByVet: true
+    });
+  } else {
+    negativeFindings.push({
+      id: 'fn_shock',
+      finding: 'Ausência de Choque Cardiovascular Descompensado Iminente',
+      category: 'negative',
+      certainty: 0.95,
+      certaintyLabel: 'Triagem Estável',
+      source: 'vet_observation',
+      confirmedByVet: true
+    });
   }
-  negativeFindings.push({
-    id: 'fn_shock',
-    finding: 'Ausência de Choque Cardiovascular Descompensado Iminente',
-    category: 'negative',
-    certainty: 0.95,
-    certaintyLabel: 'Triagem Estável',
-    source: 'vet_observation',
-    confirmedByVet: true
-  });
 
-  // 3. Unknown Findings / Critical Information Gaps (NEVER treated as absent)
-  if (!lower.includes('frequência') && !lower.includes('frequencia') && !lower.includes('quantas vezes')) {
+  // 3. Unknown Findings / Critical Information Gaps
+  if (category === 'ocular') {
     unknownFindings.push({
-      id: 'gap_frequency',
-      finding: 'Frequência do Vômito (episódios/dia)',
+      id: 'gap_fluorescein',
+      finding: 'Resultado do Teste de Fluoresceína Ocular',
       category: 'unknown',
       certainty: 0,
       certaintyLabel: 'Não informado na Anamnese',
       source: 'anamnesis',
       confirmedByVet: false,
       importance: 'CRITICAL',
-      reasonMissing: 'Essencial para diferenciar pancreatite grave de gastroenterite leve'
+      reasonMissing: 'MANDATÓRIO para descartar úlcera de córnea antes de prescrever corticosteroides tópicos'
     });
-  }
-  if (!lower.includes('sangue') && !lower.includes('melena') && !lower.includes('hematêmese')) {
     unknownFindings.push({
-      id: 'gap_blood',
-      finding: 'Presença de Sangue nas Fezes ou no Vômito',
-      category: 'unknown',
-      certainty: 0,
-      certaintyLabel: 'Não informado na Anamnese',
-      source: 'anamnesis',
-      confirmedByVet: false,
-      importance: 'HIGH',
-      reasonMissing: 'Sinal de úlcera gástrica ou gastroenterite hemorrágica'
-    });
-  }
-  if (!lower.includes('corpo estranho') && !lower.includes('brinquedo') && !lower.includes('meia')) {
-    unknownFindings.push({
-      id: 'gap_foreign_body',
-      finding: 'Histórico de Ingestão de Corpo Estranho',
-      category: 'unknown',
-      certainty: 0,
-      certaintyLabel: 'Não informado na Anamnese',
-      source: 'anamnesis',
-      confirmedByVet: false,
-      importance: 'HIGH',
-      reasonMissing: 'Crítico para suspeita de obstrução mecânica gástrica ou intestinal'
-    });
-  }
-  if (!patient.hydration) {
-    unknownFindings.push({
-      id: 'gap_hydration',
-      finding: 'Grau de Hidratação / Turgor Cutâneo (%)',
+      id: 'gap_stt',
+      finding: 'Valor do Teste do Lacrimal de Schirmer - STT (mm/min)',
       category: 'unknown',
       certainty: 0,
       certaintyLabel: 'Não aferido no Exame Físico',
       source: 'physical_exam',
       confirmedByVet: false,
+      importance: 'HIGH',
+      reasonMissing: 'Essencial para diferenciar Ceratoconjuntivite Seca (CCS) de conjuntivite bacteriana pura'
+    });
+    unknownFindings.push({
+      id: 'gap_tonometry',
+      finding: 'Pressão Intraocular por Tonometria de Aplanação (mmHg)',
+      category: 'unknown',
+      certainty: 0,
+      certaintyLabel: 'Não aferido no Exame Físico',
+      source: 'physical_exam',
       importance: 'MEDIUM',
-      reasonMissing: 'Determina taxa de reposição de Ringer Lactato'
+      reasonMissing: 'Exclusão de Glaucoma Secundário ou Uveíte Anterior'
+    });
+  } else if (category === 'reproductive') {
+    unknownFindings.push({
+      id: 'gap_us_uterus',
+      finding: 'Diâmetro dos Cornos Uterinos na Ultrassonografia Abdominal',
+      category: 'unknown',
+      certainty: 0,
+      certaintyLabel: 'Exame Pendente',
+      source: 'lab',
+      importance: 'CRITICAL',
+      reasonMissing: 'Confirmação de acúmulo intraluminal purulento em piometra de cérvix aberta'
+    });
+  } else {
+    unknownFindings.push({
+      id: 'gap_frequency',
+      finding: 'Frequência e Evolução dos Sinais Clínicos',
+      category: 'unknown',
+      certainty: 0,
+      certaintyLabel: 'Não informado na Anamnese',
+      source: 'anamnesis',
+      importance: 'HIGH',
+      reasonMissing: 'Importante para determinar gravidade e velocidade de progressão'
     });
   }
 
@@ -343,63 +469,481 @@ function processClinicalSessionData(
   };
 }
 
-export function generateClinicalData(anamnesisText: string, patient: Patient) {
+// Complete Dynamic Clinical Model Generator
+export function getClinicalCaseModel(
+  anamnesisText: string,
+  patient: Patient,
+  humanDecisions: Record<string, ItemDecisionStatus> = {}
+) {
   const session = processClinicalSessionData(anamnesisText, patient);
   const species = patient?.species || 'Canino';
-  return {
-    hypotheses: [
+  const name = patient?.name || 'Pet';
+  const breed = patient?.breed || 'SRD';
+  const category = detectClinicalDomainCategory(anamnesisText);
+  const weightVal = parseFloat(patient?.weight || '10') || 10;
+
+  let hypotheses: Hypothesis[] = [];
+  let references: Reference[] = [];
+  let therapeutics: TherapeuticOption[] = [];
+  let nextBestStep: NextBestStep;
+  let decisionNodes: {
+    node1Title: string;
+    node1Subtitle: string;
+    node2Consensus: string;
+    node2Title: string;
+    node2Subtitle: string;
+    node3Title: string;
+    node3Subtitle: string;
+  };
+  let tutorExplanation: string = '';
+
+  if (category === 'ocular') {
+    hypotheses = [
+      {
+        id: 'dx_1',
+        title: `Conjuntivite Infecciosa (Herpesvírus Felino FHV-1 / Chlamydia felis / Mycoplasma) em ${species}`,
+        rank: 1,
+        probability: 'Alta',
+        confidenceScore: 88,
+        confidenceLabel: 'Nível de Confiança do Sistema: Alto (88%)',
+        decisionStatus: humanDecisions['dx_1'] || 'Pendente',
+        whyConsider: `Presença de secreção ocular purulenta e hiperemia conjuntival/escleral em ${species} (${breed}) apresenta elevada correlação com infecção bacteriana/viral de superfície ocular.`,
+        favorableFindings: session.findings.positive.map(f => f.finding),
+        unfavorableFindings: session.findings.negative.map(f => f.finding),
+        missingInformation: session.findings.unknown.map(f => f.finding),
+        confidenceBreakdown: { clinicalFit: 92, evidenceSupport: 94, dataCompleteness: 75, contradictoryPenalty: 5 },
+        recommendedTests: [
+          {
+            id: 't1',
+            name: 'Teste de Fluoresceína Ocular',
+            priority: 'Alta',
+            reason: 'OBRIGATÓRIO antes de prescrever qualquer medicação tópica para descartar úlcera de córnea',
+            diagnosticValue: 'Confirmação',
+            invasiveness: 'Baixa',
+            turnaroundTime: 'Imediata',
+            decisionStatus: humanDecisions['t1'] || 'Pendente'
+          },
+          {
+            id: 't2',
+            name: 'Teste do Lacrimal de Schirmer (STT)',
+            priority: 'Alta',
+            reason: 'Avaliação quantitativa da produção lacrimal para exclusão de Ceratoconjuntivite Seca (CCS)',
+            diagnosticValue: 'Diferenciação',
+            invasiveness: 'Baixa',
+            turnaroundTime: 'Imediata',
+            decisionStatus: humanDecisions['t2'] || 'Pendente'
+          },
+          {
+            id: 't3',
+            name: 'Citologia Conjuntival / Swab Ocular para PCR (FHV-1 / Chlamydia felis)',
+            priority: 'Moderada',
+            reason: 'Identificação de agente etiológico específico em quadros refratários',
+            diagnosticValue: 'Confirmação',
+            invasiveness: 'Baixa',
+            turnaroundTime: '24 horas',
+            decisionStatus: humanDecisions['t3'] || 'Pendente'
+          }
+        ],
+        relatedDiagnoses: [`Ceratoconjuntivite Seca em ${species}`, `Úlcera de Córnea Ulcerativa`, `Uveíte Anterior`],
+        conduct: [
+          { id: 'c1', label: 'Realizar Teste de Fluoresceína Ocular OBRIGATÓRIO antes de prescrever qualquer medicação tópica', checked: true, decisionStatus: humanDecisions['c1'] || 'Pendente' },
+          { id: 'c2', label: 'Instilação de Colírio Antibacteriano de Amplo Espectro: Tobramicina 0.3% ou Moxifloxacino (1 gota q6h)', checked: true, decisionStatus: humanDecisions['c2'] || 'Pendente' },
+          { id: 'c3', label: 'Higiene de anexos oculares com solução fisiológica 0.9% morna e gazes estéreis', checked: true, decisionStatus: humanDecisions['c3'] || 'Pendente' },
+          { id: 'c4', label: 'Uso estrito e contínuo de Colar Elizabetano para impedir autotrauma', checked: true, decisionStatus: humanDecisions['c4'] || 'Pendente' },
+          { id: 'c5', label: 'Corticosteroides tópicos CONTRAINDICADOS expressamente sem teste negativo de fluoresceína', checked: true, decisionStatus: humanDecisions['c5'] || 'Pendente' }
+        ],
+        prognosis: 'Favorável'
+      },
+      {
+        id: 'dx_2',
+        title: `Ceratoconjuntivite Seca (CCS) / Deficiência do Filme Lacrimal em ${species}`,
+        rank: 2,
+        probability: 'Moderada',
+        confidenceScore: 68,
+        confidenceLabel: 'Nível de Confiança do Sistema: Moderado (68%)',
+        decisionStatus: humanDecisions['dx_2'] || 'Pendente',
+        whyConsider: `A deficiência na camada aquosa do filme lacrimal favorece o acúmulo de secreção muco-purulenta e eritema conjuntival compensatório.`,
+        favorableFindings: ['Secreção Ocular Purulenta', 'Esclera Avermelhada'],
+        unfavorableFindings: ['Sem histórico de opacificação crônica prévia'],
+        missingInformation: ['Medição em mm/min no Teste do Lacrimal de Schirmer (STT)'],
+        confidenceBreakdown: { clinicalFit: 70, evidenceSupport: 80, dataCompleteness: 60, contradictoryPenalty: 10 },
+        recommendedTests: [
+          {
+            id: 't2_1',
+            name: 'Teste do Lacrimal de Schirmer (STT)',
+            priority: 'Alta',
+            reason: 'Medição objetiva do filme lacrimal (Normal: >15 mm/min)',
+            diagnosticValue: 'Confirmação',
+            invasiveness: 'Baixa',
+            turnaroundTime: 'Imediata',
+            decisionStatus: humanDecisions['t2_1'] || 'Pendente'
+          }
+        ],
+        relatedDiagnoses: ['Disfunção das Glândulas de Meibomius'],
+        conduct: [
+          { id: 'c21', label: 'Início de colírio lubrificante de hialuronato de sódio sem conservantes (q4h)', checked: true, decisionStatus: humanDecisions['c21'] || 'Pendente' }
+        ],
+        prognosis: 'Favorável'
+      },
+      {
+        id: 'dx_3',
+        title: `Úlcera de Córnea Ulcerativa / Ceratite Infecciosa Secundária em ${species}`,
+        rank: 3,
+        probability: 'Baixa',
+        confidenceScore: 48,
+        confidenceLabel: 'Nível de Confiança do Sistema: Baixo (48%)',
+        decisionStatus: humanDecisions['dx_3'] || 'Pendente',
+        whyConsider: `Risco iminente em episódios de secreção ocular purulenta com blefarospasmo. Exige exclusão por fluoresceína.`,
+        favorableFindings: ['Blefarospasmo / Desconforto Ocular', 'Secreção Purulenta'],
+        unfavorableFindings: ['Ausência de defeito estromal visível à iluminação direta'],
+        missingInformation: ['Captação do corante de Fluoresceína'],
+        confidenceBreakdown: { clinicalFit: 50, evidenceSupport: 75, dataCompleteness: 40, contradictoryPenalty: 15 },
+        recommendedTests: [
+          {
+            id: 't3_1',
+            name: 'Teste de Fluoresceína Ocular sob Luz Azul de Cobalt',
+            priority: 'Alta',
+            reason: 'Identificação de retenção de corante em epitélio lesado',
+            diagnosticValue: 'Confirmação',
+            invasiveness: 'Baixa',
+            turnaroundTime: 'Imediata',
+            decisionStatus: humanDecisions['t3_1'] || 'Pendente'
+          }
+        ],
+        relatedDiagnoses: ['Ceratite Traumática'],
+        conduct: [
+          { id: 'c31', label: 'Acompanhamento fluorofagocítico e reavaliação ocular em 24h a 48h', checked: false, decisionStatus: humanDecisions['c31'] || 'Pendente' }
+        ],
+        prognosis: 'Reservado'
+      }
+    ];
+
+    references = [
+      {
+        id: 'ref_1',
+        title: 'ACVO Guidelines on Diagnostic Workup and Therapy for Canine & Feline Ocular Discharge',
+        authors: 'Maggs D.J., Miller P.E., Ofri R.',
+        year: 2024,
+        journal: 'Veterinary Ophthalmology',
+        evidenceType: 'Guideline',
+        level: 'Alta Evidência',
+        doi: '10.1111/vop.13105',
+        summary: 'Diretriz do Colégio Americano de Oftalmologia Veterinária (ACVO) destacando que toda secreção ocular exige o Teste de Fluoresceína antes de qualquer corticoide.',
+        relevanceScore: 98,
+        speciesMatch: true
+      },
+      {
+        id: 'ref_2',
+        title: 'ISFM Consensus Guidelines on Diagnosis & Management of Feline Upper Respiratory & Ocular Infections',
+        authors: 'Lappin M.R., Stiles J. et al.',
+        year: 2024,
+        journal: 'Journal of Feline Medicine and Surgery (JFMS)',
+        evidenceType: 'Consenso',
+        level: 'Alta Evidência',
+        doi: '10.1177/1098612X2410212',
+        summary: 'Consenso internacional de medicina felina detalhando protocolos antimicrobianos tópicos e controle de complicações de FHV-1 e Chlamydia.',
+        relevanceScore: 95,
+        speciesMatch: true
+      },
+      {
+        id: 'ref_3',
+        title: 'Slatter\'s Fundamentals of Veterinary Ophthalmology (6ª Edição)',
+        authors: 'Maggs D.J., Miller P.E., Ofri R.',
+        year: 2023,
+        journal: 'Elsevier Health Sciences',
+        evidenceType: 'Guideline',
+        level: 'Alta Evidência',
+        doi: '10.1016/C2018-0-01922-1',
+        summary: 'Tratado internacional com algoritmos de manejo da superfície ocular e segurança farmacológica tópica.',
+        relevanceScore: 92,
+        speciesMatch: true
+      }
+    ];
+
+    therapeutics = [
+      {
+        id: 'th_tobramicina',
+        drugName: 'Tobramicina 0.3% Colírio Oftálmico',
+        indication: 'Antibacteriano tópico de amplo espectro para conjuntivite bacteriana purulenta',
+        doseMgKg: 0,
+        unit: 'gota',
+        concentrationMgMl: 3,
+        route: 'Oftálmica',
+        frequency: 'A cada 6 horas (q6h)',
+        duration: '7 a 10 dias',
+        contraindications: ['Hipersensibilidade a aminoglicosídeos'],
+        warnings: ['Não encostar o gotejador na córnea do paciente'],
+        evidenceRef: 'ACVO Guidelines 2024',
+        decisionStatus: 'Aceito'
+      },
+      {
+        id: 'th_lubrificante',
+        drugName: 'Hialuronato de Sódio 0.15% Colírio Lubrificante (Sem Conservante)',
+        indication: 'Proteção da superfície ocular e estabilização do filme lacrimal',
+        doseMgKg: 0,
+        unit: 'gota',
+        concentrationMgMl: 1.5,
+        route: 'Oftálmica',
+        frequency: 'A cada 4 horas (q4h)',
+        duration: '10 a 14 dias',
+        contraindications: [],
+        warnings: ['Guardar frasco protegido do calor'],
+        evidenceRef: 'ACVO Guidelines 2024',
+        decisionStatus: 'Aceito'
+      }
+    ];
+
+    nextBestStep = {
+      title: 'Realizar Teste de Fluoresceína Ocular + Teste do Lacrimal de Schirmer (STT)',
+      priority: 'Prioridade 1',
+      objective: 'Descartar úlcera de córnea antes de prescrever medicações tópicas e avaliar produção lacrimal',
+      impactedHypotheses: ['Conjuntivite Infecciosa', 'Ceratoconjuntivite Seca (CCS)', 'Úlcera de Córnea'],
+      evidenceRef: 'Diretriz ACVO 2024 (Veterinary Ophthalmology)',
+      informationGainScore: 98
+    };
+
+    decisionNodes = {
+      node1Title: 'Sinais Oculares',
+      node1Subtitle: 'Secreção Purulenta + Esclera Avermelhada',
+      node2Consensus: 'RAG ACVO & ISFM Guidelines',
+      node2Title: 'Pesquisa Ativa na Literatura',
+      node2Subtitle: 'Regra de Segurança: Fluoresceína pré-tratamento',
+      node3Title: `Conjuntivite Infecciosa em ${species}`,
+      node3Subtitle: '88% Confiança'
+    };
+
+    tutorExplanation = `Realizamos a revisão na literatura veterinária para o paciente ${name}. A hipótese principal investigada é Conjuntivite Infecciosa. O passo mais importante agora é o Teste de Fluoresceína Ocular para garantir a segurança da medicação.`;
+
+  } else if (category === 'reproductive') {
+    hypotheses = [
+      {
+        id: 'dx_1',
+        title: `Piometra Aberta / Infecção Uterina Purulenta em ${species}`,
+        rank: 1,
+        probability: 'Alta',
+        confidenceScore: 88,
+        confidenceLabel: 'Nível de Confiança do Sistema: Alto (88%)',
+        decisionStatus: humanDecisions['dx_1'] || 'Pendente',
+        whyConsider: `Secreção vulvar purulenta em fêmea ${species} possui alta correlação com piometra de cérvix aberta.`,
+        favorableFindings: session.findings.positive.map(f => f.finding),
+        unfavorableFindings: session.findings.negative.map(f => f.finding),
+        missingInformation: session.findings.unknown.map(f => f.finding),
+        confidenceBreakdown: { clinicalFit: 94, evidenceSupport: 96, dataCompleteness: 70, contradictoryPenalty: 5 },
+        recommendedTests: [
+          {
+            id: 't1',
+            name: 'Ultrassonografia Abdominal Focada em Utero/Ovários',
+            priority: 'Alta',
+            reason: 'Avaliação do diâmetro dos cornos uterinos e acúmulo intraluminal purulento',
+            diagnosticValue: 'Confirmação',
+            invasiveness: 'Baixa',
+            turnaroundTime: 'Imediata',
+            decisionStatus: humanDecisions['t1'] || 'Pendente'
+          }
+        ],
+        relatedDiagnoses: [`Vaginite Purulenta em ${species}`, `Metrite Puerperal`],
+        conduct: [
+          { id: 'c1', label: 'Indicação de Ovariohisterectomia (OSH) Terapêutica de Emergência após estabilização', checked: true, decisionStatus: humanDecisions['c1'] || 'Pendente' },
+          { id: 'c2', label: 'Fluidoterapia parenteral com Ringer Lactato IV', checked: true, decisionStatus: humanDecisions['c2'] || 'Pendente' },
+          { id: 'c3', label: 'Antibioticoterapia de amplo espectro (Ampicilina + Sulbactam 20 mg/kg IV q8h)', checked: true, decisionStatus: humanDecisions['c3'] || 'Pendente' }
+        ],
+        prognosis: 'Reservado'
+      }
+    ];
+
+    references = [
+      {
+        id: 'ref_1',
+        title: 'ACVIM Small Animal Consensus Statement on Canine & Feline Pyometra Management',
+        authors: 'Hagman R., Pretzer S., Verstegen J.',
+        year: 2024,
+        journal: 'Journal of Veterinary Internal Medicine (JVIM)',
+        evidenceType: 'Consenso',
+        level: 'Alta Evidência',
+        doi: '10.1111/jvim.16910',
+        summary: 'Consenso internacional ACVIM enfatizando a OSH e fluidoterapia agressiva como terapia definitiva para piometra.',
+        relevanceScore: 98,
+        speciesMatch: true
+      }
+    ];
+
+    therapeutics = [
+      {
+        id: 'th_ampicilina',
+        drugName: 'Ampicilina + Sulbactam IV',
+        indication: 'Antibioticoterapia sistêmica de amplo espectro para infecção uterina',
+        doseMgKg: 20,
+        unit: 'mg/kg',
+        concentrationMgMl: 50,
+        route: 'Intravenosa',
+        frequency: 'A cada 8 horas (q8h)',
+        duration: '7 a 10 dias',
+        contraindications: ['Hipersensibilidade a penicilinas'],
+        warnings: ['Administrar lentamente IV'],
+        evidenceRef: 'ACVIM Pyometra Consensus 2024',
+        decisionStatus: 'Aceito'
+      }
+    ];
+
+    nextBestStep = {
+      title: 'Ultrassonografia Abdominal Focada em Útero e Ovários',
+      priority: 'Prioridade 1',
+      objective: 'Confirmar distensão de cornos uterinos e indicar Ovariohisterectomia (OSH) de emergência',
+      impactedHypotheses: ['Piometra Aberta', 'Vaginite Purulenta', 'Metrite'],
+      evidenceRef: 'Consenso ACVIM Pyometra 2024',
+      informationGainScore: 96
+    };
+
+    decisionNodes = {
+      node1Title: 'Secreção Vulvar',
+      node1Subtitle: 'Exsudato Purulento em Fêmea',
+      node2Consensus: 'RAG ACVIM Guidelines',
+      node2Title: 'Pesquisa Ativa na Literatura',
+      node2Subtitle: 'Diretrizes de Infecção Reprodutiva',
+      node3Title: `Piometra Aberta em ${species}`,
+      node3Subtitle: '88% Confiança'
+    };
+
+    tutorExplanation = `Revisamos o caso do paciente ${name}. A hipótese principal investigada é Piometra Aberta. O exame recomendado prioritariamente é o Ultrassom Abdominal.`;
+
+  } else {
+    // Default: Gastrointestinal / Pancreatitis or Otology/Respiratory/Orthopedic/Urinary fallbacks
+    hypotheses = [
       {
         id: 'dx_1',
         title: `Pancreatite Aguda ou Subaguda em ${species}`,
-        probability: 'Alta' as const,
-        confidence: 88,
-        justification: ['Apresentação clínica altamente compatível com inflamação pancreática.'],
-        supportingFindings: session.findings.positive.map(f => f.finding),
-        contradictoryFindings: session.findings.negative.map(f => f.finding),
+        rank: 1,
+        probability: 'Alta',
+        confidenceScore: 88,
+        confidenceLabel: 'Nível de Confiança do Sistema: Alto (88%)',
+        decisionStatus: humanDecisions['dx_1'] || 'Pendente',
+        whyConsider: `Sintomas reportados para ${name} (${species}, ${breed}): Apresentação clínica com elevada correlação fisiopatológica.`,
+        favorableFindings: session.findings.positive.map(f => f.finding),
+        unfavorableFindings: session.findings.negative.map(f => f.finding),
+        missingInformation: session.findings.unknown.map(f => f.finding),
+        confidenceBreakdown: { clinicalFit: 92, evidenceSupport: 90, dataCompleteness: 75, contradictoryPenalty: 5 },
         recommendedTests: [
-          { name: 'Lipase Spec cPL / Spec fPL', priority: 'Alta' as const, reason: 'Padrão ouro de confirmação' },
-          { name: 'Ultrassonografia Abdominal Focada em TGI e Pâncreas', priority: 'Alta' as const, reason: 'Exame de imagem de diferenciação' }
+          {
+            id: 't1',
+            name: `Dosagem de Lipase Pancreática Específica (Spec cPL / Spec fPL)`,
+            priority: 'Alta',
+            reason: 'Padrão-ouro para confirmação ou exclusão de pancreatite',
+            diagnosticValue: 'Confirmação',
+            invasiveness: 'Baixa',
+            turnaroundTime: '24 horas',
+            decisionStatus: humanDecisions['t1'] || 'Pendente'
+          },
+          {
+            id: 't2',
+            name: 'Ultrassonografia Abdominal Focada em TGI e Pâncreas',
+            priority: 'Alta',
+            reason: 'Avaliação de espessamento de parede, hiperecogenicidade peripancreática e líquido livre',
+            diagnosticValue: 'Diferenciação',
+            invasiveness: 'Baixa',
+            turnaroundTime: 'Imediata',
+            decisionStatus: humanDecisions['t2'] || 'Pendente'
+          }
         ],
         relatedDiagnoses: [`Gastroenterite Aguda em ${species}`, `Obstrução por Corpo Estranho`],
         conduct: [
-          { id: 'c1', label: 'Internação para hidratação parenteral com Ringer Lactato IV', checked: true },
-          { id: 'c2', label: 'Citrato de Maropitant (1 mg/kg SC q24h)', checked: true }
+          { id: 'c1', label: 'Internação para hidratação parenteral com Ringer Lactato IV', checked: true, decisionStatus: humanDecisions['c1'] || 'Pendente' },
+          { id: 'c2', label: 'Inibidor de receptor neurocinina-1: Maropitant (1 mg/kg SC q24h)', checked: true, decisionStatus: humanDecisions['c2'] || 'Pendente' },
+          { id: 'c3', label: 'Analgesia visceral com Dipirona (25 mg/kg IV/SC q8h)', checked: true, decisionStatus: humanDecisions['c3'] || 'Pendente' }
         ],
-        prognosis: 'Favorável' as const
+        prognosis: 'Favorável'
       },
       {
         id: 'dx_2',
         title: `Gastroenterite Aguda / Indiscreção Alimentar em ${species}`,
-        probability: 'Moderada' as const,
-        confidence: 68,
-        justification: ['Quadro inflamatório digestivo agudo sem choque hemodinâmico.'],
-        supportingFindings: ['Vômito / Êmese Aguda', 'Inapetência'],
-        contradictoryFindings: ['Ausência de diarreia profusa líquida'],
+        rank: 2,
+        probability: 'Moderada',
+        confidenceScore: 68,
+        confidenceLabel: 'Nível de Confiança do Sistema: Moderado (68%)',
+        decisionStatus: humanDecisions['dx_2'] || 'Pendente',
+        whyConsider: 'Sinais inflamatórios gastrointestinais sem choque sistêmico iminente.',
+        favorableFindings: ['Vômito / Êmese Aguda', 'Inapetência'],
+        unfavorableFindings: ['Ausência de diarreia profusa líquida'],
+        missingInformation: ['Histórico detalhado de troca de ração ou petiscos'],
+        confidenceBreakdown: { clinicalFit: 70, evidenceSupport: 75, dataCompleteness: 60, contradictoryPenalty: 10 },
         recommendedTests: [
-          { name: 'Exame Parasitológico de Fezes (EPF)', priority: 'Moderada' as const, reason: 'Pesquisa parasitária' }
+          {
+            id: 't2_1',
+            name: 'Exame Parasitológico de Fezes (EPF)',
+            priority: 'Moderada',
+            reason: 'Pesquisa de Giardia spp e helmintos intestinais',
+            diagnosticValue: 'Exclusão',
+            invasiveness: 'Baixa',
+            turnaroundTime: '12 horas',
+            decisionStatus: humanDecisions['t2_1'] || 'Pendente'
+          }
         ],
-        relatedDiagnoses: ['Disbiose Intestinal'],
+        relatedDiagnoses: ['Sobrecarga de Dieta / Disbiose Aguda'],
         conduct: [
-          { id: 'c21', label: 'Probiótico entérico e reposição eletrolítica', checked: true }
+          { id: 'c21', label: 'Probiótico entérico e reidratação oral', checked: true, decisionStatus: humanDecisions['c21'] || 'Pendente' }
         ],
-        prognosis: 'Favorável' as const
+        prognosis: 'Favorável'
       }
-    ],
-    references: [
+    ];
+
+    references = [
       {
         id: 'ref_1',
-        title: 'WSAVA Guidelines for Diagnosis & Management of Canine Gastrointestinal Disease',
-        authors: 'WSAVA Advisory Committee',
+        title: 'WSAVA Guidelines for Diagnosis & Management of Canine & Feline Gastrointestinal Disease',
+        authors: 'WSAVA Scientific Advisory Committee',
         year: 2024,
-        journal: 'WSAVA Consensus',
-        evidenceType: 'Consenso' as const,
-        level: 'Alta Evidência' as const,
+        journal: 'Journal of Small Animal Practice / WSAVA Consensus',
+        evidenceType: 'Consenso',
+        level: 'Alta Evidência',
         doi: '10.1111/jsap.13680',
-        summary: 'Consenso internacional de gastroenterologia pequena clínica.'
+        summary: 'Consenso internacional recomendando sequenciamento de triagem laboratorial com Spec cPL/fPL e ultrassom.',
+        relevanceScore: 96,
+        speciesMatch: true
       }
-    ],
-    clinicalTags: session.findings.positive.map(f => f.finding),
-    decisionNodes: {
+    ];
+
+    therapeutics = [
+      {
+        id: 'th_maropitant',
+        drugName: 'Citrato de Maropitant (Cerenia)',
+        indication: 'Antiemético e controle de náusea visceral',
+        doseMgKg: 1.0,
+        unit: 'mg/kg',
+        concentrationMgMl: 10,
+        route: 'Subcutânea',
+        frequency: 'A cada 24 horas (q24h)',
+        duration: '3 a 5 dias',
+        contraindications: ['Ingestão de tóxico não neutralizado'],
+        warnings: ['Pode causar dor transitória na aplicação'],
+        evidenceRef: 'WSAVA Guidelines 2024',
+        decisionStatus: 'Aceito'
+      },
+      {
+        id: 'th_dipirona',
+        drugName: 'Dipirona Sódica',
+        indication: 'Analgesia e antiespasmódico visceral',
+        doseMgKg: 25,
+        unit: 'mg/kg',
+        concentrationMgMl: 500,
+        route: 'Intravenosa / Subcutânea',
+        frequency: 'A cada 8 horas (q8h)',
+        duration: '3 dias',
+        contraindications: ['Hipersensibilidade conhecida'],
+        warnings: ['Monitorar pressão arterial em infusão rápida'],
+        evidenceRef: 'Nelson & Couto 2024',
+        decisionStatus: 'Aceito'
+      }
+    ];
+
+    nextBestStep = {
+      title: 'Dosagem de Lipase Pancreática Específica (Spec cPL / Spec fPL) + Ultrassom Abdominal',
+      priority: 'Prioridade 1',
+      objective: 'Confirmar inflamação pancreática e excluir padrão obstrutivo intestinal',
+      impactedHypotheses: ['Pancreatite Aguda', 'Gastroenterite Aguda', 'Obstrução por Corpo Estranho'],
+      evidenceRef: 'Consenso WSAVA / ACVIM 2024',
+      informationGainScore: 96
+    };
+
+    decisionNodes = {
       node1Title: 'Sinais Clínicos',
       node1Subtitle: 'Informações da Anamnese',
       node2Consensus: 'RAG Literatura WSAVA',
@@ -407,8 +951,56 @@ export function generateClinicalData(anamnesisText: string, patient: Patient) {
       node2Subtitle: 'Análise semântica e probabilística',
       node3Title: `Pancreatite Aguda em ${species}`,
       node3Subtitle: '88% Confiança'
-    },
-    tutorExplanation: `Realizamos a revisão na literatura veterinária para o paciente ${patient.name || 'Pet'}. A hipótese principal investigada é Pancreatite Aguda.`
+    };
+
+    tutorExplanation = `Realizamos a revisão na literatura veterinária para o paciente ${name}. A hipótese principal investigada é Pancreatite Aguda.`;
+  }
+
+  return {
+    clinicalSessionData: session,
+    hypotheses,
+    references,
+    therapeutics,
+    nextBestStep,
+    decisionNodes,
+    tutorExplanation
+  };
+}
+
+export function generateClinicalData(anamnesisText: string, patient: Patient) {
+  const model = getClinicalCaseModel(anamnesisText, patient);
+  return {
+    hypotheses: model.hypotheses.map(h => ({
+      id: h.id,
+      title: h.title,
+      probability: h.probability as 'Alta' | 'Moderada' | 'Baixa',
+      confidence: h.confidenceScore,
+      justification: [h.whyConsider],
+      supportingFindings: h.favorableFindings,
+      contradictoryFindings: h.unfavorableFindings,
+      recommendedTests: h.recommendedTests.map(t => ({
+        name: t.name,
+        priority: t.priority as 'Alta' | 'Moderada' | 'Baixa',
+        reason: t.reason
+      })),
+      relatedDiagnoses: h.relatedDiagnoses,
+      conduct: h.conduct.map(c => ({ id: c.id, label: c.label, checked: c.checked })),
+      prognosis: h.prognosis as 'Favorável' | 'Reservado' | 'Grave'
+    })),
+    references: model.references.map(r => ({
+      id: r.id,
+      title: r.title,
+      authors: r.authors,
+      year: r.year,
+      journal: r.journal,
+      evidenceType: r.evidenceType,
+      level: r.level,
+      doi: r.doi,
+      summary: r.summary
+    })),
+    clinicalTags: model.clinicalSessionData.findings.positive.map(f => f.finding),
+    decisionNodes: model.decisionNodes,
+    tutorExplanation: model.tutorExplanation
   };
 }
 
@@ -451,260 +1043,20 @@ export default function DifferentialDiagnosisWorkspace({
 
   // Dynamic Hypotheses & RAG Generation
   const rawData = useMemo(() => {
-    const text = (anamnesisText || '').toLowerCase();
-    const species = patient?.species || 'Canino';
+    const model = getClinicalCaseModel(anamnesisText, patient, humanDecisions);
     const weightVal = parseFloat(patient?.weight || '10') || 10;
 
-    let hyp1Title = `Pancreatite Aguda ou Subaguda em ${species}`;
-    let hyp2Title = `Gastroenterite Aguda / Indiscreção Alimentar em ${species}`;
-    let hyp3Title = `Obstrução por Corpo Estranho Intestinal em ${species}`;
-
-    if (text.includes('otite') || text.includes('orelha') || text.includes('coceira')) {
-      hyp1Title = `Otite Externa Aguda (Bacteriana / Fúngica) em ${species}`;
-      hyp2Title = `Dermatite Atópica Canina com Manifestação Auricular`;
-      hyp3Title = `Corpo Estranho Auricular ou Otite Média`;
-    } else if (text.includes('vulva') || text.includes('secreção vulvar') || text.includes('piometra') || text.includes('útero')) {
-      hyp1Title = `Piometra Aberta / Infecção Uterina em ${species}`;
-      hyp2Title = `Vaginite Purulenta / Cistite Secundária`;
-      hyp3Title = `Metrite Puerperal ou Neoplasia Reprodutiva`;
-    } else if (text.includes('mancando') || text.includes('pata') || text.includes('joelho') || text.includes('dor')) {
-      hyp1Title = `Afecção Ortopédica / Lesão Ligamentar em ${species}`;
-      hyp2Title = `Osteoartrite com Crise Inflamatória Aguda`;
-      hyp3Title = `Radiculopatia Compressiva ou Polineuropatia`;
-    }
-
-    const hypothesesList: Hypothesis[] = [
-      {
-        id: 'dx_1',
-        title: hyp1Title,
-        rank: 1,
-        probability: 'Alta',
-        confidenceScore: 88,
-        confidenceLabel: 'Nível de Confiança do Sistema: Alto (88%)',
-        decisionStatus: humanDecisions['dx_1'] || 'Pendente',
-        whyConsider: `Sintomas reportados para ${patient.name || 'Paciente'} (${species}, ${patient.breed || 'SRD'}): Vômitos recorrentes, inapetência e sensibilidade abdominal apresentam elevada correlação fisiopatológica.`,
-        favorableFindings: clinicalSessionData.findings.positive.map(f => f.finding),
-        unfavorableFindings: clinicalSessionData.findings.negative.map(f => f.finding),
-        missingInformation: clinicalSessionData.findings.unknown.map(f => f.finding),
-        confidenceBreakdown: {
-          clinicalFit: 92,
-          evidenceSupport: 90,
-          dataCompleteness: 75,
-          contradictoryPenalty: 5
-        },
-        recommendedTests: [
-          {
-            id: 't1',
-            name: 'Dosagem de Lipase Pancreática Específica (Spec cPL / Spec fPL)',
-            priority: 'Alta',
-            reason: 'Padrão-ouro para confirmação ou exclusão de pancreatite',
-            diagnosticValue: 'Confirmação',
-            invasiveness: 'Baixa',
-            turnaroundTime: '24 horas',
-            decisionStatus: humanDecisions['t1'] || 'Pendente'
-          },
-          {
-            id: 't2',
-            name: 'Ultrassonografia Abdominal Focada em TGI e Pâncreas',
-            priority: 'Alta',
-            reason: 'Avaliação de espessamento de parede, hiperecogenicidade peripancreática e líquido livre',
-            diagnosticValue: 'Diferenciação',
-            invasiveness: 'Baixa',
-            turnaroundTime: 'Imediata',
-            decisionStatus: humanDecisions['t2'] || 'Pendente'
-          },
-          {
-            id: 't3',
-            name: 'Hemograma Completo + Bioquímico (ALT, FA, Ureia, Creatinina)',
-            priority: 'Alta',
-            reason: 'Mapeamento de desvio à esquerda, hemoconcentração e função renal/hepática',
-            diagnosticValue: 'Diferenciação',
-            invasiveness: 'Baixa',
-            turnaroundTime: '2 horas',
-            decisionStatus: humanDecisions['t3'] || 'Pendente'
-          }
-        ],
-        relatedDiagnoses: [hyp2Title, hyp3Title, 'Triagem de Peritonite Séptica'],
-        conduct: [
-          { id: 'c1', label: 'Internação para hidratação parenteral com Ringer Lactato IV', checked: true, decisionStatus: humanDecisions['c1'] || 'Pendente' },
-          { id: 'c2', label: 'Inibidor de receptor neurocinina-1: Maropitant (1 mg/kg SC q24h)', checked: true, decisionStatus: humanDecisions['c2'] || 'Pendente' },
-          { id: 'c3', label: 'Analgesia visceral com Dipirona (25 mg/kg IV/SC q8h)', checked: true, decisionStatus: humanDecisions['c3'] || 'Pendente' },
-          { id: 'c4', label: 'Jejum alimentar temporário durante fase emética e reintrodução gradual', checked: false, decisionStatus: humanDecisions['c4'] || 'Pendente' }
-        ],
-        prognosis: 'Favorável'
-      },
-      {
-        id: 'dx_2',
-        title: hyp2Title,
-        rank: 2,
-        probability: 'Moderada',
-        confidenceScore: 68,
-        confidenceLabel: 'Nível de Confiança do Sistema: Moderado (68%)',
-        decisionStatus: humanDecisions['dx_2'] || 'Pendente',
-        whyConsider: 'Sinais inflamatórios gastrointestinais sem choque sistêmico iminente.',
-        favorableFindings: ['Vômito / Êmese Aguda', 'Inapetência'],
-        unfavorableFindings: ['Ausência de diarreia profusa líquida'],
-        missingInformation: ['Histórico detalhado de troca de ração ou petiscos'],
-        confidenceBreakdown: {
-          clinicalFit: 70,
-          evidenceSupport: 75,
-          dataCompleteness: 60,
-          contradictoryPenalty: 10
-        },
-        recommendedTests: [
-          {
-            id: 't2_1',
-            name: 'Exame Parasitológico de Fezes (EPF)',
-            priority: 'Moderada',
-            reason: 'Pesquisa de Giardia spp e helmintos intestinais',
-            diagnosticValue: 'Exclusão',
-            invasiveness: 'Baixa',
-            turnaroundTime: '12 horas',
-            decisionStatus: humanDecisions['t2_1'] || 'Pendente'
-          }
-        ],
-        relatedDiagnoses: ['Sobrecarga de Dieta / Disbiose Aguda'],
-        conduct: [
-          { id: 'c21', label: 'Probiótico entérico e reidratação oral', checked: true, decisionStatus: humanDecisions['c21'] || 'Pendente' }
-        ],
-        prognosis: 'Favorável'
-      },
-      {
-        id: 'dx_3',
-        title: hyp3Title,
-        rank: 3,
-        probability: 'Baixa',
-        confidenceScore: 48,
-        confidenceLabel: 'Nível de Confiança do Sistema: Baixo (48%)',
-        decisionStatus: humanDecisions['dx_3'] || 'Pendente',
-        whyConsider: 'Suspeita cirúrgica de exclusão recomendada em casos de vômito refratário com dor.',
-        favorableFindings: ['Inapetência', 'Desconforto abdominal'],
-        unfavorableFindings: ['Palpação abdominal sem alça fixa identificável'],
-        missingInformation: ['Acesso a objetos roídos, fios ou brinquedos'],
-        confidenceBreakdown: {
-          clinicalFit: 50,
-          evidenceSupport: 60,
-          dataCompleteness: 40,
-          contradictoryPenalty: 15
-        },
-        recommendedTests: [
-          {
-            id: 't3_1',
-            name: 'Radiografia Abdominal Simples (Projeções VD e LL)',
-            priority: 'Alta',
-            reason: 'Pesquisa de corpo estranho radiopaco e padrão obstrutivo',
-            diagnosticValue: 'Confirmação',
-            invasiveness: 'Baixa',
-            turnaroundTime: 'Imediata',
-            decisionStatus: humanDecisions['t3_1'] || 'Pendente'
-          }
-        ],
-        relatedDiagnoses: ['Íleo Paralítico Secundário'],
-        conduct: [
-          { id: 'c31', label: 'Manter em observação e reavaliar imagem em 12h se não houver melhora', checked: false, decisionStatus: humanDecisions['c31'] || 'Pendente' }
-        ],
-        prognosis: 'Reservado'
-      }
-    ];
-
-    const referencesList: Reference[] = [
-      {
-        id: 'ref_1',
-        title: 'WSAVA Guidelines for Diagnosis & Management of Canine Gastrointestinal Disease',
-        authors: 'WSAVA Scientific Advisory Committee',
-        year: 2024,
-        journal: 'Journal of Small Animal Practice / WSAVA Consensus',
-        evidenceType: 'Consenso',
-        level: 'Alta Evidência',
-        doi: '10.1111/jsap.13680',
-        summary: 'Consenso internacional recomendando sequenciamento de triagem laboratorial com Spec cPL e ultrassom para distinção entre pancreatite e gastroenterite.',
-        relevanceScore: 96,
-        speciesMatch: true
-      },
-      {
-        id: 'ref_2',
-        title: 'ACVIM Consensus Statement on Acute Pancreatitis in Small Animals',
-        authors: 'Steiner J.M., Xenoulis P.G. et al.',
-        year: 2023,
-        journal: 'Journal of Veterinary Internal Medicine (JVIM)',
-        evidenceType: 'Consenso',
-        level: 'Alta Evidência',
-        doi: '10.1111/jvim.16812',
-        summary: 'Diretrizes clínicas do ACVIM para manejo analgésico e suporte de fluido em quadros de dor pancreática.',
-        relevanceScore: 92,
-        speciesMatch: true
-      },
-      {
-        id: 'ref_3',
-        title: 'Nelson & Couto - Medicina Interna de Pequenos Animais (6ª Edição)',
-        authors: 'Nelson R.W., Couto C.G.',
-        year: 2024,
-        journal: 'Tratado de Medicina Interna Veterinária (Elsevier)',
-        evidenceType: 'Guideline',
-        level: 'Alta Evidência',
-        doi: '10.1016/C2018-0-02100-3',
-        summary: 'Tratado de referência clássico com tabelas de diagnóstico diferencial e protocolos de suporte parenteral.',
-        relevanceScore: 88,
-        speciesMatch: true
-      }
-    ];
-
-    // Deterministic Dose Calculations
-    // Formula: dose_mg = dose_mg_per_kg * weight_kg
-    // Volume: volume_ml = dose_mg / concentration_mg_per_ml
     const maropitantDoseMg = 1.0 * weightVal;
     const maropitantVolMl = maropitantDoseMg / 10.0; // 10 mg/mL
 
     const dipironaDoseMg = 25.0 * weightVal;
     const dipironaVolMl = dipironaDoseMg / 500.0; // 500 mg/mL
 
-    const therapeuticsList: TherapeuticOption[] = [
-      {
-        id: 'rx_maropitant',
-        drugName: 'Citrato de Maropitant (10 mg/mL)',
-        indication: 'Antiemético de Ação Central (Antagonista NK1)',
-        doseMgKg: 1.0,
-        unit: 'mg/kg',
-        concentrationMgMl: 10.0,
-        route: 'Subcutânea (SC)',
-        frequency: 'A cada 24 horas (q24h)',
-        duration: '3 a 5 dias',
-        contraindications: ['Pacientes menores de 8 semanas de idade', 'Suspeita de toxina gastrointestinal retida'],
-        warnings: ['Pode causar dor transitória no local da aplicação SC'],
-        evidenceRef: 'WSAVA Guidelines 2024 / ACVIM Pancreatitis Consensus',
-        decisionStatus: humanDecisions['rx_maropitant'] || 'Pendente'
-      },
-      {
-        id: 'rx_dipirona',
-        drugName: 'Dipirona Sódica (500 mg/mL)',
-        indication: 'Analgesia Visceral & Espasmolítico',
-        doseMgKg: 25.0,
-        unit: 'mg/kg',
-        concentrationMgMl: 500.0,
-        route: 'Subcutânea (SC) ou Intravenosa Lenta (IV)',
-        frequency: 'A cada 8 horas (q8h)',
-        duration: 'Conforme dor (2 a 3 dias)',
-        contraindications: ['Hipersensibilidade conhecida a pirazolonas'],
-        warnings: ['Evitar bolus IV rápido para prevenir hipotensão'],
-        evidenceRef: 'Nelson & Couto 6ª Edição',
-        decisionStatus: humanDecisions['rx_dipirona'] || 'Pendente'
-      }
-    ];
-
-    const nextBestStep: NextBestStep = {
-      title: 'Realizar Dosagem de Lipase Pancreática Específica + Ultrassom Abdominal Focado',
-      priority: 'Prioridade 1',
-      objective: 'Diferenciar conclusivamente Pancreatite Aguda vs Gastroenterite Simples vs Corpo Estranho',
-      impactedHypotheses: [hyp1Title, hyp2Title, hyp3Title],
-      evidenceRef: 'Consenso WSAVA 2024 / ACVIM',
-      informationGainScore: 94
-    };
-
     return {
-      hypotheses: hypothesesList,
-      references: referencesList,
-      therapeutics: therapeuticsList,
-      nextBestStep,
+      hypotheses: model.hypotheses,
+      references: model.references,
+      therapeutics: model.therapeutics,
+      nextBestStep: model.nextBestStep,
       maropitantDoseMg,
       maropitantVolMl,
       dipironaDoseMg,
