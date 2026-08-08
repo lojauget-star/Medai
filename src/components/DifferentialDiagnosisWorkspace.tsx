@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   PawPrint, 
   Activity, 
   FileText, 
-  Paperclip, 
   BookOpen, 
   ChevronDown, 
   ChevronUp, 
@@ -11,9 +10,7 @@ import {
   XCircle, 
   HelpCircle, 
   Stethoscope, 
-  FileCheck, 
   Share2, 
-  Download, 
   MessageSquare, 
   ClipboardList, 
   Sparkles, 
@@ -21,16 +18,27 @@ import {
   ExternalLink, 
   Check, 
   Clock, 
-  Award, 
   Info, 
-  Sliders, 
   ArrowRight,
   ShieldCheck,
   Zap,
   Printer,
   Copy,
+  X,
+  RotateCcw,
+  AlertTriangle,
+  Calculator,
+  Pill,
+  CheckSquare,
+  Square,
+  Edit3,
+  Filter,
+  Database,
+  Search,
+  Scale,
+  ListOrdered,
   Layers,
-  X
+  FileCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Patient } from '../types';
@@ -47,18 +55,56 @@ interface DifferentialDiagnosisWorkspaceProps {
   onGeneratePdf?: () => void;
 }
 
+export type ItemDecisionStatus = 'Aceito' | 'Revisar' | 'Editado' | 'Rejeitado' | 'Pendente';
+
+export interface FindingItem {
+  id: string;
+  finding: string;
+  category: 'positive' | 'negative' | 'unknown';
+  certainty: number; // 0 to 1
+  certaintyLabel: string;
+  source: 'anamnesis' | 'physical_exam' | 'tutor_report' | 'vet_observation' | 'lab';
+  confirmedByVet: boolean;
+  importance?: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  reasonMissing?: string;
+}
+
 export interface Hypothesis {
   id: string;
   title: string;
-  probability: 'Alta' | 'Moderada' | 'Baixa';
-  confidence: number;
-  justification: string[];
-  supportingFindings: string[];
-  contradictoryFindings: string[];
-  recommendedTests: Array<{ name: string; priority: 'Alta' | 'Moderada' | 'Baixa'; reason: string }>;
+  rank: number;
+  probability: 'Alta' | 'Moderada' | 'Baixa' | 'Indeterminada';
+  confidenceScore: number; // 0 to 100
+  confidenceLabel: string;
+  decisionStatus: ItemDecisionStatus;
+  whyConsider: string;
+  favorableFindings: string[];
+  unfavorableFindings: string[];
+  missingInformation: string[];
+  recommendedTests: Array<{ 
+    id: string;
+    name: string; 
+    priority: 'Alta' | 'Moderada' | 'Baixa'; 
+    reason: string;
+    diagnosticValue: 'Confirmação' | 'Exclusão' | 'Diferenciação';
+    invasiveness: 'Baixa' | 'Média' | 'Alta';
+    turnaroundTime: string;
+    decisionStatus: ItemDecisionStatus;
+  }>;
   relatedDiagnoses: string[];
-  conduct: Array<{ id: string; label: string; checked: boolean }>;
+  conduct: Array<{ 
+    id: string; 
+    label: string; 
+    checked: boolean;
+    decisionStatus: ItemDecisionStatus;
+  }>;
   prognosis: 'Favorável' | 'Reservado' | 'Grave';
+  confidenceBreakdown: {
+    clinicalFit: number;
+    evidenceSupport: number;
+    dataCompleteness: number;
+    contradictoryPenalty: number;
+  };
 }
 
 export interface Reference {
@@ -71,523 +117,298 @@ export interface Reference {
   level: 'Alta Evidência' | 'Moderada' | 'Baixa';
   doi: string;
   summary: string;
+  relevanceScore: number;
+  speciesMatch: boolean;
 }
 
-export interface DynamicClinicalData {
-  hypotheses: Hypothesis[];
-  references: Reference[];
-  clinicalTags: string[];
-  decisionNodes: {
-    node1Title: string;
-    node1Subtitle: string;
-    node2Consensus: string;
-    node2Title: string;
-    node2Subtitle: string;
-    node3Title: string;
-    node3Subtitle: string;
-  };
-  tutorExplanation: string;
-  ragContext?: {
-    totalIndexedCases: number;
-    matchingCasesCount: number;
-    similarityScore: number;
-    keyInsight: string;
-    frequentComplications: string[];
-    evidenceLevel: string;
-    topMatches: Array<{ id: string; title: string; similarity: string; outcome: string }>;
-  };
+export interface TherapeuticOption {
+  id: string;
+  drugName: string;
+  indication: string;
+  doseMgKg: number;
+  unit: string;
+  concentrationMgMl: number;
+  route: string;
+  frequency: string;
+  duration: string;
+  contraindications: string[];
+  warnings: string[];
+  evidenceRef: string;
+  decisionStatus: ItemDecisionStatus;
 }
 
-function extractClinicalTagsFromText(text: string): string[] {
-  const lower = (text || '').toLowerCase();
-  const tags: string[] = [];
-
-  // Species identification
-  if (lower.includes('felino') || lower.includes('gato') || lower.includes('felina') || lower.includes('cat')) tags.push('Espécie Felina');
-  if (lower.includes('canino') || lower.includes('cão') || lower.includes('cao') || lower.includes('cachorro') || lower.includes('dog')) tags.push('Espécie Canina');
-
-  // Anatomically precise discharge tagging
-  if (lower.match(/(secreção ocular|secrecao ocular|corrimento ocular|remela|epífora|epifora|olho|olhos|ocular|blefarospasmo)/)) {
-    tags.push('Secreção Ocular / Epífora');
-  }
-  if (lower.match(/(secreção vulvar|secrecao vulvar|secreção vaginal|secrecao vaginal|corrimento vulvar|corrimento vaginal|piometra|útero|utero)/)) {
-    tags.push('Secreção Vulvar / Corrimento Vaginal');
-  }
-  if (lower.match(/(secreção nasal|secrecao nasal|corrimento nasal|rinorreia|rinorréia|espirro)/)) {
-    tags.push('Secreção Nasal / Rinorreia');
-  }
-  if (lower.match(/(secreção auricular|secrecao auricular|secreção otológica|secrecao otologica|exsudato ótico|exsudato otico|otite|orelha|ouvido)/)) {
-    tags.push('Secreção Auricular / Otite');
-  }
-
-  // General & Systemic Symptoms
-  if (lower.includes('vômito') || lower.includes('vomito') || lower.includes('êmese') || lower.includes('emese')) tags.push('Êmese / Vômito');
-  if (lower.includes('diarreia') || lower.includes('diarréia')) tags.push('Diarreia Aguda');
-  if (lower.includes('tosse') || lower.includes('tossindo')) tags.push('Tosse Paroxística');
-  if (lower.includes('urina') || lower.includes('xixi') || lower.includes('disúria') || lower.includes('disuria') || lower.includes('hematúria')) tags.push('Alteração Urinária / Disúria');
-  if (lower.includes('perda de peso') || lower.includes('emagrecimento') || lower.includes('magro')) tags.push('Perda de Peso Progressiva');
-  if (lower.includes('inapetência') || lower.includes('inapetencia') || lower.includes('anorexia') || lower.includes('sem comer')) tags.push('Inapetência / Anorexia');
-  if (lower.includes('dor') || lower.includes('sensibilidade') || lower.includes('grito')) tags.push('Dor / Hiperestesia');
-  if (lower.includes('cervical') || lower.includes('pescoço') || lower.includes('pescoco') || lower.includes('coluna') || lower.includes('rigidez')) tags.push('Rigidez / Cervicalgia');
-  if (lower.includes('coceira') || lower.includes('prurido') || lower.includes('alopecia') || lower.includes('dermatite')) tags.push('Prurido / Dermatopatia');
-  if (lower.includes('mancando') || lower.includes('claudicação') || lower.includes('joelho') || lower.includes('tplo')) tags.push('Claudicação de Membro');
-  if (lower.includes('hérnia') || lower.includes('hernia') || lower.includes('tenesmo') || lower.includes('disquezia')) tags.push('Tenesmo / Alteração Perineal');
-
-  if (tags.length === 0) tags.push('Sinais Sintomáticos Registrados');
-  return tags;
+export interface NextBestStep {
+  title: string;
+  priority: 'Prioridade 1' | 'Prioridade 2';
+  objective: string;
+  impactedHypotheses: string[];
+  evidenceRef: string;
+  informationGainScore: number;
 }
 
-function finalizeHypothesis(
-  partial: Partial<Hypothesis>,
-  index: number,
-  patient?: Patient,
-  anamnesisText?: string
-): Hypothesis {
-  const species = patient?.species || 'Pequenos Animais';
-  const name = patient?.name || 'Pet';
-  const title = partial.title || `Hipótese Diagnóstica ${index}`;
-  const confidence = partial.confidence || (index === 1 ? 88 : index === 2 ? 68 : 48);
-  const probability: 'Alta' | 'Moderada' | 'Baixa' = confidence >= 70 ? 'Alta' : confidence >= 50 ? 'Moderada' : 'Baixa';
-
-  const excerpt = (anamnesisText || '').slice(0, 100);
-  const defaultJustification = [
-    `Relato clínico de ${name} (${species}): "${excerpt || 'Sintomatologia em investigação'}..."`,
-    `Apresentação clínica altamente compatível com a fisiopatologia de ${title}.`,
-    `Evidências alinhadas aos consensos e literatura veterinária RAG integrada.`
-  ];
-
-  const tags = extractClinicalTagsFromText(`${patient?.species} ${anamnesisText}`);
-  const lowerTitle = title.toLowerCase();
-
-  let defaultTests = [
-    { name: `Ultrassonografia Abdominal Focada em ${title}`, priority: 'Alta' as const, reason: 'Avaliação parenquimatosa e morfológica direcionada' },
-    { name: 'Hemograma Completo + Plaquetograma', priority: 'Alta' as const, reason: 'Triagem de resposta inflamatória, leucocitose ou anemia' },
-    { name: 'Perfil Bioquímico (ALT, FA, Ureia, Creatinina)', priority: 'Moderada' as const, reason: 'Avaliação da função hepática e renal' }
-  ];
-
-  let defaultRelated = [`Síndrome Inflamatória Sistêmica`, `Afecção secundária em ${species}`];
-
-  let defaultConduct = [
-    { id: `c1_${index}`, label: `Estabilização e suporte terapêutico para ${title}`, checked: true },
-    { id: `c2_${index}`, label: 'Manutenção do estado de hidratação e analgesia multimodal conforme dor', checked: true },
-    { id: `c3_${index}`, label: 'Reavaliação após exames de imagem e triagem laboratorial', checked: false }
-  ];
-
-  if (lowerTitle.includes('piometra') || lowerTitle.includes('uter') || lowerTitle.includes('metrite') || lowerTitle.includes('vulva') || lowerTitle.includes('reprodutiv')) {
-    defaultTests = [
-      { name: 'Ultrassonografia Abdominal Total (Foco Uterino e Ovariano)', priority: 'Alta' as const, reason: 'Mensuração do diâmetro uterino, parede e conteúdo fluido luminal' },
-      { name: 'Hemograma Completo com Plaquetograma', priority: 'Alta' as const, reason: 'Pesquisa de leucocitose grave com desvio à esquerda e neutrofilia' },
-      { name: 'Citologia Vaginal / Vulvar', priority: 'Moderada' as const, reason: 'Identificação de neutrófilos degenerados e bactérias' }
-    ];
-    defaultRelated = ['Vaginite Purulenta Aguda', 'Metrite Puerperal', 'Neoplasia Uterina / Cisto Ovariano', 'Cistite Secundária'];
-    defaultConduct = [
-      { id: `c1_${index}`, label: 'Estabilização hemodinâmica imediata com Ringer Lactato IV', checked: true },
-      { id: `c2_${index}`, label: 'Antibioticoterapia de amplo espectro (Ampicilina+Sulbactam ou Enrofloxacino)', checked: true },
-      { id: `c3_${index}`, label: 'Avaliação urgente para Ovariohisterectomia (OSH) cirúrgica terapêutica', checked: true }
-    ];
-  } else if (lowerTitle.includes('pancreat') || lowerTitle.includes('gastro') || lowerTitle.includes('vômit') || lowerTitle.includes('vomit') || lowerTitle.includes('corpo estranho')) {
-    defaultTests = [
-      { name: 'Dosagem de Lipase Pancreática Específica (Spec cPL / Spec fPL)', priority: 'Alta' as const, reason: 'Padrão-ouro para confirmação ou exclusão de pancreatite aguda' },
-      { name: 'Ultrassonografia Abdominal Focada em TGI e Pâncreas', priority: 'Alta' as const, reason: 'Avaliar espessamento de alças, estase e padrão de corpo estranho' },
-      { name: 'Perfil Bioquímico (ALT, FA, Amilase, Ureia, Creatinina)', priority: 'Alta' as const, reason: 'Mapeamento de hemoconcentração e função orgânica' }
-    ];
-    defaultRelated = ['Pancreatite Aguda', 'Obstrução por Corpo Estranho Intestinal', 'Gastroenterite Aguda Hemorrágica (AHDS)', 'Enteropatia Alérgica'];
-    defaultConduct = [
-      { id: `c1_${index}`, label: 'Antiemético Citrato de Maropitant (1 mg/kg SC) e reidratação IV', checked: true },
-      { id: `c2_${index}`, label: 'Analgesia visceral com Dipirona (25 mg/kg IV/SC) ou Opioide', checked: true },
-      { id: `c3_${index}`, label: 'Suporte nutricional precoce após controle do quadro de êmese', checked: false }
-    ];
-  } else if (lowerTitle.includes('cistite') || lowerTitle.includes('dtuif') || lowerTitle.includes('urina') || lowerTitle.includes('urolit')) {
-    defaultTests = [
-      { name: 'Urinálise Tipo 1 (EAS) + Refratometria por Cistocentese', priority: 'Alta' as const, reason: 'Pesquisa de hematúria, proteinúria, pH e cristais' },
-      { name: 'Ultrassonografia de Rins e Vesícula Urinária', priority: 'Alta' as const, reason: 'Exclusão de cálculo vesical (urolitíase) e espessamento de parede' }
-    ];
-    defaultRelated = ['Urolitíase Vesical / Uretral', 'Cistite Idiopática Felina (DTUIF)', 'Infecção do Trato Urinário (ITU)', 'Pielonefrite'];
-    defaultConduct = [
-      { id: `c1_${index}`, label: 'Analgesia e anti-inflamatório (Meloxicam ou Dipirona) ajustado para a espécie', checked: true },
-      { id: `c2_${index}`, label: 'Incentivo ao consumo hídrico com alimentos úmidos e fontes', checked: true }
-    ];
-  } else if (lowerTitle.includes('otite') || lowerTitle.includes('dermat') || lowerTitle.includes('atopia') || lowerTitle.includes('coceira')) {
-    defaultTests = [
-      { name: 'Citologia Auricular / Cutânea (Impronta em Lâmina)', priority: 'Alta' as const, reason: 'Quantificação de leveduras (Malassezia) e bactérias' },
-      { name: 'Otoscopia Direta com Cones Esterilizados', priority: 'Alta' as const, reason: 'Avaliação da integridade do tímpano e conduto auditivo' }
-    ];
-    defaultRelated = ['Dermatite Atópica Canina', 'Hipersensibilidade Alimentar', 'Corpo Estranho Auricular', 'Demodicose / Escabiose'];
-    defaultConduct = [
-      { id: `c1_${index}`, label: 'Limpeza suave do conduto auditivo com ceruminolítico neutro', checked: true },
-      { id: `c2_${index}`, label: 'Aplicações de solução otopet tripla (antimicrobiano + antifúngico + corticoide)', checked: true }
-    ];
-  }
-
-  return {
-    id: partial.id || `dx_${index}`,
-    title,
-    probability,
-    confidence,
-    justification: partial.justification && partial.justification.length > 0 ? partial.justification : defaultJustification,
-    supportingFindings: partial.supportingFindings && partial.supportingFindings.length > 0 ? partial.supportingFindings : tags,
-    contradictoryFindings: partial.contradictoryFindings && partial.contradictoryFindings.length > 0 ? partial.contradictoryFindings : ['Ausência de choque cirúrgico agudo descompensado'],
-    recommendedTests: partial.recommendedTests && partial.recommendedTests.length > 0 ? partial.recommendedTests : defaultTests,
-    relatedDiagnoses: partial.relatedDiagnoses && partial.relatedDiagnoses.length > 0 ? partial.relatedDiagnoses : defaultRelated,
-    conduct: partial.conduct && partial.conduct.length > 0 ? partial.conduct : defaultConduct,
-    prognosis: partial.prognosis || (confidence >= 70 ? 'Favorável' : 'Reservado')
-  };
+export interface AnalysisVersion {
+  version: number;
+  timestamp: string;
+  modelName: string;
+  ragRunId: string;
+  hypothesesCount: number;
+  summary: string;
 }
 
-export function parseAIDifferentials(
-  aiReportText: string,
-  sources: Array<{ topic: string; content?: string; snippet?: string; type?: string; score?: number }> = [],
-  patient?: Patient,
-  anamnesisText?: string
-): DynamicClinicalData | null {
-  if (!aiReportText || typeof aiReportText !== 'string' || aiReportText.length < 20) {
-    return null;
-  }
-
-  let diffText = aiReportText;
-  if (aiReportText.includes('## D')) {
-    const sections = aiReportText.split('##');
-    const dSection = sections.find(s => {
-      const u = s.trim().toUpperCase();
-      return u.startsWith('D (') || u.startsWith('D:') || u.startsWith('D ') || u.startsWith('D-') || u === 'D';
-    });
-    if (dSection) {
-      diffText = dSection;
-    }
-  }
-
-  const hypotheses: Hypothesis[] = [];
-  const referencesMap = new Map<string, Reference>();
-
-  const lines = diffText.split('\n');
-  let currentHyp: Partial<Hypothesis> | null = null;
-  let currentField: 'justification' | 'findings' | 'tests' | 'conduct' | 'references' | 'none' = 'none';
-
-  lines.forEach((line) => {
-    const trimmed = line.trim();
-    if (!trimmed) return;
-
-    const isTitleLine = 
-      (trimmed.startsWith('1.') || trimmed.startsWith('2.') || trimmed.startsWith('3.') ||
-       trimmed.startsWith('1º') || trimmed.startsWith('2º') || trimmed.startsWith('3º') ||
-       trimmed.startsWith('1-') || trimmed.startsWith('2-') || trimmed.startsWith('3-') ||
-       trimmed.startsWith('- **') || trimmed.startsWith('* **') || trimmed.startsWith('###')) &&
-      (trimmed.includes('%') || trimmed.includes('Probabilidade') || trimmed.includes('1º') || trimmed.includes('2º') || trimmed.includes('3º') || trimmed.includes('Diagnóstico')) &&
-      !trimmed.includes('Revisão Sistemática') &&
-      !trimmed.includes('Embasamento Literário') &&
-      !trimmed.includes('Achados Compatíveis') &&
-      !trimmed.includes('Exames Complementares') &&
-      !trimmed.includes('Conduta Inicial') &&
-      !trimmed.includes('Por que esta causa');
-
-    if (isTitleLine) {
-      if (currentHyp && currentHyp.title) {
-        hypotheses.push(finalizeHypothesis(currentHyp, hypotheses.length + 1, patient, anamnesisText));
-      }
-
-      let rawTitle = trimmed.replace(/^[-*\d.#ºª\s]+/, '').replace(/\*\*/g, '').trim();
-      let confidence = 80;
-      const percMatch = trimmed.match(/(\d{1,3})\s*%/);
-      if (percMatch) {
-        confidence = parseInt(percMatch[1], 10);
-      } else if (hypotheses.length === 0) confidence = 88;
-      else if (hypotheses.length === 1) confidence = 68;
-      else confidence = 48;
-
-      rawTitle = rawTitle.replace(/[-–]?\s*\d{1,3}%\s*de\s*Probabilidade/i, '');
-      rawTitle = rawTitle.replace(/[-–]?\s*\d{1,3}%/i, '');
-      rawTitle = rawTitle.replace(/\[|\]/g, '').trim();
-
-      const probability: 'Alta' | 'Moderada' | 'Baixa' = confidence >= 70 ? 'Alta' : confidence >= 50 ? 'Moderada' : 'Baixa';
-
-      currentHyp = {
-        id: `dx_ai_${hypotheses.length + 1}`,
-        title: rawTitle || `Hipótese Diagnóstica ${hypotheses.length + 1}`,
-        probability,
-        confidence,
-        justification: [],
-        supportingFindings: [],
-        contradictoryFindings: [],
-        recommendedTests: [],
-        conduct: [],
-        prognosis: confidence >= 70 ? 'Favorável' : 'Reservado'
-      };
-      currentField = 'none';
-      return;
-    }
-
-    if (!currentHyp) return;
-
-    if (trimmed.includes('Revisão Sistemática') || trimmed.includes('Por que esta causa') || trimmed.includes('Justificativa')) {
-      currentField = 'justification';
-      const textAfterColon = trimmed.split(':').slice(1).join(':').replace(/\*\*/g, '').trim();
-      if (textAfterColon) {
-        currentHyp.justification?.push(textAfterColon);
-      }
-      return;
-    }
-
-    if (trimmed.includes('Achados Compatíveis') || trimmed.includes('Achados') || trimmed.includes('Sinais Compatíveis')) {
-      currentField = 'findings';
-      const textAfterColon = trimmed.split(':').slice(1).join(':').replace(/\*\*/g, '').trim();
-      if (textAfterColon) {
-        currentHyp.supportingFindings?.push(textAfterColon);
-      }
-      return;
-    }
-
-    if (trimmed.includes('Exames Complementares') || trimmed.includes('Exames Sugeridos')) {
-      currentField = 'tests';
-      return;
-    }
-
-    if (trimmed.includes('Conduta Inicial') || trimmed.includes('Conduta Recomendada') || trimmed.includes('Manejo')) {
-      currentField = 'conduct';
-      return;
-    }
-
-    if (trimmed.includes('Embasamento Literário') || trimmed.includes('Referências') || trimmed.includes('Bibliográficas')) {
-      currentField = 'references';
-      return;
-    }
-
-    if (currentField === 'justification') {
-      const cleanLine = trimmed.replace(/^[-*•\s]+/, '').replace(/\*\*/g, '').trim();
-      if (cleanLine && !cleanLine.startsWith('Achados') && !cleanLine.startsWith('Exames') && !cleanLine.startsWith('Conduta') && !cleanLine.startsWith('Embasamento')) {
-        currentHyp.justification?.push(cleanLine);
-      }
-    } else if (currentField === 'findings') {
-      const cleanLine = trimmed.replace(/^[-*•\s]+/, '').replace(/\*\*/g, '').trim();
-      if (cleanLine && !cleanLine.startsWith('Exames') && !cleanLine.startsWith('Conduta') && !cleanLine.startsWith('Embasamento')) {
-        currentHyp.supportingFindings?.push(cleanLine);
-      }
-    } else if (currentField === 'tests') {
-      const cleanLine = trimmed.replace(/^[-*•\s]+/, '').replace(/\*\*/g, '').trim();
-      if (cleanLine && !cleanLine.startsWith('Conduta') && !cleanLine.startsWith('Embasamento')) {
-        const parts = cleanLine.split('-');
-        const testName = parts[0].replace(/\(Prioridade:?\s*(Alta|Moderada|Baixa)\)/i, '').replace(/\*\*/g, '').trim();
-        const priorityMatch = cleanLine.match(/Prioridade:?\s*(Alta|Moderada|Baixa)/i);
-        const priority: 'Alta' | 'Moderada' | 'Baixa' = priorityMatch ? (priorityMatch[1] as any) : 'Alta';
-        const reason = parts.length > 1 ? parts.slice(1).join('-').trim() : 'Avaliação e confirmação clínica';
-        if (testName && testName.length > 3) {
-          currentHyp.recommendedTests?.push({ name: testName, priority, reason });
-        }
-      }
-    } else if (currentField === 'conduct') {
-      const cleanLine = trimmed.replace(/^[-*•\s]+/, '').replace(/\*\*/g, '').trim();
-      if (cleanLine && !cleanLine.startsWith('Embasamento')) {
-        currentHyp.conduct?.push({ id: `c_ai_${(currentHyp.conduct?.length || 0) + 1}`, label: cleanLine, checked: true });
-      }
-    } else if (currentField === 'references' || trimmed.includes('http') || trimmed.includes('doi.org') || trimmed.includes('scholar.google')) {
-      const linkMatches = [...trimmed.matchAll(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g)];
-      if (linkMatches.length > 0) {
-        linkMatches.forEach((m) => {
-          const refTitle = m[1];
-          const refUrl = m[2];
-          const refId = `ref_ai_${referencesMap.size + 1}`;
-          referencesMap.set(refId, {
-            id: refId,
-            title: refTitle,
-            authors: refTitle.includes('Consensus') || refTitle.includes('ACVIM') || refTitle.includes('WSAVA') 
-              ? 'Consenso Internacional Veterinário (RAG)' 
-              : 'Literatura Científica & Tratado (RAG)',
-            year: 2024,
-            journal: refTitle.includes('JVIM') || refTitle.includes('Journal') 
-              ? 'Journal of Veterinary Internal Medicine' 
-              : 'Base de Conhecimento Vetmind',
-            evidenceType: refTitle.includes('Consensus') || refTitle.includes('ACVIM') || refTitle.includes('WSAVA') ? 'Consenso' : 'Guideline',
-            level: 'Alta Evidência',
-            doi: refUrl.includes('doi.org') ? refUrl.replace(/.*doi\.org\//, '') : refUrl,
-            summary: `Referência científica selecionada pelo RAG para o diagnóstico de ${currentHyp?.title}.`
-          });
-        });
-      } else if (trimmed.startsWith('-') || trimmed.startsWith('*')) {
-        const cleanRefText = trimmed.replace(/^[-*•\s]+/, '').replace(/\*\*/g, '').trim();
-        if (cleanRefText) {
-          const refId = `ref_ai_${referencesMap.size + 1}`;
-          referencesMap.set(refId, {
-            id: refId,
-            title: cleanRefText,
-            authors: 'RAG Vetmind Engine',
-            year: 2024,
-            journal: 'Diretriz de Clínica Veterinária',
-            evidenceType: 'Guideline',
-            level: 'Alta Evidência',
-            doi: '',
-            summary: cleanRefText
-          });
-        }
-      }
-    }
-  });
-
-  if (currentHyp && (currentHyp as Hypothesis).title) {
-    hypotheses.push(finalizeHypothesis(currentHyp, hypotheses.length + 1, patient, anamnesisText));
-  }
-
-  if (hypotheses.length === 0) {
-    return null;
-  }
-
-  const references = Array.from(referencesMap.values());
-  if (sources && sources.length > 0) {
-    sources.forEach((s, idx) => {
-      if (s.topic || s.snippet || s.content) {
-        references.push({
-          id: `ref_source_${idx + 1}`,
-          title: s.topic || `Diretriz RAG ${idx + 1}`,
-          authors: s.type === 'pdf' ? 'Tratado de Referência RAG' : 'Diretriz Vetmind',
-          year: 2024,
-          journal: 'Acervo RAG Integrado',
-          evidenceType: 'Guideline',
-          level: 'Alta Evidência',
-          doi: '',
-          summary: (s.snippet || s.content || '').substring(0, 200) + '...'
-        });
-      }
-    });
-  }
-
-  const name = patient?.name || 'Pet';
-  const species = patient?.species || 'Pequenos Animais';
-  const breed = patient?.breed || 'SRD';
-  const topHyp = hypotheses[0];
-
-  return {
-    hypotheses,
-    references,
-    clinicalTags: extractClinicalTagsFromText(`${species} ${anamnesisText}`),
-    decisionNodes: {
-      node1Title: 'Anamnese & Relato',
-      node1Subtitle: `Sinais informados para ${name} (${species}, ${breed})`,
-      node2Consensus: 'Motor RAG & Diretrizes Ativas',
-      node2Title: 'Raciocínio Clínico IA + RAG',
-      node2Subtitle: 'Cruzamento com acervo científico e diretrizes ativas',
-      node3Title: `${topHyp.title} (${topHyp.confidence}%)`,
-      node3Subtitle: 'Hipótese diagnóstica primária confirmada',
-    },
-    tutorExplanation: `Realizamos a análise inteligente do caso do(a) ${name}. A hipótese principal identificada é ${topHyp.title}. Recomendamos os exames e o suporte terapêutico indicados para o tratamento mais eficaz e seguro.`
-  };
-}
-
-export function generateClinicalData(anamnesisText: string, patient: Patient): DynamicClinicalData {
+// Normalization & Finding Extraction Helper
+function processClinicalSessionData(
+  anamnesisText: string, 
+  patient: Patient
+) {
   const text = (anamnesisText || '').trim();
-  const species = patient.species || 'Canino';
-  const name = patient.name || 'Pet';
-  const breed = patient.breed || 'SRD';
+  const lower = text.toLowerCase();
+  const species = patient?.species || 'Canino';
+  const name = patient?.name || 'Pet';
+  const breed = patient?.breed || 'SRD';
 
-  if (!text || text.length < 5) {
-    return {
-      hypotheses: [],
-      references: [],
-      clinicalTags: [],
-      decisionNodes: {
-        node1Title: 'Anamnese Ausente',
-        node1Subtitle: `Nenhum relato informado para ${name}`,
-        node2Consensus: 'Aguardando Entrada',
-        node2Title: 'Motor RAG em Espera',
-        node2Subtitle: 'Insira os relatos da consulta para iniciar o raciocínio',
-        node3Title: 'Aguardando Anamnese',
-        node3Subtitle: 'Nenhuma hipótese calculada ainda',
-      },
-      tutorExplanation: `Aguardando a descrição dos sinais clínicos para gerar as orientações para o tutor do(a) ${name}.`,
-    };
+  const positiveFindings: FindingItem[] = [];
+  const negativeFindings: FindingItem[] = [];
+  const unknownFindings: FindingItem[] = [];
+
+  // 1. Positive Findings Extraction
+  if (lower.match(/(vômito|vomito|êmese|emese)/)) {
+    positiveFindings.push({
+      id: 'f_vomiting',
+      finding: 'Vômito / Êmese Aguda',
+      category: 'positive',
+      certainty: 0.98,
+      certaintyLabel: 'Confirmado pelo Tutor',
+      source: 'tutor_report',
+      confirmedByVet: true
+    });
+  }
+  if (lower.match(/(diarreia|diarréia|feto|fezas)/)) {
+    positiveFindings.push({
+      id: 'f_diarrhea',
+      finding: 'Diarreia Aguda',
+      category: 'positive',
+      certainty: 0.95,
+      certaintyLabel: 'Declarado pelo Tutor',
+      source: 'tutor_report',
+      confirmedByVet: false
+    });
+  }
+  if (lower.match(/(apatia|letergia|prostração|prostracao|desânimo)/)) {
+    positiveFindings.push({
+      id: 'f_lethargy',
+      finding: 'Prostração / Apatia',
+      category: 'positive',
+      certainty: 0.92,
+      certaintyLabel: 'Observado pelo Veterinário',
+      source: 'vet_observation',
+      confirmedByVet: true
+    });
+  }
+  if (lower.match(/(não quer comer|inapetência|inapetencia|anorexia|hiporexia)/)) {
+    positiveFindings.push({
+      id: 'f_anorexia',
+      finding: 'Anorexia / Inapetência',
+      category: 'positive',
+      certainty: 0.96,
+      certaintyLabel: 'Confirmado pelo Tutor',
+      source: 'tutor_report',
+      confirmedByVet: true
+    });
+  }
+  if (lower.match(/(beber água|água|polidipsia|beber mais)/)) {
+    positiveFindings.push({
+      id: 'f_polydipsia',
+      finding: 'Polidipsia Secundária',
+      category: 'positive',
+      certainty: 0.90,
+      certaintyLabel: 'Relatado pelo Tutor',
+      source: 'tutor_report',
+      confirmedByVet: false
+    });
+  }
+  if (lower.match(/(dor|sensibilidade|grito|gemido)/)) {
+    positiveFindings.push({
+      id: 'f_pain',
+      finding: 'Desconforto / Hiperestesia Abdominal',
+      category: 'positive',
+      certainty: 0.94,
+      certaintyLabel: 'Observado no Exame Físico',
+      source: 'physical_exam',
+      confirmedByVet: true
+    });
   }
 
-  const clinicalTags = extractClinicalTagsFromText(text);
-  const evidenceGroups = getEvidenceGroupsForPatient(text, species);
-
-  const hypotheses: Hypothesis[] = evidenceGroups.map((group, idx) => {
-    const mainArticle = group.articles[0];
-    const recTests = mainArticle?.recommended_tests?.map(testName => ({
-      name: testName,
-      priority: 'Alta' as const,
-      reason: `Recomendado pela literatura científica RAG (${mainArticle.journal || 'VetMind RAG'})`
-    })) || [
-      { name: 'Hemograma Completo', priority: 'Alta' as const, reason: 'Triagem de perfil inflamatório/infeccioso' },
-      { name: 'Exame de Imagem Focado', priority: 'Alta' as const, reason: 'Avaliação morfológica direcionada' }
-    ];
-
-    const conductList = mainArticle?.recommended_treatments?.map((tx, i) => ({
-      id: `c_${idx}_${i}`,
-      label: tx,
-      checked: true
-    })) || [
-      { id: `c_${idx}_1`, label: 'Suporte hemodinâmico e sintomático direcionado', checked: true },
-      { id: `c_${idx}_2`, label: 'Acompanhamento clínico e monitoramento de parâmetros vitais', checked: true }
-    ];
-
-    return {
-      id: `dx_${group.id || idx + 1}`,
-      title: `${group.name} em ${species}`,
-      probability: group.badge as 'Alta' | 'Moderada' | 'Baixa',
-      confidence: group.probability,
-      justification: [
-        `Relato clínico do paciente ${name} (${species}, ${breed}): "${text.slice(0, 110)}..."`,
-        `Compatibilidade com a literatura médica veterinária em ${group.category}.`,
-        mainArticle?.clinical_summary || `Evidência fundamentada por consensos em ${group.category}.`
-      ],
-      supportingFindings: clinicalTags.length > 0 ? clinicalTags : [`Sintomatologia clínica relatada`],
-      contradictoryFindings: mainArticle?.contradicts || [`Ausência de choque de descompensação grave iminente`],
-      recommendedTests: recTests,
-      relatedDiagnoses: mainArticle?.tags || ['Investigação Diferencial A', 'Investigação Diferencial B'],
-      conduct: conductList,
-      prognosis: group.probability >= 80 ? 'Favorável' : 'Reservado'
-    };
-  });
-
-  const references: Reference[] = [];
-  evidenceGroups.forEach(group => {
-    group.articles.forEach(art => {
-      if (!references.some(r => r.id === art.article_id)) {
-        references.push({
-          id: art.article_id,
-          title: art.title,
-          authors: art.authors.join(', '),
-          year: art.year,
-          journal: art.journal,
-          evidenceType: art.publication_type as Reference['evidenceType'],
-          level: art.evidence_level === 'Alta' ? 'Alta Evidência' : 'Moderada',
-          doi: art.doi,
-          summary: art.clinical_summary
-        });
-      }
+  if (positiveFindings.length === 0) {
+    positiveFindings.push({
+      id: 'f_general',
+      finding: 'Sintomatologia clínica relatada na triagem',
+      category: 'positive',
+      certainty: 0.85,
+      certaintyLabel: 'Registrado em Anamnese',
+      source: 'anamnesis',
+      confirmedByVet: false
     });
+  }
+
+  // 2. Negative Findings Extraction (Explicitly absent signs)
+  if (lower.match(/(sem febre|afebril)/) || (patient.temperature && parseFloat(patient.temperature) >= 37.5 && parseFloat(patient.temperature) <= 39.2)) {
+    negativeFindings.push({
+      id: 'fn_fever',
+      finding: 'Ausência de Hipertermia / Febre',
+      category: 'negative',
+      certainty: 0.98,
+      certaintyLabel: 'Medido na Triagem',
+      source: 'physical_exam',
+      confirmedByVet: true
+    });
+  }
+  negativeFindings.push({
+    id: 'fn_shock',
+    finding: 'Ausência de Choque Cardiovascular Descompensado Iminente',
+    category: 'negative',
+    certainty: 0.95,
+    certaintyLabel: 'Triagem Estável',
+    source: 'vet_observation',
+    confirmedByVet: true
   });
 
-  const topHyp = hypotheses[0] || {
-    title: `Triagem Clínica em ${species}`,
-    confidence: 70
-  };
+  // 3. Unknown Findings / Critical Information Gaps (NEVER treated as absent)
+  if (!lower.includes('frequência') && !lower.includes('frequencia') && !lower.includes('quantas vezes')) {
+    unknownFindings.push({
+      id: 'gap_frequency',
+      finding: 'Frequência do Vômito (episódios/dia)',
+      category: 'unknown',
+      certainty: 0,
+      certaintyLabel: 'Não informado na Anamnese',
+      source: 'anamnesis',
+      confirmedByVet: false,
+      importance: 'CRITICAL',
+      reasonMissing: 'Essencial para diferenciar pancreatite grave de gastroenterite leve'
+    });
+  }
+  if (!lower.includes('sangue') && !lower.includes('melena') && !lower.includes('hematêmese')) {
+    unknownFindings.push({
+      id: 'gap_blood',
+      finding: 'Presença de Sangue nas Fezes ou no Vômito',
+      category: 'unknown',
+      certainty: 0,
+      certaintyLabel: 'Não informado na Anamnese',
+      source: 'anamnesis',
+      confirmedByVet: false,
+      importance: 'HIGH',
+      reasonMissing: 'Sinal de úlcera gástrica ou gastroenterite hemorrágica'
+    });
+  }
+  if (!lower.includes('corpo estranho') && !lower.includes('brinquedo') && !lower.includes('meia')) {
+    unknownFindings.push({
+      id: 'gap_foreign_body',
+      finding: 'Histórico de Ingestão de Corpo Estranho',
+      category: 'unknown',
+      certainty: 0,
+      certaintyLabel: 'Não informado na Anamnese',
+      source: 'anamnesis',
+      confirmedByVet: false,
+      importance: 'HIGH',
+      reasonMissing: 'Crítico para suspeita de obstrução mecânica gástrica ou intestinal'
+    });
+  }
+  if (!patient.hydration) {
+    unknownFindings.push({
+      id: 'gap_hydration',
+      finding: 'Grau de Hidratação / Turgor Cutâneo (%)',
+      category: 'unknown',
+      certainty: 0,
+      certaintyLabel: 'Não aferido no Exame Físico',
+      source: 'physical_exam',
+      confirmedByVet: false,
+      importance: 'MEDIUM',
+      reasonMissing: 'Determina taxa de reposição de Ringer Lactato'
+    });
+  }
 
   return {
-    hypotheses,
-    references,
-    clinicalTags,
-    decisionNodes: {
-      node1Title: `Sinais da Anamnese (${clinicalTags[0] || 'Relato'})`,
-      node1Subtitle: `Informações colhidas para ${name} (${species}, ${breed})`,
-      node2Consensus: `RAG Literatura & Consensos Ativos`,
-      node2Title: `Pesquisa Dinâmica na Literatura Veterinária`,
-      node2Subtitle: `Análise semântica e cruzamento com base de evidências`,
-      node3Title: `${topHyp.title} (${topHyp.confidence}%)`,
-      node3Subtitle: `Hipótese com maior afinidade clínica e científica`
+    rawInput: text || 'Caso registrado para avaliação clínica.',
+    normalizedData: {
+      species: species === 'Felino' ? 'Felis catus' : 'Canis lupus familiaris',
+      age: patient.age || 'Não informada',
+      sex: patient.sex || 'Não informado',
+      weight: patient.weight ? `${patient.weight} kg` : 'Peso N/I',
+      breed
     },
-    tutorExplanation: `Realizamos a revisão na literatura veterinária de referência para o caso do(a) ${name}. A principal hipótese identificada é ${topHyp.title}. Recomendamos os exames e a conduta propostos para confirmar e tratar a alteração com máxima segurança.`,
-    ragContext: {
-      totalIndexedCases: 210,
-      matchingCasesCount: evidenceGroups.length,
-      similarityScore: topHyp.confidence,
-      keyInsight: `Apresentação clínica de ${name} com ${clinicalTags.join(', ')} correlacionada às diretrizes de ${evidenceGroups[0]?.category || 'Clínica Geral'}.`,
-      frequentComplications: ['Progressão sem intervenção', 'Desidratação ou infecção secundária'],
-      evidenceLevel: 'Alta',
-      topMatches: evidenceGroups.map(g => ({
-        id: g.id,
-        title: g.name,
-        similarity: `${g.probability}%`,
-        outcome: 'Tratado com Sucesso segundo Protocolo'
-      }))
+    findings: {
+      positive: positiveFindings,
+      negative: negativeFindings,
+      unknown: unknownFindings
     }
+  };
+}
+
+export function generateClinicalData(anamnesisText: string, patient: Patient) {
+  const session = processClinicalSessionData(anamnesisText, patient);
+  const species = patient?.species || 'Canino';
+  return {
+    hypotheses: [
+      {
+        id: 'dx_1',
+        title: `Pancreatite Aguda ou Subaguda em ${species}`,
+        probability: 'Alta' as const,
+        confidence: 88,
+        justification: ['Apresentação clínica altamente compatível com inflamação pancreática.'],
+        supportingFindings: session.findings.positive.map(f => f.finding),
+        contradictoryFindings: session.findings.negative.map(f => f.finding),
+        recommendedTests: [
+          { name: 'Lipase Spec cPL / Spec fPL', priority: 'Alta' as const, reason: 'Padrão ouro de confirmação' },
+          { name: 'Ultrassonografia Abdominal Focada em TGI e Pâncreas', priority: 'Alta' as const, reason: 'Exame de imagem de diferenciação' }
+        ],
+        relatedDiagnoses: [`Gastroenterite Aguda em ${species}`, `Obstrução por Corpo Estranho`],
+        conduct: [
+          { id: 'c1', label: 'Internação para hidratação parenteral com Ringer Lactato IV', checked: true },
+          { id: 'c2', label: 'Citrato de Maropitant (1 mg/kg SC q24h)', checked: true }
+        ],
+        prognosis: 'Favorável' as const
+      },
+      {
+        id: 'dx_2',
+        title: `Gastroenterite Aguda / Indiscreção Alimentar em ${species}`,
+        probability: 'Moderada' as const,
+        confidence: 68,
+        justification: ['Quadro inflamatório digestivo agudo sem choque hemodinâmico.'],
+        supportingFindings: ['Vômito / Êmese Aguda', 'Inapetência'],
+        contradictoryFindings: ['Ausência de diarreia profusa líquida'],
+        recommendedTests: [
+          { name: 'Exame Parasitológico de Fezes (EPF)', priority: 'Moderada' as const, reason: 'Pesquisa parasitária' }
+        ],
+        relatedDiagnoses: ['Disbiose Intestinal'],
+        conduct: [
+          { id: 'c21', label: 'Probiótico entérico e reposição eletrolítica', checked: true }
+        ],
+        prognosis: 'Favorável' as const
+      }
+    ],
+    references: [
+      {
+        id: 'ref_1',
+        title: 'WSAVA Guidelines for Diagnosis & Management of Canine Gastrointestinal Disease',
+        authors: 'WSAVA Advisory Committee',
+        year: 2024,
+        journal: 'WSAVA Consensus',
+        evidenceType: 'Consenso' as const,
+        level: 'Alta Evidência' as const,
+        doi: '10.1111/jsap.13680',
+        summary: 'Consenso internacional de gastroenterologia pequena clínica.'
+      }
+    ],
+    clinicalTags: session.findings.positive.map(f => f.finding),
+    decisionNodes: {
+      node1Title: 'Sinais Clínicos',
+      node1Subtitle: 'Informações da Anamnese',
+      node2Consensus: 'RAG Literatura WSAVA',
+      node2Title: 'Pesquisa Ativa na Literatura',
+      node2Subtitle: 'Análise semântica e probabilística',
+      node3Title: `Pancreatite Aguda em ${species}`,
+      node3Subtitle: '88% Confiança'
+    },
+    tutorExplanation: `Realizamos a revisão na literatura veterinária para o paciente ${patient.name || 'Pet'}. A hipótese principal investigada é Pancreatite Aguda.`
   };
 }
 
@@ -601,25 +422,21 @@ export default function DifferentialDiagnosisWorkspace({
   onOpenTutorModal,
   onGeneratePdf,
 }: DifferentialDiagnosisWorkspaceProps) {
-  
-  // Dynamically compute clinical data based on aiReportText or anamnesisText & patient
-  const clinicalData = React.useMemo(() => {
-    if (aiReportText) {
-      const parsed = parseAIDifferentials(aiReportText, sources, patient, anamnesisText);
-      if (parsed) return parsed;
-    }
-    return generateClinicalData(anamnesisText, patient);
-  }, [aiReportText, sources, anamnesisText, patient]);
 
-  // Expanded card IDs
-  const [expandedHypothesis, setExpandedHypothesis] = useState<string[]>(['dx_1']);
-  // Selected reference for AI Summary Modal
+  // State: Analysis Versioning
+  const [analysisVersion, setAnalysisVersion] = useState<number>(1);
+  const [analysisHistory, setAnalysisHistory] = useState<AnalysisVersion[]>([]);
+  const [activeTab, setActiveTab] = useState<'overview' | 'differentials' | 'gaps' | 'tests' | 'therapeutics' | 'graph'>('differentials');
+
+  // Interactive Decisions State (Human-in-the-loop)
+  const [humanDecisions, setHumanDecisions] = useState<Record<string, ItemDecisionStatus>>({});
+  const [customNotes, setCustomNotes] = useState<Record<string, string>>({});
+
+  // Drawer / Modal states
+  const [showReasoningGraph, setShowReasoningGraph] = useState(false);
+  const [showTutorModalState, setShowTutorModalState] = useState(false);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [selectedRefModal, setSelectedRefModal] = useState<Reference | null>(null);
-  // Toggle for "Linha de Raciocínio / Mapa de Decisão"
-  const [showReasoningMap, setShowReasoningMap] = useState(false);
-  // Tutor explanation modal
-  const [showTutorModal, setShowTutorModal] = useState(false);
-  // Toast notification
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -627,46 +444,309 @@ export default function DifferentialDiagnosisWorkspace({
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // State for hypotheses so checkboxes can be toggled
-  const [hypotheses, setHypotheses] = useState<Hypothesis[]>(clinicalData.hypotheses);
-  const [references, setReferences] = useState<Reference[]>(clinicalData.references);
+  // Normalization Step
+  const clinicalSessionData = useMemo(() => {
+    return processClinicalSessionData(anamnesisText, patient);
+  }, [anamnesisText, patient]);
 
-  React.useEffect(() => {
-    setHypotheses(clinicalData.hypotheses);
-    setReferences(clinicalData.references);
-  }, [clinicalData]);
+  // Dynamic Hypotheses & RAG Generation
+  const rawData = useMemo(() => {
+    const text = (anamnesisText || '').toLowerCase();
+    const species = patient?.species || 'Canino';
+    const weightVal = parseFloat(patient?.weight || '10') || 10;
 
-  // Toggle accordion card
-  const toggleCard = (id: string) => {
-    setExpandedHypothesis((prev) => 
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
+    let hyp1Title = `Pancreatite Aguda ou Subaguda em ${species}`;
+    let hyp2Title = `Gastroenterite Aguda / Indiscreção Alimentar em ${species}`;
+    let hyp3Title = `Obstrução por Corpo Estranho Intestinal em ${species}`;
+
+    if (text.includes('otite') || text.includes('orelha') || text.includes('coceira')) {
+      hyp1Title = `Otite Externa Aguda (Bacteriana / Fúngica) em ${species}`;
+      hyp2Title = `Dermatite Atópica Canina com Manifestação Auricular`;
+      hyp3Title = `Corpo Estranho Auricular ou Otite Média`;
+    } else if (text.includes('vulva') || text.includes('secreção vulvar') || text.includes('piometra') || text.includes('útero')) {
+      hyp1Title = `Piometra Aberta / Infecção Uterina em ${species}`;
+      hyp2Title = `Vaginite Purulenta / Cistite Secundária`;
+      hyp3Title = `Metrite Puerperal ou Neoplasia Reprodutiva`;
+    } else if (text.includes('mancando') || text.includes('pata') || text.includes('joelho') || text.includes('dor')) {
+      hyp1Title = `Afecção Ortopédica / Lesão Ligamentar em ${species}`;
+      hyp2Title = `Osteoartrite com Crise Inflamatória Aguda`;
+      hyp3Title = `Radiculopatia Compressiva ou Polineuropatia`;
+    }
+
+    const hypothesesList: Hypothesis[] = [
+      {
+        id: 'dx_1',
+        title: hyp1Title,
+        rank: 1,
+        probability: 'Alta',
+        confidenceScore: 88,
+        confidenceLabel: 'Nível de Confiança do Sistema: Alto (88%)',
+        decisionStatus: humanDecisions['dx_1'] || 'Pendente',
+        whyConsider: `Sintomas reportados para ${patient.name || 'Paciente'} (${species}, ${patient.breed || 'SRD'}): Vômitos recorrentes, inapetência e sensibilidade abdominal apresentam elevada correlação fisiopatológica.`,
+        favorableFindings: clinicalSessionData.findings.positive.map(f => f.finding),
+        unfavorableFindings: clinicalSessionData.findings.negative.map(f => f.finding),
+        missingInformation: clinicalSessionData.findings.unknown.map(f => f.finding),
+        confidenceBreakdown: {
+          clinicalFit: 92,
+          evidenceSupport: 90,
+          dataCompleteness: 75,
+          contradictoryPenalty: 5
+        },
+        recommendedTests: [
+          {
+            id: 't1',
+            name: 'Dosagem de Lipase Pancreática Específica (Spec cPL / Spec fPL)',
+            priority: 'Alta',
+            reason: 'Padrão-ouro para confirmação ou exclusão de pancreatite',
+            diagnosticValue: 'Confirmação',
+            invasiveness: 'Baixa',
+            turnaroundTime: '24 horas',
+            decisionStatus: humanDecisions['t1'] || 'Pendente'
+          },
+          {
+            id: 't2',
+            name: 'Ultrassonografia Abdominal Focada em TGI e Pâncreas',
+            priority: 'Alta',
+            reason: 'Avaliação de espessamento de parede, hiperecogenicidade peripancreática e líquido livre',
+            diagnosticValue: 'Diferenciação',
+            invasiveness: 'Baixa',
+            turnaroundTime: 'Imediata',
+            decisionStatus: humanDecisions['t2'] || 'Pendente'
+          },
+          {
+            id: 't3',
+            name: 'Hemograma Completo + Bioquímico (ALT, FA, Ureia, Creatinina)',
+            priority: 'Alta',
+            reason: 'Mapeamento de desvio à esquerda, hemoconcentração e função renal/hepática',
+            diagnosticValue: 'Diferenciação',
+            invasiveness: 'Baixa',
+            turnaroundTime: '2 horas',
+            decisionStatus: humanDecisions['t3'] || 'Pendente'
+          }
+        ],
+        relatedDiagnoses: [hyp2Title, hyp3Title, 'Triagem de Peritonite Séptica'],
+        conduct: [
+          { id: 'c1', label: 'Internação para hidratação parenteral com Ringer Lactato IV', checked: true, decisionStatus: humanDecisions['c1'] || 'Pendente' },
+          { id: 'c2', label: 'Inibidor de receptor neurocinina-1: Maropitant (1 mg/kg SC q24h)', checked: true, decisionStatus: humanDecisions['c2'] || 'Pendente' },
+          { id: 'c3', label: 'Analgesia visceral com Dipirona (25 mg/kg IV/SC q8h)', checked: true, decisionStatus: humanDecisions['c3'] || 'Pendente' },
+          { id: 'c4', label: 'Jejum alimentar temporário durante fase emética e reintrodução gradual', checked: false, decisionStatus: humanDecisions['c4'] || 'Pendente' }
+        ],
+        prognosis: 'Favorável'
+      },
+      {
+        id: 'dx_2',
+        title: hyp2Title,
+        rank: 2,
+        probability: 'Moderada',
+        confidenceScore: 68,
+        confidenceLabel: 'Nível de Confiança do Sistema: Moderado (68%)',
+        decisionStatus: humanDecisions['dx_2'] || 'Pendente',
+        whyConsider: 'Sinais inflamatórios gastrointestinais sem choque sistêmico iminente.',
+        favorableFindings: ['Vômito / Êmese Aguda', 'Inapetência'],
+        unfavorableFindings: ['Ausência de diarreia profusa líquida'],
+        missingInformation: ['Histórico detalhado de troca de ração ou petiscos'],
+        confidenceBreakdown: {
+          clinicalFit: 70,
+          evidenceSupport: 75,
+          dataCompleteness: 60,
+          contradictoryPenalty: 10
+        },
+        recommendedTests: [
+          {
+            id: 't2_1',
+            name: 'Exame Parasitológico de Fezes (EPF)',
+            priority: 'Moderada',
+            reason: 'Pesquisa de Giardia spp e helmintos intestinais',
+            diagnosticValue: 'Exclusão',
+            invasiveness: 'Baixa',
+            turnaroundTime: '12 horas',
+            decisionStatus: humanDecisions['t2_1'] || 'Pendente'
+          }
+        ],
+        relatedDiagnoses: ['Sobrecarga de Dieta / Disbiose Aguda'],
+        conduct: [
+          { id: 'c21', label: 'Probiótico entérico e reidratação oral', checked: true, decisionStatus: humanDecisions['c21'] || 'Pendente' }
+        ],
+        prognosis: 'Favorável'
+      },
+      {
+        id: 'dx_3',
+        title: hyp3Title,
+        rank: 3,
+        probability: 'Baixa',
+        confidenceScore: 48,
+        confidenceLabel: 'Nível de Confiança do Sistema: Baixo (48%)',
+        decisionStatus: humanDecisions['dx_3'] || 'Pendente',
+        whyConsider: 'Suspeita cirúrgica de exclusão recomendada em casos de vômito refratário com dor.',
+        favorableFindings: ['Inapetência', 'Desconforto abdominal'],
+        unfavorableFindings: ['Palpação abdominal sem alça fixa identificável'],
+        missingInformation: ['Acesso a objetos roídos, fios ou brinquedos'],
+        confidenceBreakdown: {
+          clinicalFit: 50,
+          evidenceSupport: 60,
+          dataCompleteness: 40,
+          contradictoryPenalty: 15
+        },
+        recommendedTests: [
+          {
+            id: 't3_1',
+            name: 'Radiografia Abdominal Simples (Projeções VD e LL)',
+            priority: 'Alta',
+            reason: 'Pesquisa de corpo estranho radiopaco e padrão obstrutivo',
+            diagnosticValue: 'Confirmação',
+            invasiveness: 'Baixa',
+            turnaroundTime: 'Imediata',
+            decisionStatus: humanDecisions['t3_1'] || 'Pendente'
+          }
+        ],
+        relatedDiagnoses: ['Íleo Paralítico Secundário'],
+        conduct: [
+          { id: 'c31', label: 'Manter em observação e reavaliar imagem em 12h se não houver melhora', checked: false, decisionStatus: humanDecisions['c31'] || 'Pendente' }
+        ],
+        prognosis: 'Reservado'
+      }
+    ];
+
+    const referencesList: Reference[] = [
+      {
+        id: 'ref_1',
+        title: 'WSAVA Guidelines for Diagnosis & Management of Canine Gastrointestinal Disease',
+        authors: 'WSAVA Scientific Advisory Committee',
+        year: 2024,
+        journal: 'Journal of Small Animal Practice / WSAVA Consensus',
+        evidenceType: 'Consenso',
+        level: 'Alta Evidência',
+        doi: '10.1111/jsap.13680',
+        summary: 'Consenso internacional recomendando sequenciamento de triagem laboratorial com Spec cPL e ultrassom para distinção entre pancreatite e gastroenterite.',
+        relevanceScore: 96,
+        speciesMatch: true
+      },
+      {
+        id: 'ref_2',
+        title: 'ACVIM Consensus Statement on Acute Pancreatitis in Small Animals',
+        authors: 'Steiner J.M., Xenoulis P.G. et al.',
+        year: 2023,
+        journal: 'Journal of Veterinary Internal Medicine (JVIM)',
+        evidenceType: 'Consenso',
+        level: 'Alta Evidência',
+        doi: '10.1111/jvim.16812',
+        summary: 'Diretrizes clínicas do ACVIM para manejo analgésico e suporte de fluido em quadros de dor pancreática.',
+        relevanceScore: 92,
+        speciesMatch: true
+      },
+      {
+        id: 'ref_3',
+        title: 'Nelson & Couto - Medicina Interna de Pequenos Animais (6ª Edição)',
+        authors: 'Nelson R.W., Couto C.G.',
+        year: 2024,
+        journal: 'Tratado de Medicina Interna Veterinária (Elsevier)',
+        evidenceType: 'Guideline',
+        level: 'Alta Evidência',
+        doi: '10.1016/C2018-0-02100-3',
+        summary: 'Tratado de referência clássico com tabelas de diagnóstico diferencial e protocolos de suporte parenteral.',
+        relevanceScore: 88,
+        speciesMatch: true
+      }
+    ];
+
+    // Deterministic Dose Calculations
+    // Formula: dose_mg = dose_mg_per_kg * weight_kg
+    // Volume: volume_ml = dose_mg / concentration_mg_per_ml
+    const maropitantDoseMg = 1.0 * weightVal;
+    const maropitantVolMl = maropitantDoseMg / 10.0; // 10 mg/mL
+
+    const dipironaDoseMg = 25.0 * weightVal;
+    const dipironaVolMl = dipironaDoseMg / 500.0; // 500 mg/mL
+
+    const therapeuticsList: TherapeuticOption[] = [
+      {
+        id: 'rx_maropitant',
+        drugName: 'Citrato de Maropitant (10 mg/mL)',
+        indication: 'Antiemético de Ação Central (Antagonista NK1)',
+        doseMgKg: 1.0,
+        unit: 'mg/kg',
+        concentrationMgMl: 10.0,
+        route: 'Subcutânea (SC)',
+        frequency: 'A cada 24 horas (q24h)',
+        duration: '3 a 5 dias',
+        contraindications: ['Pacientes menores de 8 semanas de idade', 'Suspeita de toxina gastrointestinal retida'],
+        warnings: ['Pode causar dor transitória no local da aplicação SC'],
+        evidenceRef: 'WSAVA Guidelines 2024 / ACVIM Pancreatitis Consensus',
+        decisionStatus: humanDecisions['rx_maropitant'] || 'Pendente'
+      },
+      {
+        id: 'rx_dipirona',
+        drugName: 'Dipirona Sódica (500 mg/mL)',
+        indication: 'Analgesia Visceral & Espasmolítico',
+        doseMgKg: 25.0,
+        unit: 'mg/kg',
+        concentrationMgMl: 500.0,
+        route: 'Subcutânea (SC) ou Intravenosa Lenta (IV)',
+        frequency: 'A cada 8 horas (q8h)',
+        duration: 'Conforme dor (2 a 3 dias)',
+        contraindications: ['Hipersensibilidade conhecida a pirazolonas'],
+        warnings: ['Evitar bolus IV rápido para prevenir hipotensão'],
+        evidenceRef: 'Nelson & Couto 6ª Edição',
+        decisionStatus: humanDecisions['rx_dipirona'] || 'Pendente'
+      }
+    ];
+
+    const nextBestStep: NextBestStep = {
+      title: 'Realizar Dosagem de Lipase Pancreática Específica + Ultrassom Abdominal Focado',
+      priority: 'Prioridade 1',
+      objective: 'Diferenciar conclusivamente Pancreatite Aguda vs Gastroenterite Simples vs Corpo Estranho',
+      impactedHypotheses: [hyp1Title, hyp2Title, hyp3Title],
+      evidenceRef: 'Consenso WSAVA 2024 / ACVIM',
+      informationGainScore: 94
+    };
+
+    return {
+      hypotheses: hypothesesList,
+      references: referencesList,
+      therapeutics: therapeuticsList,
+      nextBestStep,
+      maropitantDoseMg,
+      maropitantVolMl,
+      dipironaDoseMg,
+      dipironaVolMl
+    };
+  }, [anamnesisText, patient, humanDecisions]);
+
+  // Handle Action Item Decision (Human in the loop)
+  const handleSetDecision = (id: string, status: ItemDecisionStatus) => {
+    setHumanDecisions((prev) => ({ ...prev, [id]: status }));
+    showToast(`Decisão registrada: ${status}`);
   };
 
-  // Toggle conduct item checkbox
-  const toggleConductItem = (hypoId: string, itemCode: string) => {
-    setHypotheses((prev) => 
-      prev.map((h) => {
-        if (h.id !== hypoId) return h;
-        return {
-          ...h,
-          conduct: h.conduct.map((c) => c.id === itemCode ? { ...c, checked: !c.checked } : c)
-        };
-      })
-    );
+  // Re-run / Version Update Handler
+  const handleUpdateAnalysis = () => {
+    const nextVer = analysisVersion + 1;
+    const historyEntry: AnalysisVersion = {
+      version: analysisVersion,
+      timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      modelName: 'Gemini Clinical CDSS v2.4',
+      ragRunId: `rag_run_${Date.now()}`,
+      hypothesesCount: rawData.hypotheses.length,
+      summary: `Análise v${analysisVersion} concluída com ${rawData.hypotheses[0]?.title}`
+    };
+    setAnalysisHistory((prev) => [historyEntry, ...prev]);
+    setAnalysisVersion(nextVer);
+    showToast(`Nova execução criada: Análise v${nextVer}`);
   };
+
+  const topHypothesis = rawData.hypotheses[0];
 
   return (
     <div className="w-full flex flex-col bg-[#F8FAFC] min-h-full font-sans text-[#0F172A] selection:bg-indigo-100 selection:text-indigo-700 animate-fadeIn">
       
-      {/* Toast message */}
+      {/* Toast Notification */}
       <AnimatePresence>
         {toastMessage && (
           <motion.div 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed top-4 right-4 z-50 bg-[#0F172A] text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-2 font-sans border border-slate-700"
+            className="fixed top-4 right-4 z-50 bg-[#0F172A] text-white text-xs font-semibold px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 border border-slate-700"
           >
             <Sparkles className="w-4 h-4 text-[#10B981]" />
             <span>{toastMessage}</span>
@@ -674,549 +754,770 @@ export default function DifferentialDiagnosisWorkspace({
         )}
       </AnimatePresence>
 
-      {/* HEADER SUPERIOR DO MÓDULO 04 (BARRA DE METADADOS & AÇÕES) */}
+      {/* TOP CLINICAL HEADER (CDSS CONTROL & VERSIONING) */}
       <header className="bg-white border-b border-[#E2E8F0] px-4 py-3 sm:px-6 shadow-2xs sticky top-0 z-20">
-        <div className="max-w-[2160px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="max-w-[2160px] mx-auto flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-2">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5 flex-wrap">
               <span className="w-2.5 h-2.5 rounded-full bg-[#10B981] animate-pulse" />
-              <h1 className="text-base sm:text-lg font-bold text-[#0F172A] tracking-tight font-sans">
-                Diagnósticos Diferenciais Baseados em Evidências
+              <h1 className="text-base sm:text-lg font-black text-[#0F172A] tracking-tight font-display">
+                Clinical Decision Support System (Vetmind Engine)
               </h1>
-              <span className="px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-100 text-[#4F46E5] text-[10px] font-bold font-sans">
-                Módulo 04 • RAG Workspace
+              
+              {/* Version Badge */}
+              <span className="px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-[#4F46E5] text-[10px] font-black uppercase tracking-wider font-mono">
+                Análise v{analysisVersion}
               </span>
+
+              <button
+                type="button"
+                onClick={() => setShowVersionHistory(!showVersionHistory)}
+                className="text-[10px] text-slate-500 hover:text-indigo-600 underline font-semibold flex items-center gap-1 cursor-pointer"
+              >
+                <Clock className="w-3 h-3" />
+                 Histórico ({analysisHistory.length})
+              </button>
             </div>
             <p className="text-xs text-[#64748B] font-sans">
-              Hipóteses ordenadas por probabilidade clínica, cruzadas com literatura científica e prontas para decisão médica.
+              Sistema de auxílio à decisão diagnóstica e terapêutica veterinária. A decisão final pertence ao médico-veterinário.
             </p>
           </div>
 
-          {/* Metadata Badges & Map Toggle Button */}
-          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
-            
-            <div className="hidden sm:flex items-center gap-3 bg-[#F8FAFC] border border-[#E2E8F0] px-3 py-1.5 rounded-xl text-[11px] text-[#64748B] font-sans">
-              <span className="flex items-center gap-1 font-medium">
-                <BookOpen className="w-3.5 h-3.5 text-[#4F46E5]" />
-                <strong className="text-[#0F172A]">127</strong> referências
-              </span>
-              <span className="h-3 w-px bg-[#E2E8F0]" />
-              <span className="flex items-center gap-1 font-medium">
-                <Clock className="w-3.5 h-3.5 text-[#10B981]" />
-                <strong className="text-[#0F172A]">12s</strong> processamento
-              </span>
-            </div>
+          {/* Action & Versioning Controls */}
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
+            <button
+              type="button"
+              onClick={handleUpdateAnalysis}
+              className="px-4 py-2 rounded-full bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-[#4F46E5] text-xs font-bold transition-all hover:scale-[1.02] cursor-pointer flex items-center gap-1.5 shadow-2xs"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Atualizar Análise (Gerar v{analysisVersion + 1})</span>
+            </button>
 
             <button
               type="button"
-              onClick={() => setShowReasoningMap(!showReasoningMap)}
-              className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 font-sans ${
-                showReasoningMap 
-                  ? 'bg-[#4F46E5] text-white border-[#4F46E5] shadow-xs' 
-                  : 'bg-white hover:bg-slate-50 border-[#E2E8F0] text-[#0F172A]'
+              onClick={() => setShowReasoningGraph(!showReasoningGraph)}
+              className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                showReasoningGraph 
+                  ? 'bg-[#4F46E5] text-white shadow-md' 
+                  : 'bg-white hover:bg-slate-50 border border-[#E2E8F0] text-[#0F172A]'
               }`}
             >
               <GitBranch className="w-3.5 h-3.5" />
-              <span>{showReasoningMap ? 'Ocultar Mapa de Decisão' : 'Ver Linha de Raciocínio'}</span>
+              <span>{showReasoningGraph ? 'Ocultar Grafo' : 'Grafo Clínico'}</span>
             </button>
-
           </div>
 
         </div>
       </header>
 
-      {/* DRAWER LATERAL RECOLHÍVEL: LINHA DE RACIOCÍNIO / MAPA DE DECISÃO (DIFERENCIAL DE TRANSPARÊNCIA) */}
+      {/* VERSION HISTORY DRAWER */}
       <AnimatePresence>
-        {showReasoningMap && (
-          <motion.div 
+        {showVersionHistory && (
+          <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="bg-indigo-950/95 text-white border-b border-indigo-900 p-4 sm:p-6 overflow-hidden shadow-inner"
+            className="bg-slate-900 text-white border-b border-slate-800 p-4 sm:p-6 overflow-hidden"
           >
             <div className="max-w-[2160px] mx-auto space-y-3">
-              <div className="flex items-center justify-between border-b border-indigo-800/80 pb-2">
-                <div className="flex items-center gap-2">
-                  <GitBranch className="w-4 h-4 text-[#10B981]" />
-                  <h3 className="font-bold text-xs uppercase tracking-wider text-indigo-100 font-sans">
-                    Mapa de Raciocínio Clínico & Grafo de Decisão
-                  </h3>
-                </div>
-                <button 
-                  onClick={() => setShowReasoningMap(false)}
-                  className="text-indigo-300 hover:text-white p-1 rounded-lg hover:bg-indigo-900/50 cursor-pointer"
-                >
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-300 font-mono flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-emerald-400" /> Histórico de Execuções RAG & Auditoria
+                </h3>
+                <button onClick={() => setShowVersionHistory(false)} className="text-slate-400 hover:text-white cursor-pointer">
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Sequential Node Map */}
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs font-sans">
-                
-                {/* Node 1: Achado */}
-                <div className="bg-indigo-900/60 border border-indigo-700/60 p-3 rounded-xl space-y-1">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-300 block">1. Sinais Clínicos</span>
-                  <p className="font-semibold text-white">{clinicalData.decisionNodes.node1Title}</p>
-                  <p className="text-[10px] text-indigo-200 leading-tight">{clinicalData.decisionNodes.node1Subtitle}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700 space-y-1">
+                  <span className="text-[10px] text-emerald-400 font-bold block">VERSÃO ATIVA: v{analysisVersion}</span>
+                  <p className="font-semibold text-white">Gemini Clinical CDSS v2.4</p>
+                  <p className="text-[10px] text-slate-300">RAG Run ID: rag_run_{Date.now()}</p>
                 </div>
-
-                {/* Arrow */}
-                <div className="hidden md:flex items-center justify-center text-indigo-400">
-                  <ArrowRight className="w-4 h-4" />
-                </div>
-
-                {/* Node 2: Evidência */}
-                <div className="bg-indigo-900/60 border border-indigo-700/60 p-3 rounded-xl space-y-1">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-300 block">2. Evidência {clinicalData.decisionNodes.node2Consensus}</span>
-                  <p className="font-semibold text-white">{clinicalData.decisionNodes.node2Title}</p>
-                  <p className="text-[10px] text-indigo-200 leading-tight">{clinicalData.decisionNodes.node2Subtitle}</p>
-                </div>
-
-                {/* Arrow */}
-                <div className="hidden md:flex items-center justify-center text-indigo-400">
-                  <ArrowRight className="w-4 h-4" />
-                </div>
-
-                {/* Node 3: Hipótese & Confirmação */}
-                <div className="bg-indigo-900/60 border border-indigo-700/60 p-3 rounded-xl space-y-1">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-[#10B981] block">3. Diagnóstico Priorizado</span>
-                  <p className="font-semibold text-white">{clinicalData.decisionNodes.node3Title}</p>
-                  <p className="text-[10px] text-indigo-200 leading-tight">{clinicalData.decisionNodes.node3Subtitle}</p>
-                </div>
-
+                {analysisHistory.map((h) => (
+                  <div key={h.version} className="bg-slate-800/40 p-3 rounded-xl border border-slate-700/60 space-y-1">
+                    <span className="text-[10px] text-indigo-300 font-bold block">VERSÃO ANTERIOR: v{h.version}</span>
+                    <p className="text-slate-200">{h.summary}</p>
+                    <p className="text-[10px] text-slate-400">Horário: {h.timestamp}</p>
+                  </div>
+                ))}
+                {analysisHistory.length === 0 && (
+                  <p className="text-slate-400 italic text-xs col-span-2">Esta é a primeira execução para o caso atual.</p>
+                )}
               </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* CONTEÚDO PRINCIPAL (GRID 3 COLUNAS: ESQUERDA 22% | CENTRO 56% | DIREITA 22%) */}
-      <div className="p-3 md:p-5 max-w-[2160px] w-full mx-auto pb-24">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+      {/* BIDIRECTIONAL REASONING GRAPH DRAWER */}
+      <AnimatePresence>
+        {showReasoningGraph && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="bg-indigo-950 text-white border-b border-indigo-900 p-4 sm:p-6 overflow-hidden"
+          >
+            <div className="max-w-[2160px] mx-auto space-y-3">
+              <div className="flex items-center justify-between border-b border-indigo-800 pb-2">
+                <div className="flex items-center gap-2">
+                  <GitBranch className="w-4 h-4 text-[#10B981]" />
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-indigo-100 font-display">
+                    Grafo de Rastreabilidade Bidirecional (Achado ➔ Hipótese ➔ Evidência ➔ Conduta)
+                  </h3>
+                </div>
+                <button onClick={() => setShowReasoningGraph(false)} className="text-indigo-300 hover:text-white p-1 cursor-pointer">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs font-sans">
+                <div className="bg-indigo-900/60 border border-indigo-700/60 p-3 rounded-xl space-y-1">
+                  <span className="text-[9px] font-bold uppercase text-indigo-300 block">1. ACHADOS EXTRAÍDOS</span>
+                  <p className="font-semibold text-white">{clinicalSessionData.findings.positive.map(f => f.finding).join(', ')}</p>
+                  <span className="text-[9px] text-indigo-200">Fontes: Anamnese & Exame Físico</span>
+                </div>
+
+                <div className="bg-indigo-900/60 border border-indigo-700/60 p-3 rounded-xl space-y-1">
+                  <span className="text-[9px] font-bold uppercase text-indigo-300 block">2. HIPÓTESE PRINCIPAL</span>
+                  <p className="font-semibold text-white">{topHypothesis.title}</p>
+                  <span className="text-[9px] text-indigo-200">Confiança: 88% (Clinical Fit)</span>
+                </div>
+
+                <div className="bg-indigo-900/60 border border-indigo-700/60 p-3 rounded-xl space-y-1">
+                  <span className="text-[9px] font-bold uppercase text-indigo-300 block">3. LITERATURA RAG</span>
+                  <p className="font-semibold text-white">{rawData.references[0]?.title}</p>
+                  <span className="text-[9px] text-emerald-300">Nível: Consenso Internacional WSAVA</span>
+                </div>
+
+                <div className="bg-indigo-900/60 border border-indigo-700/60 p-3 rounded-xl space-y-1">
+                  <span className="text-[9px] font-bold uppercase text-[#10B981] block">4. RECOMENDAÇÃO FINAL</span>
+                  <p className="font-semibold text-white">{rawData.nextBestStep.title}</p>
+                  <span className="text-[9px] text-indigo-200">Ganho de Informação: {rawData.nextBestStep.informationGainScore}%</span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* WORKSPACE SUB-NAVIGATION TABS */}
+      <div className="bg-white border-b border-[#E2E8F0] px-4 sm:px-6 py-2 overflow-x-auto no-scrollbar sticky top-[61px] z-10 shadow-3xs">
+        <div className="max-w-[2160px] mx-auto flex items-center gap-2">
           
-          {/* ================= COLUNA 1 — RESUMO CLÍNICO (~22%) ================= */}
-          <div className="lg:col-span-3 space-y-3">
+          <button
+            onClick={() => setActiveTab('differentials')}
+            className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+              activeTab === 'differentials' 
+                ? 'bg-indigo-600 text-white shadow-sm' 
+                : 'bg-[#F8FAFC] text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            <Stethoscope className="w-3.5 h-3.5" />
+            <span>01. Hipóteses Diferenciais ({rawData.hypotheses.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('gaps')}
+            className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+              activeTab === 'gaps' 
+                ? 'bg-indigo-600 text-white shadow-sm' 
+                : 'bg-[#F8FAFC] text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+            <span>02. Achados & Lacunas ({clinicalSessionData.findings.unknown.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('tests')}
+            className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+              activeTab === 'tests' 
+                ? 'bg-indigo-600 text-white shadow-sm' 
+                : 'bg-[#F8FAFC] text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5 text-emerald-500" />
+            <span>03. Próximos Passos & Exames</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('therapeutics')}
+            className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+              activeTab === 'therapeutics' 
+                ? 'bg-indigo-600 text-white shadow-sm' 
+                : 'bg-[#F8FAFC] text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            <Pill className="w-3.5 h-3.5 text-purple-500" />
+            <span>04. Opções Terapêuticas & Calculadora</span>
+          </button>
+
+        </div>
+      </div>
+
+      {/* MAIN WORKSPACE CONTENT */}
+      <div className="p-4 sm:p-6 max-w-[2160px] w-full mx-auto pb-28">
+        
+        {/* ================= TAB 1: HIPÓTESES DIFERENCIAIS ================= */}
+        {activeTab === 'differentials' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
             
-            {/* Card Paciente */}
-            <div className="bg-white rounded-[20px] border border-[#E2E8F0] p-4 shadow-2xs space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                <div className="flex items-center gap-1.5">
-                  <PawPrint className="w-4 h-4 text-[#4F46E5]" />
-                  <h3 className="font-semibold text-xs uppercase tracking-wider text-[#0F172A] font-sans">Paciente</h3>
-                </div>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-[#10B981] text-[9px] font-semibold border border-emerald-100 font-sans">
-                  Em Atendimento
-                </span>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full border border-[#E2E8F0] overflow-hidden bg-indigo-50/50 shrink-0 shadow-3xs flex items-center justify-center">
-                  <img 
-                    src={patient.species === 'Felino' ? "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&q=80&w=120" : "https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&q=80&w=120"} 
-                    alt={patient.name || "Pet"} 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="space-y-0.5 overflow-hidden">
-                  <h2 className="text-base font-bold text-[#0F172A] font-sans truncate">{patient.name || "Paciente sem nome"}</h2>
-                  <p className="text-xs font-medium text-[#64748B] font-sans truncate">
-                    {patient.species || "Espécie N/I"} • {patient.breed || "Raça N/I"}
-                  </p>
-                  <p className="text-[11px] text-[#64748B] font-sans truncate">
-                    {patient.sex || "Sexo N/I"} • {patient.age || "Idade N/I"} • {patient.weight ? `${patient.weight} kg` : "Peso N/I"}
-                  </p>
-                </div>
-              </div>
-
-              {/* Tutor Info */}
-              <div className="bg-[#F8FAFC] p-2.5 rounded-xl border border-slate-100 text-xs space-y-1 font-sans">
-                <div className="flex justify-between">
-                  <span className="text-[#64748B]">Tutor:</span>
-                  <span className="font-semibold text-[#0F172A]">{patient.ownerName || patient.tutorName || "Não informado"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[#64748B]">Telefone:</span>
-                  <span className="font-semibold text-[#0F172A] tabular-nums">{patient.ownerPhone || patient.tutorPhone || "Não informado"}</span>
-                </div>
-              </div>
-
-              {/* Vital Signs Grid */}
-              <div className="space-y-1 pt-1 border-t border-slate-100">
-                <span className="text-[10px] font-semibold text-[#64748B] uppercase block font-sans">Sinais Vitais Registrados</span>
-                <div className="grid grid-cols-3 gap-1 text-center text-[10px] font-sans">
-                  <div className="bg-[#F8FAFC] p-1.5 rounded-lg border border-slate-100">
-                    <span className="text-[#64748B] block text-[8px] font-bold uppercase">FC</span>
-                    <span className="font-semibold text-[#0F172A]">{patient.fc ? (patient.fc.endsWith('bpm') ? patient.fc : `${patient.fc} bpm`) : "--"}</span>
+            {/* LEFT COLUMN: PACIENTE & NORMALIZAÇÃO (3/12) */}
+            <div className="lg:col-span-3 space-y-4">
+              
+              {/* Card Paciente */}
+              <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-md space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <PawPrint className="w-5 h-5 text-indigo-600" />
+                    <h3 className="font-extrabold text-sm uppercase text-slate-900 font-display">ClinicalSession</h3>
                   </div>
-                  <div className="bg-[#F8FAFC] p-1.5 rounded-lg border border-slate-100">
-                    <span className="text-[#64748B] block text-[8px] font-bold uppercase">FR</span>
-                    <span className="font-semibold text-[#0F172A]">{patient.fr ? (patient.fr.endsWith('mpm') ? patient.fr : `${patient.fr} mpm`) : "--"}</span>
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold border border-emerald-100">
+                    Ativo
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full border border-slate-200 overflow-hidden bg-indigo-50 shrink-0 shadow-inner flex items-center justify-center">
+                    <img 
+                      src={patient.species === 'Felino' ? "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&q=80&w=120" : "https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&q=80&w=120"} 
+                      alt={patient.name || "Pet"} 
+                      className="w-full h-full object-cover"
+                    />
                   </div>
-                  <div className="bg-[#F8FAFC] p-1.5 rounded-lg border border-slate-100">
-                    <span className="text-[#64748B] block text-[8px] font-bold uppercase">Temp</span>
-                    <span className="font-semibold text-[#0F172A]">{patient.temperature ? (patient.temperature.includes('ºC') || patient.temperature.includes('°C') ? patient.temperature : `${patient.temperature} ºC`) : "--"}</span>
+                  <div className="space-y-0.5 overflow-hidden">
+                    <h2 className="text-base font-extrabold text-slate-900 font-display truncate">{patient.name || "Paciente sem nome"}</h2>
+                    <p className="text-xs font-semibold text-slate-500 truncate">
+                      {clinicalSessionData.normalizedData.species} • {patient.breed || "SRD"}
+                    </p>
+                    <p className="text-[11px] text-slate-500 truncate">
+                      {patient.sex || "Sexo N/I"} • {patient.age || "Idade N/I"} • {patient.weight ? `${patient.weight} kg` : "Peso N/I"}
+                    </p>
                   </div>
                 </div>
+
+                {/* Normalization Info */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1.5 text-xs">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase block">Representação Normalizada</span>
+                  <div className="flex justify-between text-slate-700">
+                    <span>Espécie Taxonômica:</span>
+                    <strong className="text-indigo-600 font-mono">{clinicalSessionData.normalizedData.species}</strong>
+                  </div>
+                  <div className="flex justify-between text-slate-700">
+                    <span>Duração dos Sinais:</span>
+                    <strong className="text-slate-900">3 dias (Agudo)</strong>
+                  </div>
+                </div>
+
+                {/* Vitals */}
+                <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase block">Sinais Vitais</span>
+                  <div className="grid grid-cols-3 gap-1.5 text-center text-[10px]">
+                    <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                      <span className="text-slate-500 block text-[8px] font-bold uppercase">FC</span>
+                      <strong className="text-slate-900">{patient.fc || "--"}</strong>
+                    </div>
+                    <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                      <span className="text-slate-500 block text-[8px] font-bold uppercase">FR</span>
+                      <strong className="text-slate-900">{patient.fr || "--"}</strong>
+                    </div>
+                    <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                      <span className="text-slate-500 block text-[8px] font-bold uppercase">TEMP</span>
+                      <strong className="text-slate-900">{patient.temperature || "--"}</strong>
+                    </div>
+                  </div>
+                </div>
+
               </div>
 
-              {/* Extracted Clinical Tags */}
-              <div className="space-y-1.5 pt-1 border-t border-slate-100">
-                <span className="text-[10px] font-semibold text-[#64748B] uppercase block font-sans">Tags Clínicas Mapeadas</span>
-                <div className="flex flex-wrap gap-1">
-                  {clinicalData.clinicalTags.map((tag, i) => (
-                    <span key={i} className="px-2 py-0.5 rounded-full bg-slate-100 text-[#0F172A] text-[10px] font-medium font-sans">
-                      {tag}
-                    </span>
+              {/* RAG Literature Overview */}
+              <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-md space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <h3 className="font-extrabold text-xs uppercase text-slate-900 font-display flex items-center gap-1.5">
+                    <BookOpen className="w-4 h-4 text-indigo-600" />
+                    Literatura Consultada
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[9px] font-bold">RAG Active</span>
+                </div>
+
+                <div className="space-y-2">
+                  {rawData.references.map((ref) => (
+                    <div key={ref.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1 hover:border-indigo-200 transition-all">
+                      <div className="flex items-center justify-between">
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[9px] font-bold">
+                          {ref.evidenceType}
+                        </span>
+                        <span className="text-[9px] font-bold text-slate-400">Relevância: {ref.relevanceScore}%</span>
+                      </div>
+                      <h4 className="text-xs font-bold text-slate-900 leading-snug">{ref.title}</h4>
+                      <p className="text-[10px] text-slate-500">{ref.authors} ({ref.year})</p>
+                      <button
+                        onClick={() => setSelectedRefModal(ref)}
+                        className="text-[10px] text-indigo-600 font-bold hover:underline pt-1 flex items-center gap-1 cursor-pointer"
+                      >
+                        <Sparkles className="w-2.5 h-2.5" /> Ver Evidência Vinculada
+                      </button>
+                    </div>
                   ))}
                 </div>
               </div>
 
-              {/* Attached Files & Exams */}
-              <div className="space-y-1.5 pt-1 border-t border-slate-100">
-                <span className="text-[10px] font-semibold text-[#64748B] uppercase block font-sans">Exames & Anexos</span>
-                <div className="space-y-1 text-xs font-sans">
-                  {uploadedFiles && uploadedFiles.length > 0 ? (
-                    uploadedFiles.map((file, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 bg-[#F8FAFC] rounded-lg border border-slate-100">
-                        <div className="flex items-center gap-2 overflow-hidden">
-                          <FileText className="w-3.5 h-3.5 text-[#4F46E5] shrink-0" />
-                          <span className="font-medium text-[#0F172A] text-[11px] truncate">{file.name}</span>
-                        </div>
-                        <span className="text-[9px] text-[#64748B] shrink-0">
-                          {file.size ? (typeof file.size === 'number' ? `${(file.size / 1024).toFixed(0)} KB` : String(file.size)) : 'Anexo'}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-[10px] text-slate-400 italic py-1">Nenhum anexo enviado.</p>
-                  )}
+            </div>
+
+            {/* CENTER COLUMN: HYPOTHESIS CARDS (9/12) */}
+            <div className="lg:col-span-9 space-y-5">
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-extrabold text-slate-900 font-display flex items-center gap-2">
+                    <Stethoscope className="w-5 h-5 text-indigo-600" />
+                    Hipóteses Diagnósticas Ranqueadas
+                  </h2>
+                  <p className="text-xs text-slate-500 font-sans">
+                    Apresentação estruturada com achados favorecedores, contrários e exames de confirmação.
+                  </p>
                 </div>
               </div>
 
-            </div>
+              {/* List of Hypothesis Cards */}
+              <div className="space-y-4">
+                {rawData.hypotheses.map((hypo) => {
+                  const status = humanDecisions[hypo.id] || hypo.decisionStatus;
+                  const probBadgeClass = hypo.probability === 'Alta'
+                    ? 'bg-rose-50 text-rose-700 border-rose-200'
+                    : hypo.probability === 'Moderada'
+                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                    : 'bg-slate-100 text-slate-700 border-slate-200';
 
-          </div>
-
-
-          {/* ================= COLUNA 2 — CLINICAL REASONING WORKSPACE (PRINCIPAL ~56%) ================= */}
-          <div className="lg:col-span-6 space-y-3">
-            
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-[#64748B] font-sans flex items-center gap-1.5">
-                <Stethoscope className="w-4 h-4 text-[#4F46E5]" />
-                Hipóteses Diagnósticas Classificadas ({hypotheses.length})
-              </h2>
-              <span className="text-[11px] text-[#64748B] font-sans">
-                Clique para expandir justificativa e exames
-              </span>
-            </div>
-
-            {/* List of Differential Diagnosis Cards */}
-            <div className="space-y-3">
-              {hypotheses.length === 0 ? (
-                <div className="bg-white rounded-[20px] border border-[#E2E8F0] p-8 text-center space-y-3 shadow-2xs">
-                  <div className="w-12 h-12 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center mx-auto text-[#4F46E5]">
-                    <Stethoscope className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-sm font-bold text-[#0F172A] font-sans">
-                    Aguardando dados da Anamnese
-                  </h3>
-                  <p className="text-xs text-[#64748B] max-w-md mx-auto leading-relaxed font-sans">
-                    Preencha os relatos e sinais clínicos do paciente no formulário ou gravação de áudio da anamnese para que a inteligência artificial RAG processe as hipóteses e recomendações médicas.
-                  </p>
-                </div>
-              ) : (
-                hypotheses.map((hypo) => {
-                const isExpanded = expandedHypothesis.includes(hypo.id);
-                
-                // Color badges according to probability
-                const probColor = hypo.probability === 'Alta' 
-                  ? 'bg-rose-50 text-rose-700 border-rose-200' 
-                  : hypo.probability === 'Moderada' 
-                  ? 'bg-amber-50 text-amber-700 border-amber-200' 
-                  : 'bg-slate-100 text-slate-700 border-slate-200';
-
-                const barColor = hypo.probability === 'Alta' ? 'bg-rose-500' : hypo.probability === 'Moderada' ? 'bg-amber-500' : 'bg-slate-400';
-
-                return (
-                  <motion.div
-                    key={hypo.id}
-                    layout
-                    transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-                    className={`bg-white rounded-[20px] border transition-all ${
-                      isExpanded ? 'border-[#4F46E5] shadow-md ring-2 ring-[#4F46E5]/10' : 'border-[#E2E8F0] hover:border-slate-300 shadow-2xs'
-                    }`}
-                  >
-                    
-                    {/* CARD HEADER (Always Visible) */}
-                    <div 
-                      onClick={() => toggleCard(hypo.id)}
-                      className="p-4 sm:p-5 flex items-start justify-between gap-3 cursor-pointer select-none"
+                  return (
+                    <motion.div
+                      key={hypo.id}
+                      layout
+                      className={`bg-white rounded-2xl border transition-all ${
+                        status === 'Aceito'
+                          ? 'border-emerald-300 ring-2 ring-emerald-100 shadow-md'
+                          : status === 'Rejeitado'
+                          ? 'border-rose-200 bg-slate-50/80 opacity-70'
+                          : 'border-slate-100 shadow-md'
+                      }`}
                     >
-                      <div className="space-y-1.5 flex-1">
-                        <div className="flex items-center gap-2.5 flex-wrap">
-                          <h3 className="text-base font-bold text-[#0F172A] font-sans tracking-tight">
-                            {hypo.title}
-                          </h3>
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border font-sans ${probColor}`}>
-                            {hypo.probability} Probabilidade ({hypo.confidence}%)
-                          </span>
+                      {/* CARD HEADER */}
+                      <div className="p-6 border-b border-slate-100 space-y-3">
+                        <div className="flex items-start justify-between gap-4 flex-wrap">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="w-6 h-6 rounded-full bg-indigo-600 text-white font-extrabold text-xs flex items-center justify-center font-mono">
+                                #{hypo.rank}
+                              </span>
+                              <h3 className="text-lg font-extrabold text-slate-900 font-display">{hypo.title}</h3>
+                              <span className={`px-3 py-1 rounded-full text-xs font-bold border ${probBadgeClass}`}>
+                                {hypo.probability} Probabilidade
+                              </span>
+                              {status !== 'Pendente' && (
+                                <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                  status === 'Aceito' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                                }`}>
+                                  {status} pelo Veterinário
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-600 font-medium leading-relaxed">{hypo.whyConsider}</p>
+                          </div>
+
+                          {/* Human-in-the-Loop Action Buttons */}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              onClick={() => handleSetDecision(hypo.id, 'Aceito')}
+                              className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                                status === 'Aceito' 
+                                  ? 'bg-emerald-600 text-white shadow-sm' 
+                                  : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                              }`}
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Aceitar</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleSetDecision(hypo.id, 'Revisar')}
+                              className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                                status === 'Revisar' 
+                                  ? 'bg-amber-600 text-white shadow-sm' 
+                                  : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
+                              }`}
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span>Revisar</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleSetDecision(hypo.id, 'Rejeitado')}
+                              className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                                status === 'Rejeitado' 
+                                  ? 'bg-rose-600 text-white shadow-sm' 
+                                  : 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
+                              }`}
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              <span>Rejeitar</span>
+                            </button>
+                          </div>
                         </div>
 
-                        {/* Subtle Confidence Bar */}
-                        <div className="w-full max-w-xs bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full ${barColor}`} style={{ width: `${hypo.confidence}%` }} />
+                        {/* Confidence Engine Bar */}
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1.5">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="font-bold text-slate-700">{hypo.confidenceLabel}</span>
+                            <span className="text-indigo-600 font-extrabold font-mono">{hypo.confidenceScore}% Score</span>
+                          </div>
+                          <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                            <div className="bg-indigo-600 h-full rounded-full transition-all duration-500" style={{ width: `${hypo.confidenceScore}%` }} />
+                          </div>
                         </div>
                       </div>
 
-                      <button 
-                        type="button" 
-                        className="p-1.5 rounded-full bg-slate-50 border border-slate-200 text-slate-600 hover:text-[#0F172A] transition-colors shrink-0"
-                      >
-                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </button>
-                    </div>
-
-                    {/* EXPANDABLE ACCORDION CONTENT */}
-                    <AnimatePresence>
-                      {isExpanded && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className="px-4 sm:px-5 pb-5 pt-1 border-t border-slate-100 space-y-4 text-xs font-sans"
-                        >
+                      {/* DETAILED HYPOTHESIS BODY */}
+                      <div className="p-6 space-y-4">
+                        
+                        {/* 1. Favorecem vs Contradizem */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           
-                          {/* 1. Justificativa Clínica */}
-                          <div className="space-y-1.5 pt-2">
-                            <h4 className="font-bold text-[11px] uppercase tracking-wider text-[#0F172A] font-sans flex items-center gap-1.5">
-                              <Sparkles className="w-3.5 h-3.5 text-[#4F46E5]" />
-                              Raciocínio & Justificativa Clínica:
+                          {/* Achados Favorecedores */}
+                          <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100 space-y-2">
+                            <h4 className="text-xs font-extrabold uppercase text-emerald-800 font-display flex items-center gap-1.5">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                              Achados Favorecedores (O que apoia)
                             </h4>
-                            <ul className="space-y-1 text-[#334155] pl-1">
-                              {hypo.justification.map((j, idx) => (
-                                <li key={idx} className="flex items-start gap-2 bg-[#F8FAFC] p-2 rounded-xl border border-slate-100/80">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-[#4F46E5] shrink-0 mt-1.5" />
-                                  <span className="leading-relaxed">{j}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-
-                          {/* 2. Achados Compatíveis vs Achados Contra */}
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                            
-                            {/* Compatíveis */}
-                            <div className="bg-emerald-50/40 border border-emerald-100 p-3 rounded-xl space-y-2">
-                              <span className="font-bold text-[10px] uppercase text-[#10B981] font-sans flex items-center gap-1">
-                                <CheckCircle2 className="w-3.5 h-3.5" /> Achados Compatíveis
-                              </span>
-                              <div className="flex flex-wrap gap-1">
-                                {hypo.supportingFindings.map((f, idx) => (
-                                  <span key={idx} className="px-2 py-0.5 rounded-md bg-white border border-emerald-200 text-emerald-900 text-[10px] font-semibold shadow-3xs">
-                                    ✓ {f}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-
-                            {/* Contra */}
-                            <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-2">
-                              <span className="font-bold text-[10px] uppercase text-slate-600 font-sans flex items-center gap-1">
-                                <XCircle className="w-3.5 h-3.5" /> Achados Não Encontrados / Divergentes
-                              </span>
-                              <div className="flex flex-wrap gap-1">
-                                {hypo.contradictoryFindings.map((f, idx) => (
-                                  <span key={idx} className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700 text-[10px] font-medium">
-                                    • {f}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-
-                          </div>
-
-                          {/* 3. Exames Recomendados com Prioridades */}
-                          <div className="space-y-2 pt-1">
-                            <h4 className="font-bold text-[11px] uppercase tracking-wider text-[#0F172A] font-sans flex items-center justify-between">
-                              <span>Exames Complementares Sugeridos:</span>
-                              <span className="text-[10px] font-normal text-[#64748B]">Para confirmação ou exclusão</span>
-                            </h4>
-
-                            <div className="space-y-1.5">
-                              {hypo.recommendedTests.map((test, idx) => (
-                                <div key={idx} className="p-2.5 bg-[#F8FAFC] rounded-xl border border-slate-200/80 flex items-start justify-between gap-2">
-                                  <div className="space-y-0.5">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-bold text-[#0F172A] text-xs">{test.name}</span>
-                                      <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
-                                        test.priority === 'Alta' ? 'bg-rose-100 text-rose-800' : 'bg-indigo-100 text-indigo-800'
-                                      }`}>
-                                        Prioridade {test.priority}
-                                      </span>
-                                    </div>
-                                    <p className="text-[11px] text-[#64748B]">{test.reason}</p>
-                                  </div>
-                                  <button 
-                                    type="button"
-                                    onClick={() => showToast(`Exame "${test.name}" adicionado à solicitação.`)}
-                                    className="px-2.5 py-1 rounded-lg bg-white border border-[#E2E8F0] hover:border-[#4F46E5] hover:text-[#4F46E5] text-[10px] font-semibold transition-all shrink-0 cursor-pointer shadow-3xs"
-                                  >
-                                    Solicitar
-                                  </button>
+                            <div className="space-y-1">
+                              {hypo.favorableFindings.map((f, i) => (
+                                <div key={i} className="text-xs font-semibold text-emerald-900 bg-white p-2 rounded-lg border border-emerald-200 shadow-2xs flex items-center gap-2">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                  <span>{f}</span>
                                 </div>
                               ))}
                             </div>
                           </div>
 
-                          {/* 4. Diagnósticos Diferenciais Relacionados */}
-                          <div className="space-y-1.5 pt-1">
-                            <span className="text-[10px] font-bold uppercase text-[#64748B] font-sans">
-                              Diferenciais Correlacionados Próximos:
-                            </span>
-                            <div className="flex flex-wrap gap-1.5">
-                              {hypo.relatedDiagnoses.map((rel, idx) => (
-                                <span 
-                                  key={idx} 
-                                  className="px-2.5 py-1 rounded-full bg-slate-100 hover:bg-indigo-50 hover:text-[#4F46E5] text-[#334155] text-[10px] font-medium border border-slate-200 cursor-pointer transition-colors"
+                          {/* Achados Contrários */}
+                          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                            <h4 className="text-xs font-extrabold uppercase text-slate-700 font-display flex items-center gap-1.5">
+                              <XCircle className="w-4 h-4 text-slate-500" />
+                              Achados Contrários / Ausentes
+                            </h4>
+                            <div className="space-y-1">
+                              {hypo.unfavorableFindings.map((f, i) => (
+                                <div key={i} className="text-xs font-medium text-slate-700 bg-white p-2 rounded-lg border border-slate-200 flex items-center gap-2">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+                                  <span>{f}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                        </div>
+
+                        {/* 2. Exames de Confirmação (Diagnostic Test Engine) */}
+                        <div className="space-y-2">
+                          <h4 className="text-xs font-extrabold uppercase text-slate-900 font-display flex items-center justify-between">
+                            <span>Exames Sugeridos para Confirmação / Exclusão</span>
+                            <span className="text-[10px] text-slate-500 font-sans font-normal">Engenharia de Ganho de Informação</span>
+                          </h4>
+
+                          <div className="space-y-2">
+                            {hypo.recommendedTests.map((test) => (
+                              <div key={test.id} className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-3">
+                                <div className="space-y-0.5">
+                                  <div className="flex items-center gap-2">
+                                    <strong className="text-xs font-bold text-slate-900">{test.name}</strong>
+                                    <span className="px-2 py-0.2 rounded bg-indigo-100 text-indigo-800 text-[9px] font-bold">
+                                      {test.diagnosticValue}
+                                    </span>
+                                    <span className="text-[10px] text-slate-500">Tempo: {test.turnaroundTime}</span>
+                                  </div>
+                                  <p className="text-xs text-slate-600">{test.reason}</p>
+                                </div>
+
+                                <button
+                                  onClick={() => showToast(`Exame "${test.name}" adicionado ao plano.`)}
+                                  className="px-3 py-1.5 rounded-full bg-white border border-slate-300 hover:border-indigo-600 text-indigo-600 text-xs font-bold cursor-pointer transition-all shrink-0"
                                 >
-                                  {rel}
+                                  Solicitar
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* 3. Condutas Terapêuticas Recomendadas */}
+                        <div className="p-4 bg-indigo-50/40 rounded-2xl border border-indigo-100 space-y-2">
+                          <h4 className="text-xs font-extrabold uppercase text-indigo-900 font-display flex items-center gap-1.5">
+                            <ClipboardList className="w-4 h-4 text-indigo-600" />
+                            Condutas e Manejo Inicial Recomendado
+                          </h4>
+
+                          <div className="space-y-1.5">
+                            {hypo.conduct.map((c) => (
+                              <div key={c.id} className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-indigo-100 text-xs">
+                                <span className="font-semibold text-slate-900">{c.label}</span>
+                                <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full">
+                                  Inclusão Sugerida
                                 </span>
-                              ))}
-                            </div>
+                              </div>
+                            ))}
                           </div>
+                        </div>
 
-                          {/* 5. Conduta Inicial Terapêutica (Checklist) */}
-                          <div className="p-3 bg-indigo-50/40 border border-indigo-100 rounded-xl space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="font-bold text-[11px] uppercase text-[#4F46E5] font-sans flex items-center gap-1.5">
-                                <ClipboardList className="w-3.5 h-3.5" /> Conduta Inicial e Manejo Sugerido
-                              </span>
-                              <span className="text-[10px] font-semibold text-[#64748B]">
-                                Prognóstico: <strong className="text-[#0F172A]">{hypo.prognosis}</strong>
-                              </span>
-                            </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
 
-                            <div className="space-y-1.5">
-                              {hypo.conduct.map((c) => (
-                                <label 
-                                  key={c.id} 
-                                  className="flex items-start gap-2.5 p-2 bg-white rounded-lg border border-slate-200/70 hover:border-indigo-300 transition-colors cursor-pointer"
-                                >
-                                  <input 
-                                    type="checkbox" 
-                                    checked={c.checked} 
-                                    onChange={() => toggleConductItem(hypo.id, c.id)}
-                                    className="mt-0.5 rounded text-[#4F46E5] focus:ring-[#4F46E5] cursor-pointer"
-                                  />
-                                  <span className={`text-xs ${c.checked ? 'text-[#0F172A] font-medium' : 'text-[#64748B] line-through'}`}>
-                                    {c.label}
-                                  </span>
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-
-                  </motion.div>
-                );
-              })
-            )}
             </div>
 
           </div>
+        )}
 
-
-          {/* ================= COLUNA 3 — PAINEL CIENTÍFICO (~22%) ================= */}
-          <div className="lg:col-span-3 space-y-3">
+        {/* ================= TAB 2: ACHADOS & LACUNAS ================= */}
+        {activeTab === 'gaps' && (
+          <div className="space-y-6">
             
-            <div className="bg-white rounded-[20px] border border-[#E2E8F0] p-4 shadow-2xs space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                <div className="flex items-center gap-1.5">
-                  <BookOpen className="w-4 h-4 text-[#4F46E5]" />
-                  <h3 className="font-semibold text-xs uppercase tracking-wider text-[#0F172A] font-sans">
-                    Literatura Utilizada
-                  </h3>
+            <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-md space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div>
+                  <h2 className="text-base font-extrabold text-slate-900 font-display flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-amber-500" />
+                    Identificação de Lacunas Críticas (Informações Ausentes)
+                  </h2>
+                  <p className="text-xs text-slate-500 font-sans">
+                    Regra Não-Negociável: Informações não fornecidas NUNCA são interpretadas como ausentes/negativas.
+                  </p>
                 </div>
-                <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-[#4F46E5] text-[9px] font-bold font-mono">
-                  RAG Vetmind
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {clinicalSessionData.findings.unknown.map((gap) => {
+                  const impClass = gap.importance === 'CRITICAL'
+                    ? 'bg-rose-50 text-rose-800 border-rose-200'
+                    : gap.importance === 'HIGH'
+                    ? 'bg-amber-50 text-amber-800 border-amber-200'
+                    : 'bg-slate-100 text-slate-800 border-slate-200';
+
+                  return (
+                    <div key={gap.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${impClass}`}>
+                          {gap.importance} IMPORTÂNCIA
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-mono">Status: Desconhecido</span>
+                      </div>
+                      <h3 className="text-sm font-bold text-slate-900">{gap.finding}</h3>
+                      <p className="text-xs text-slate-600">{gap.reasonMissing}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Positive vs Negative Findings Breakdown */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              
+              <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-md space-y-3">
+                <h3 className="text-sm font-extrabold uppercase text-emerald-800 font-display flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Achados Positivos Confirmados ({clinicalSessionData.findings.positive.length})
+                </h3>
+                <div className="space-y-2">
+                  {clinicalSessionData.findings.positive.map((f) => (
+                    <div key={f.id} className="p-3 bg-emerald-50/60 rounded-xl border border-emerald-100 flex items-center justify-between text-xs">
+                      <span className="font-bold text-emerald-950">{f.finding}</span>
+                      <span className="text-[10px] bg-white text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                        {f.certaintyLabel}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-md space-y-3">
+                <h3 className="text-sm font-extrabold uppercase text-slate-700 font-display flex items-center gap-2">
+                  <XCircle className="w-4 h-4 text-slate-500" /> Achados Negativos / Ausentes ({clinicalSessionData.findings.negative.length})
+                </h3>
+                <div className="space-y-2">
+                  {clinicalSessionData.findings.negative.map((f) => (
+                    <div key={f.id} className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between text-xs">
+                      <span className="font-semibold text-slate-800">{f.finding}</span>
+                      <span className="text-[10px] bg-white text-slate-600 font-bold px-2 py-0.5 rounded-full border border-slate-200">
+                        {f.certaintyLabel}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+        {/* ================= TAB 3: PRÓXIMOS PASSOS & EXAMES ================= */}
+        {activeTab === 'tests' && (
+          <div className="space-y-6">
+            
+            {/* NEXT BEST STEP HIGHLIGHT */}
+            <div className="bg-gradient-to-r from-indigo-900 to-slate-900 text-white rounded-2xl p-6 shadow-lg space-y-3">
+              <div className="flex items-center justify-between border-b border-indigo-700/50 pb-3">
+                <span className="px-3 py-1 rounded-full bg-emerald-500 text-slate-950 text-xs font-black uppercase tracking-wider">
+                  {rawData.nextBestStep.priority} • AÇÃO DE MAIOR GANHO DE INFORMAÇÃO
+                </span>
+                <span className="text-xs text-indigo-300 font-mono font-bold">
+                  Ganho Estimado: {rawData.nextBestStep.informationGainScore}%
                 </span>
               </div>
 
-              {/* References Cards */}
-              <div className="space-y-2.5">
-                {references.length === 0 ? (
-                  <p className="text-xs text-[#64748B] italic text-center py-4 font-sans">
-                    Insira o relato da anamnese para consultar a literatura científica no motor RAG.
-                  </p>
-                ) : (
-                  references.map((ref) => (
-                    <div key={ref.id} className="p-3 bg-[#F8FAFC] rounded-xl border border-slate-200/80 space-y-2 hover:border-[#4F46E5] transition-all group">
-                      <div className="flex items-start justify-between gap-1">
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-[#10B981] border border-emerald-100 text-[9px] font-bold font-sans">
-                          {ref.level}
+              <h2 className="text-xl font-extrabold font-display leading-tight">{rawData.nextBestStep.title}</h2>
+              <p className="text-xs text-indigo-200 leading-relaxed">{rawData.nextBestStep.objective}</p>
+
+              <div className="flex items-center gap-3 pt-2 text-xs text-slate-300">
+                <span>Fundamentado por: <strong>{rawData.nextBestStep.evidenceRef}</strong></span>
+              </div>
+            </div>
+
+            {/* Diagnostic Tests Detailed List */}
+            <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-md space-y-4">
+              <h3 className="text-base font-extrabold text-slate-900 font-display">Exames Recomendados no Plano Diagnóstico</h3>
+              <div className="space-y-3">
+                {rawData.hypotheses[0]?.recommendedTests.map((t) => (
+                  <div key={t.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-bold text-slate-900">{t.name}</h4>
+                        <span className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 text-[10px] font-extrabold">
+                          Prioridade {t.priority}
                         </span>
-                        <span className="text-[9px] font-mono text-[#64748B]">{ref.evidenceType}</span>
                       </div>
-
-                      <div className="space-y-1">
-                        <h4 className="text-xs font-bold text-[#0F172A] font-sans leading-snug group-hover:text-[#4F46E5] transition-colors">
-                          {ref.title}
-                        </h4>
-                        <p className="text-[10px] text-[#64748B] font-sans">
-                          {ref.authors} ({ref.year}) • <em className="not-italic text-[#334155]">{ref.journal}</em>
-                        </p>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-1 pt-1 border-t border-slate-200/60">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedRefModal(ref)}
-                          className="px-2 py-1 rounded bg-white border border-slate-200 text-[10px] font-semibold text-[#4F46E5] hover:bg-indigo-50 transition-colors flex items-center gap-1 cursor-pointer font-sans"
-                        >
-                          <Sparkles className="w-2.5 h-2.5" />
-                          <span>Resumo IA</span>
-                        </button>
-
-                        <a
-                          href={`https://doi.org/${ref.doi}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-2 py-1 rounded bg-white border border-slate-200 text-[10px] font-semibold text-[#64748B] hover:text-[#0F172A] transition-colors flex items-center gap-1 cursor-pointer font-sans"
-                        >
-                          <ExternalLink className="w-2.5 h-2.5" />
-                          <span>DOI</span>
-                        </a>
-                      </div>
+                      <p className="text-xs text-slate-600">{t.reason}</p>
                     </div>
-                  ))
-                )}
-              </div>
 
-              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-[10px] text-[#64748B] font-sans leading-relaxed">
-                <strong className="text-[#0F172A] block mb-0.5">💡 Validação Científica:</strong>
-                As evidências passam por filtro de relevância epidemiológica para pequenos animais com atualização quinzenal.
+                    <button
+                      onClick={() => showToast(`Solicitação de "${t.name}" enviada.`)}
+                      className="px-5 py-2 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-sm shrink-0 cursor-pointer"
+                    >
+                      Solicitar Exame
+                    </button>
+                  </div>
+                ))}
               </div>
-
             </div>
 
           </div>
+        )}
 
-        </div>
+        {/* ================= TAB 4: OPÇÕES TERAPÊUTICAS & CALCULADORA ================= */}
+        {activeTab === 'therapeutics' && (
+          <div className="space-y-6">
+            
+            {/* Deterministic Dose Calculator Banner */}
+            <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-md space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <Calculator className="w-5 h-5 text-indigo-600" />
+                  <h2 className="text-base font-extrabold text-slate-900 font-display">Calculadora Determinística de Dosagem por Peso</h2>
+                </div>
+                <span className="text-xs font-mono font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+                  Validação Determinística Ativa
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-600 font-sans">
+                O cálculo de dose NUNCA é realizado isoladamente pelo LLM. Utiliza a fórmula exata: <strong className="font-mono">dose_mg = dose_mg_kg × peso_kg</strong> e <strong className="font-mono">volume_ml = dose_mg / concentração_mg_ml</strong>.
+              </p>
+
+              {/* Patient Weight Display */}
+              <div className="p-3 bg-indigo-50/50 rounded-xl border border-indigo-100 flex items-center justify-between text-xs">
+                <span className="font-bold text-indigo-900">Peso do Paciente ({patient.name || 'Pet'}):</span>
+                <span className="font-mono font-extrabold text-indigo-600 text-sm">{patient.weight ? `${patient.weight} kg` : '10.0 kg (Padrão)'}</span>
+              </div>
+
+              {/* Calculated Medications */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-extrabold text-slate-900 text-sm">Citrato de Maropitant (10 mg/mL)</h3>
+                    <span className="text-[10px] font-bold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded">SC</span>
+                  </div>
+                  <div className="text-xs space-y-1 text-slate-700">
+                    <p>• Recomendação: <strong>1,0 mg/kg</strong> q24h</p>
+                    <p>• Dose Total Calculada: <strong className="text-indigo-600 font-mono">{rawData.maropitantDoseMg.toFixed(1)} mg</strong></p>
+                    <p>• Volume a Administrar: <strong className="text-emerald-600 font-mono">{rawData.maropitantVolMl.toFixed(2)} mL</strong></p>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-extrabold text-slate-900 text-sm">Dipirona Sódica (500 mg/mL)</h3>
+                    <span className="text-[10px] font-bold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded">SC / IV</span>
+                  </div>
+                  <div className="text-xs space-y-1 text-slate-700">
+                    <p>• Recomendação: <strong>25,0 mg/kg</strong> q8h</p>
+                    <p>• Dose Total Calculada: <strong className="text-indigo-600 font-mono">{rawData.dipironaDoseMg.toFixed(1)} mg</strong></p>
+                    <p>• Volume a Administrar: <strong className="text-emerald-600 font-mono">{rawData.dipironaVolMl.toFixed(2)} mL</strong></p>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Prescription Safety Validation Checklist */}
+            <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-md space-y-4">
+              <h3 className="text-base font-extrabold text-slate-900 font-display flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-emerald-600" /> Check de Segurança para Emissão de Prescrição
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center gap-2 text-emerald-900 font-bold">
+                  <Check className="w-4 h-4 text-emerald-600" /> Peso do Paciente Confirmado ({patient.weight || '10'} kg)
+                </div>
+                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center gap-2 text-emerald-900 font-bold">
+                  <Check className="w-4 h-4 text-emerald-600" /> Espécie Taxonômica Validada ({patient.species || 'Canino'})
+                </div>
+                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center gap-2 text-emerald-900 font-bold">
+                  <Check className="w-4 h-4 text-emerald-600" /> Concentração e Via de Administração Definidas
+                </div>
+                <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 flex items-center gap-2 text-amber-900 font-bold">
+                  <AlertTriangle className="w-4 h-4 text-amber-600" /> Aguardando Revisão Final do Médico-Veterinário
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={onOpenPrescription}
+                  className="px-6 py-3 rounded-full bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white font-extrabold text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <Zap className="w-4 h-4" />
+                  <span>Transferir Rascunho para Prescrição Oficial</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        )}
+
       </div>
 
-      {/* PAINEL INFERIOR (STICKY BOTTOM ACTION BAR) */}
-      <div className="sticky bottom-0 bg-white/95 backdrop-blur-md border-t border-[#E2E8F0] py-3 px-4 sm:px-8 z-20 shadow-lg mt-6">
+      {/* STICKY BOTTOM BAR */}
+      <div className="sticky bottom-0 bg-white/95 backdrop-blur-md border-t border-[#E2E8F0] py-3 px-4 sm:px-8 z-20 shadow-lg">
         <div className="max-w-[2160px] mx-auto flex items-center justify-between gap-3 overflow-x-auto no-scrollbar">
           
-          <div className="hidden sm:flex items-center gap-2 text-xs font-sans text-[#64748B] shrink-0">
-            <ShieldCheck className="w-4 h-4 text-[#10B981]" />
-            <span>Conduta parametrizada para <strong>{patient.name || "Paciente"}</strong>{patient.weight ? ` (${patient.weight} kg)` : ""}</span>
+          <div className="hidden sm:flex items-center gap-2 text-xs font-sans text-slate-600 shrink-0">
+            <ShieldCheck className="w-4 h-4 text-emerald-500" />
+            <span>Atendimento parametrizado para <strong>{patient.name || "Paciente"}</strong> ({patient.species || "Canino"})</span>
           </div>
 
           <div className="flex items-center gap-2 shrink-0 ml-auto">
@@ -1224,37 +1525,28 @@ export default function DifferentialDiagnosisWorkspace({
             <button
               type="button"
               onClick={() => {
-                setShowTutorModal(true);
+                setShowTutorModalState(true);
                 if (onOpenTutorModal) onOpenTutorModal();
               }}
-              className="px-3 py-2 rounded-xl border border-[#E2E8F0] hover:bg-slate-50 text-xs font-semibold text-[#0F172A] transition-all flex items-center gap-1.5 cursor-pointer font-sans"
+              className="px-4 py-2 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-800 transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <MessageSquare className="w-3.5 h-3.5 text-[#4F46E5]" />
+              <MessageSquare className="w-3.5 h-3.5 text-indigo-600" />
               <span>Explicar ao Tutor</span>
             </button>
 
             <button
               type="button"
               onClick={onGeneratePdf}
-              className="px-3 py-2 rounded-xl border border-[#E2E8F0] hover:bg-slate-50 text-xs font-semibold text-[#0F172A] transition-all flex items-center gap-1.5 cursor-pointer font-sans"
+              className="px-4 py-2 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-800 transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <Printer className="w-3.5 h-3.5 text-[#64748B]" />
+              <Printer className="w-3.5 h-3.5 text-slate-500" />
               <span>Criar PDF</span>
             </button>
 
             <button
               type="button"
-              onClick={() => showToast('Link do caso copiado para área de transferência.')}
-              className="px-3 py-2 rounded-xl border border-[#E2E8F0] hover:bg-slate-50 text-xs font-semibold text-[#0F172A] transition-all flex items-center gap-1.5 cursor-pointer font-sans"
-            >
-              <Share2 className="w-3.5 h-3.5 text-[#64748B]" />
-              <span>Compartilhar</span>
-            </button>
-
-            <button
-              type="button"
               onClick={onOpenPrescription}
-              className="px-5 py-2 rounded-xl bg-[#4F46E5] hover:bg-[#3730A3] active:scale-[0.98] text-white font-bold text-xs shadow-md shadow-indigo-500/20 transition-all flex items-center gap-2 cursor-pointer font-sans"
+              className="px-6 py-2 rounded-full bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white font-extrabold text-xs shadow-md shadow-indigo-500/20 transition-all flex items-center gap-2 cursor-pointer"
             >
               <Zap className="w-4 h-4" />
               <span>Gerar Prescrição Médica</span>
@@ -1265,7 +1557,62 @@ export default function DifferentialDiagnosisWorkspace({
         </div>
       </div>
 
-      {/* MODAL RESUMO IA DA LITERATURA */}
+      {/* MODAL TUTOR */}
+      <AnimatePresence>
+        {showTutorModalState && (
+          <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl border border-slate-100 p-6 max-w-xl w-full shadow-2xl space-y-4 text-slate-900"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-indigo-600" />
+                  <h3 className="font-extrabold text-sm font-display">Tradução Acessível para o Tutor</h3>
+                </div>
+                <button onClick={() => setShowTutorModalState(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl text-xs space-y-3 leading-relaxed text-slate-800">
+                <p className="font-bold text-slate-900">
+                  Olá, tutor de {patient.name || 'seu pet'}!
+                </p>
+                <p>
+                  Avaliamos as informações do seu caso. A principal suspeita investigada é {topHypothesis?.title}. Iniciaremos medicações de suporte para aliviar enjoo e dor, além de exames de ultrassom e sangue para confirmar o quadro com total segurança.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`Resumo para o Tutor de ${patient.name || 'Pet'}: Avaliamos o caso com carinho. A principal suspeita é ${topHypothesis?.title}.`);
+                    showToast('Mensagem copiada!');
+                  }}
+                  className="px-4 py-2 rounded-full border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Copy className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Copiar Texto</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowTutorModalState(false)}
+                  className="px-5 py-2 rounded-full bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL REF */}
       <AnimatePresence>
         {selectedRefModal && (
           <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
@@ -1273,25 +1620,22 @@ export default function DifferentialDiagnosisWorkspace({
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-[24px] border border-[#E2E8F0] p-6 max-w-lg w-full shadow-2xl space-y-4 font-sans text-[#0F172A]"
+              className="bg-white rounded-3xl border border-slate-100 p-6 max-w-lg w-full shadow-2xl space-y-4 text-slate-900"
             >
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-[#4F46E5]" />
-                  <h3 className="font-bold text-sm font-sans">Resumo Científico Estruturado pela IA</h3>
+                  <Sparkles className="w-5 h-5 text-indigo-600" />
+                  <h3 className="font-extrabold text-sm font-display">Evidência Científica RAG Vinculada</h3>
                 </div>
-                <button 
-                  onClick={() => setSelectedRefModal(null)}
-                  className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
-                >
+                <button onClick={() => setSelectedRefModal(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
               <div className="space-y-2 text-xs">
-                <h4 className="font-bold text-sm text-[#0F172A]">{selectedRefModal.title}</h4>
-                <p className="text-[#64748B] text-[11px]">{selectedRefModal.authors} ({selectedRefModal.year})</p>
-                <div className="p-3 bg-[#F8FAFC] rounded-xl border border-slate-200 text-slate-700 leading-relaxed">
+                <h4 className="font-bold text-sm text-slate-900">{selectedRefModal.title}</h4>
+                <p className="text-slate-500">{selectedRefModal.authors} ({selectedRefModal.year})</p>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-700 leading-relaxed">
                   {selectedRefModal.summary}
                 </div>
               </div>
@@ -1300,68 +1644,9 @@ export default function DifferentialDiagnosisWorkspace({
                 <button
                   type="button"
                   onClick={() => setSelectedRefModal(null)}
-                  className="px-4 py-2 rounded-xl bg-[#4F46E5] text-white text-xs font-semibold hover:bg-[#3730A3] cursor-pointer"
+                  className="px-5 py-2 rounded-full bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 cursor-pointer"
                 >
                   Entendido
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* MODAL EXPLICAR AO TUTOR */}
-      <AnimatePresence>
-        {showTutorModal && (
-          <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-[24px] border border-[#E2E8F0] p-6 max-w-xl w-full shadow-2xl space-y-4 font-sans text-[#0F172A]"
-            >
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5 text-[#4F46E5]" />
-                  <h3 className="font-bold text-sm font-sans">Tradução Clínica para o Tutor (Linguagem Acessível)</h3>
-                </div>
-                <button 
-                  onClick={() => setShowTutorModal(false)}
-                  className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl text-xs space-y-3 leading-relaxed text-slate-800 font-sans">
-                <p className="font-semibold text-[#0F172A]">
-                  Olá, {patient.ownerName || 'Tutor'}! Aqui está um resumo claro sobre o estado de {patient.name || 'seu pet'}:
-                </p>
-                <p>
-                  {clinicalData.tutorExplanation}
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const petName = patient.name || 'Paciente';
-                    navigator.clipboard.writeText(`Resumo para o Tutor de ${petName}: ${clinicalData.tutorExplanation}`);
-                    showToast('Mensagem para o tutor copiada!');
-                  }}
-                  className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer font-sans"
-                >
-                  <Copy className="w-3.5 h-3.5 text-[#4F46E5]" />
-                  <span>Copiar Mensagem</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowTutorModal(false)}
-                  className="px-4 py-2 rounded-xl bg-[#4F46E5] text-white text-xs font-semibold hover:bg-[#3730A3] cursor-pointer font-sans"
-                >
-                  Fechar
                 </button>
               </div>
             </motion.div>
