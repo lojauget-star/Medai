@@ -87,10 +87,10 @@ export default function PrescriptionWorkspace({
 
   // Patient State
   const [name, setName] = useState("");
-  const [species, setSpecies] = useState("Canino");
+  const [species, setSpecies] = useState("Não informada");
   const [breed, setBreed] = useState("");
   const [age, setAge] = useState("");
-  const [sex, setSex] = useState("Macho");
+  const [sex, setSex] = useState("Não informado");
   const [weight, setWeight] = useState("");
   const [tutorName, setTutorName] = useState("");
   const [tutorPhone, setTutorPhone] = useState("");
@@ -935,7 +935,7 @@ export default function PrescriptionWorkspace({
                           </div>
                           <div>
                             <span className="text-[9px] text-slate-400 block uppercase tracking-wider mb-0.5">Espécie & Raça</span>
-                            <span className="text-sm font-black text-slate-800 capitalize">{species === "Canino" ? "Cão" : "Gato"} • {breed || "SRD"}</span>
+                            <span className="text-sm font-black text-slate-800 capitalize">{species === "Canino" ? "Cão" : (species === "Felino" ? "Gato" : (species || "Não informada"))} • {breed || "SRD"}</span>
                           </div>
                           <div>
                             <span className="text-[9px] text-slate-400 block uppercase tracking-wider mb-0.5">Peso & Sexo</span>

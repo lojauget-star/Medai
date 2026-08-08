@@ -711,7 +711,7 @@ export function getEvidenceGroupsForPatient(symptomsText?: string, species?: str
         id: item.group.id,
         name: item.group.name,
         probability: rawProb,
-        badge: rawProb >= 85 ? 'Alta' : (rawProb >= 70 ? 'Moderada' : 'Baixa'),
+        badge: (rawProb >= 85 ? 'Alta' : (rawProb >= 70 ? 'Moderada' : 'Baixa')) as 'Alta' | 'Moderada' | 'Baixa',
         category: item.group.category,
         articles: filteredArticles
       };

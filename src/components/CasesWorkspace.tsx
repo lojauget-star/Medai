@@ -430,7 +430,7 @@ export default function CasesWorkspace({ onSelectReport, onNewCase, onToggleMenu
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 text-[#4F46E5] flex items-center justify-center shrink-0 font-black text-lg">
-                      {report.patientSpecies === 'Felino' ? '🐱' : '🐶'}
+                      {report.patientSpecies === 'Felino' ? '🐱' : (report.patientSpecies === 'Canino' ? '🐶' : '🐾')}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
