@@ -348,7 +348,7 @@ export default function ReportWorkspace({
     if (initialPatient) {
       return {
         name: initialPatient.name || "",
-        species: initialPatient.species || "Canino",
+        species: initialPatient.species || "",
         breed: initialPatient.breed || "",
         age: initialPatient.age || "",
         sex: initialPatient.sex || "Macho",
@@ -360,7 +360,7 @@ export default function ReportWorkspace({
     if (initialReport) {
       return {
         name: initialReport.patientId || "",
-        species: initialReport.patientSpecies || "Canino",
+        species: initialReport.patientSpecies || "",
         breed: initialReport.patientBreed || "",
         age: initialReport.patientAge || "",
         sex: initialReport.patientSex || "Macho",
@@ -371,7 +371,7 @@ export default function ReportWorkspace({
     }
     return {
       name: "",
-      species: "Canino",
+      species: "",
       breed: "",
       age: "",
       sex: "Macho",
@@ -388,7 +388,7 @@ export default function ReportWorkspace({
     if (initialReport) {
       setPatient({
         name: initialReport.patientId || "",
-        species: initialReport.patientSpecies || "Canino",
+        species: initialReport.patientSpecies || "",
         breed: initialReport.patientBreed || "",
         age: initialReport.patientAge || "",
         sex: initialReport.patientSex || "Macho",
@@ -400,7 +400,7 @@ export default function ReportWorkspace({
     } else if (initialPatient) {
       setPatient({
         name: initialPatient.name || "",
-        species: initialPatient.species || "Canino",
+        species: initialPatient.species || "",
         breed: initialPatient.breed || "",
         age: initialPatient.age || "",
         sex: initialPatient.sex || "Macho",
@@ -1100,7 +1100,7 @@ export default function ReportWorkspace({
             </div>
             <div class="pet-info">
               <b>Paciente:</b> ${patient.name || "Paciente sem nome"}<br/>
-              <b>Espécie:</b> ${patient.species || "Canino"} • <b>Peso:</b> ${patient.weight || "--"} kg<br/>
+              <b>Espécie:</b> ${patient.species || "Não informada"} • <b>Peso:</b> ${patient.weight || "--"} kg<br/>
               <b>Data:</b> ${new Date().toLocaleDateString('pt-BR')}
             </div>
             <div class="prescription-content">${prescription}</div>
@@ -1125,14 +1125,14 @@ export default function ReportWorkspace({
     try {
       const activeSoap = generatedReport || {
         s: `Subjetivo: ${currentAnamnesis || 'Anamnese informada em consulta.'}`,
-        o: `Objetivo: Exame físico de ${patient.species || 'Canino'}, ${patient.breed || 'SRD'}, ${patient.age || 'idade N/I'}. ${examData || ''}`,
+        o: `Objetivo: Exame físico de ${patient.species || 'Não informada'}, ${patient.breed || 'SRD'}, ${patient.age || 'idade N/I'}. ${examData || ''}`,
         a: `Avaliação: Suspeita clínica sob investigação (${patient.name || 'Paciente'}).`,
         p: `Plano: Monitoramento e exames complementares.`
       };
 
       const reportData: any = {
         patientId: patient.name || "Paciente sem nome",
-        patientSpecies: patient.species || "Canino",
+        patientSpecies: patient.species || "",
         patientBreed: patient.breed || "SRD",
         patientAge: patient.age || "Não informada",
         patientSex: patient.sex || "Fêmea inteira",
@@ -1272,7 +1272,7 @@ export default function ReportWorkspace({
         {/* Beautiful, responsive header with Lego styled action pills & mobile-friendly horizontal module bar */}
         <div className="bg-white z-10 shrink-0 border-b border-slate-100/80 shadow-3xs">
           {/* Top Row: Logo, Patient badge, Reavaliar/Limpar */}
-          <div className="flex px-3 py-2.5 sm:px-5 sm:py-3 items-center justify-between gap-2">
+          <div className="flex px-3 py-1.5 sm:px-4 sm:py-2 items-center justify-between gap-2">
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <button
                 onClick={onToggleMenu}
@@ -1342,125 +1342,127 @@ export default function ReportWorkspace({
             </div>
           </div>
 
-          {/* Module Navigation Sub-Bar: Horizontally Scrollable on Mobile with Smooth Auto-Centering */}
-          <div ref={tabsNavRef} className="bg-slate-50/80 border-t border-slate-100/80 px-2 sm:px-4 py-1.5 overflow-x-auto no-scrollbar touch-pan-x snap-x flex items-center gap-1.5 sm:gap-2 scroll-smooth">
-            <button
-              data-tab-mode="anamnesis"
-              onClick={() => {
-                setShowReasoningEngine(false);
-                setActiveViewMode('anamnesis');
-              }}
-              className={`shrink-0 snap-center px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shadow-3xs ${
-                activeViewMode === 'anamnesis' 
-                  ? 'bg-indigo-600 text-white ring-2 ring-indigo-600/20' 
-                  : 'bg-white hover:bg-slate-100 border border-slate-200/80 text-slate-700'
-              }`}
-            >
-              <FileText className="w-3 h-3 shrink-0" />
-              <span>Anamnese</span>
-            </button>
+          {/* Module Navigation Sub-Bar: Clean Minimalist Segmented Track */}
+          <div className="bg-slate-50/90 border-t border-b border-slate-200/60 px-2 sm:px-4 py-1 overflow-x-auto no-scrollbar touch-pan-x flex items-center scroll-smooth">
+            <div ref={tabsNavRef} className="bg-slate-200/60 p-0.5 rounded-xl flex items-center gap-1 w-full sm:w-auto min-w-max">
+              <button
+                data-tab-mode="anamnesis"
+                onClick={() => {
+                  setShowReasoningEngine(false);
+                  setActiveViewMode('anamnesis');
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                  activeViewMode === 'anamnesis' 
+                    ? 'bg-white text-indigo-700 shadow-xs border border-slate-200/80' 
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5 shrink-0" />
+                <span>Anamnese</span>
+              </button>
 
-            <button
-              data-tab-mode="pipeline"
-              onClick={() => {
-                setShowReasoningEngine(true);
-                setActiveViewMode('pipeline');
-              }}
-              className={`shrink-0 snap-center px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shadow-3xs ${
-                activeViewMode === 'pipeline'
-                  ? 'bg-indigo-600 text-white ring-2 ring-indigo-600/20' 
-                  : 'bg-white hover:bg-slate-100 border border-slate-200/80 text-slate-700'
-              }`}
-              title="Visualizar Pipeline de Raciocínio Clínico"
-            >
-              <Activity className="w-3 h-3 shrink-0" />
-              <span>Pipeline RAG</span>
-            </button>
+              <button
+                data-tab-mode="pipeline"
+                onClick={() => {
+                  setShowReasoningEngine(true);
+                  setActiveViewMode('pipeline');
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                  activeViewMode === 'pipeline'
+                    ? 'bg-white text-indigo-700 shadow-xs border border-slate-200/80' 
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                }`}
+                title="Visualizar Pipeline de Raciocínio Clínico"
+              >
+                <Activity className="w-3.5 h-3.5 shrink-0" />
+                <span>Pipeline RAG</span>
+              </button>
 
-            <button
-              data-tab-mode="workspace"
-              onClick={() => {
-                setShowReasoningEngine(false);
-                setActiveViewMode('workspace');
-              }}
-              className={`shrink-0 snap-center px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shadow-3xs ${
-                activeViewMode === 'workspace' 
-                  ? 'bg-indigo-600 text-white ring-2 ring-indigo-600/20' 
-                  : 'bg-white hover:bg-slate-100 border border-slate-200/80 text-slate-700'
-              }`}
-              title="Clinical Workspace (Diagnósticos Diferenciais)"
-            >
-              <Stethoscope className="w-3 h-3 text-[#4F46E5] shrink-0" />
-              <span>Workspace Clínico</span>
-            </button>
+              <button
+                data-tab-mode="workspace"
+                onClick={() => {
+                  setShowReasoningEngine(false);
+                  setActiveViewMode('workspace');
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                  activeViewMode === 'workspace' 
+                    ? 'bg-white text-indigo-700 shadow-xs border border-slate-200/80' 
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                }`}
+                title="Clinical Workspace (Diagnósticos Diferenciais)"
+              >
+                <Stethoscope className="w-3.5 h-3.5 shrink-0" />
+                <span>Workspace Clínico</span>
+              </button>
 
-            <button
-              data-tab-mode="evidence"
-              onClick={() => {
-                setShowReasoningEngine(false);
-                setActiveViewMode('evidence');
-              }}
-              className={`shrink-0 snap-center px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shadow-3xs ${
-                activeViewMode === 'evidence' 
-                  ? 'bg-indigo-600 text-white ring-2 ring-indigo-600/20' 
-                  : 'bg-white hover:bg-slate-100 border border-slate-200/80 text-slate-700'
-              }`}
-              title="Evidence Workspace (Evidências Científicas)"
-            >
-              <BookOpen className="w-3 h-3 text-[#4F46E5] shrink-0" />
-              <span>Evidências</span>
-            </button>
+              <button
+                data-tab-mode="evidence"
+                onClick={() => {
+                  setShowReasoningEngine(false);
+                  setActiveViewMode('evidence');
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                  activeViewMode === 'evidence' 
+                    ? 'bg-white text-indigo-700 shadow-xs border border-slate-200/80' 
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                }`}
+                title="Evidence Workspace (Evidências Científicas)"
+              >
+                <BookOpen className="w-3.5 h-3.5 shrink-0" />
+                <span>Evidências</span>
+              </button>
 
-            <button
-              data-tab-mode="decision"
-              onClick={() => {
-                setShowReasoningEngine(false);
-                setActiveViewMode('decision');
-              }}
-              className={`shrink-0 snap-center px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shadow-3xs ${
-                activeViewMode === 'decision' 
-                  ? 'bg-indigo-600 text-white ring-2 ring-indigo-600/20' 
-                  : 'bg-white hover:bg-slate-100 border border-slate-200/80 text-slate-700'
-              }`}
-              title="Clinical Decision Workspace (Decisão Clínica)"
-            >
-              <ShieldCheck className="w-3 h-3 text-[#10B981] shrink-0" />
-              <span>Decisão Clínica</span>
-            </button>
+              <button
+                data-tab-mode="decision"
+                onClick={() => {
+                  setShowReasoningEngine(false);
+                  setActiveViewMode('decision');
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                  activeViewMode === 'decision' 
+                    ? 'bg-white text-indigo-700 shadow-xs border border-slate-200/80' 
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                }`}
+                title="Clinical Decision Workspace (Decisão Clínica)"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                <span>Decisão Clínica</span>
+              </button>
 
-            <button
-              data-tab-mode="documentation"
-              onClick={() => {
-                setShowReasoningEngine(false);
-                setActiveViewMode('documentation');
-              }}
-              className={`shrink-0 snap-center px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shadow-3xs ${
-                activeViewMode === 'documentation' 
-                  ? 'bg-indigo-600 text-white ring-2 ring-indigo-600/20' 
-                  : 'bg-white hover:bg-slate-100 border border-slate-200/80 text-slate-700'
-              }`}
-              title="Clinical Documentation Studio"
-            >
-              <FileText className="w-3 h-3 text-[#4F46E5] shrink-0" />
-              <span>Doc Studio</span>
-            </button>
+              <button
+                data-tab-mode="documentation"
+                onClick={() => {
+                  setShowReasoningEngine(false);
+                  setActiveViewMode('documentation');
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                  activeViewMode === 'documentation' 
+                    ? 'bg-white text-indigo-700 shadow-xs border border-slate-200/80' 
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                }`}
+                title="Clinical Documentation Studio"
+              >
+                <FileText className="w-3.5 h-3.5 shrink-0" />
+                <span>Doc Studio</span>
+              </button>
 
-            <button
-              data-tab-mode="knowledge"
-              onClick={() => {
-                setShowReasoningEngine(false);
-                setActiveViewMode('knowledge');
-              }}
-              className={`shrink-0 snap-center px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shadow-3xs ${
-                activeViewMode === 'knowledge' 
-                  ? 'bg-indigo-600 text-white ring-2 ring-indigo-600/20' 
-                  : 'bg-white hover:bg-slate-100 border border-slate-200/80 text-slate-700'
-              }`}
-              title="Clinical Knowledge Hub (Central de Conhecimento)"
-            >
-              <Library className="w-3 h-3 text-[#4F46E5] shrink-0" />
-              <span>Knowledge Hub</span>
-            </button>
+              <button
+                data-tab-mode="knowledge"
+                onClick={() => {
+                  setShowReasoningEngine(false);
+                  setActiveViewMode('knowledge');
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                  activeViewMode === 'knowledge' 
+                    ? 'bg-white text-indigo-700 shadow-xs border border-slate-200/80' 
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                }`}
+                title="Clinical Knowledge Hub (Central de Conhecimento)"
+              >
+                <Library className="w-3.5 h-3.5 shrink-0" />
+                <span>Knowledge Hub</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1517,7 +1519,8 @@ export default function ReportWorkspace({
                     onGoToEvidence={() => setActiveViewMode('evidence')}
                     onSaveCase={handleSaveReport}
                     onGoToPrescription={() => {
-                      const fallbackDiag = anamnesis ? `Investigação Clínica (${patient.species || 'Canino'})` : `Diagnóstico e Prescrição para ${patient.species || 'Canino'}`;
+                      const spStr = patient.species ? ` (${patient.species})` : '';
+                      const fallbackDiag = anamnesis ? `Investigação Clínica${spStr}` : `Diagnóstico e Prescrição${spStr}`;
                       if (chatMessages.length > 1) {
                         const lastAi = chatMessages.find((m) => m.sender === 'ai');
                         if (lastAi && lastAi.soap) {
@@ -1546,7 +1549,8 @@ export default function ReportWorkspace({
                     aiReportText={generatedReport || (chatMessages.length > 0 ? (chatMessages[chatMessages.length - 1]?.soap?.raw || chatMessages[chatMessages.length - 1]?.text) : undefined)}
                     sources={sources}
                     onOpenPrescription={() => {
-                      const fallbackDiag = anamnesis ? `Investigação Clínica (${patient.species || 'Canino'})` : `Diagnóstico e Prescrição para ${patient.species || 'Canino'}`;
+                      const spStr = patient.species ? ` (${patient.species})` : '';
+                      const fallbackDiag = anamnesis ? `Investigação Clínica${spStr}` : `Diagnóstico e Prescrição${spStr}`;
                       if (chatMessages.length > 1) {
                         const lastAi = chatMessages.find((m) => m.sender === 'ai');
                         if (lastAi && lastAi.soap) {
@@ -1728,20 +1732,20 @@ export default function ReportWorkspace({
                     onClick={() => {
                       setPatient({
                         name: "",
-                        species: "Canino",
+                        species: "",
                         breed: "",
                         age: "",
-                        sex: "Macho",
+                        sex: "",
                         weight: "",
                         tutorName: "",
                         tutorPhone: "",
                       });
                       savePatientToSession({
                         name: "",
-                        species: "Canino",
+                        species: "",
                         breed: "",
                         age: "",
-                        sex: "Macho",
+                        sex: "",
                         weight: "",
                         tutorName: "",
                         tutorPhone: "",
@@ -1785,7 +1789,7 @@ export default function ReportWorkspace({
                         if (selected) {
                           setPatient({
                             name: selected.name,
-                            species: selected.species || "Canino",
+                            species: selected.species || "",
                             breed: selected.breed || "",
                             age: selected.age || "",
                             weight: selected.weight || "",
@@ -1828,9 +1832,10 @@ export default function ReportWorkspace({
                         <label className="text-[8px] font-black uppercase text-slate-400">Espécie</label>
                         <select
                           className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold outline-none focus:border-indigo-300 bg-white"
-                          value={patient.species || "Canino"}
+                          value={patient.species || ""}
                           onChange={(e) => handleUpdatePatient({ species: e.target.value })}
                         >
+                          <option value="">Não informada</option>
                           <option value="Canino">Canino</option>
                           <option value="Felino">Felino</option>
                           <option value="Outros">Outros</option>

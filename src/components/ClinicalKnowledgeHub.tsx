@@ -95,7 +95,7 @@ export const ClinicalKnowledgeHub: React.FC<ClinicalKnowledgeHubProps> = ({
       patient: {
         id: patient.id || 'p-live',
         name: patient.name,
-        species: patient.species || 'Canina',
+        species: patient.species || 'Não informada',
         breed: patient.breed || 'SRD',
         age: patient.age || 'Em avaliação',
         weight: patient.weight ? `${patient.weight} kg` : '10 kg',
@@ -108,7 +108,7 @@ export const ClinicalKnowledgeHub: React.FC<ClinicalKnowledgeHubProps> = ({
       outcome: 'Em Tratamento',
       followUpDuration: '30 dias',
       returnVisitsCount: 1,
-      tags: [patient.species || 'Canina', specialty, 'Atendimento Atual'],
+      tags: [patient.species || 'Não informada', specialty, 'Atendimento Atual'],
       clinicalFindings: [anamnesisText || 'Triagem inicial'],
       specialty,
       affectedSystem: specialty,

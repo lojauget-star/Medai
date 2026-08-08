@@ -15,7 +15,7 @@ import {
 export const INITIAL_CANONICAL_CASE: CanonicalCaseData = {
   patient: {
     name: '',
-    species: 'Canina',
+    species: 'Não informada',
     breed: '',
     age: '',
     weight: '',
@@ -34,7 +34,7 @@ export const INITIAL_CANONICAL_CASE: CanonicalCaseData = {
 
 export function getCanonicalCaseForPatient(patient: Patient, anamnesisText?: string): CanonicalCaseData {
   const name = patient.name || 'Paciente';
-  const species = patient.species || 'Canina';
+  const species = patient.species || 'Não informada';
   const breed = patient.breed || 'SRD';
   const age = patient.age || 'Não informada';
   const weightVal = parseFloat((patient.weight || '').replace(',', '.')) || 0;

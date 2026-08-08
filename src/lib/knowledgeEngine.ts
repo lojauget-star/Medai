@@ -25,7 +25,7 @@ export function getIndexedRAGCases(): ClinicalCase[] {
       patient: {
         id: rep.patient?.id || 'p-saved',
         name: rep.patient?.name || rep.patientName || 'Paciente sem nome',
-        species: rep.patient?.species || 'Canina',
+        species: rep.patient?.species || 'Não informada',
         breed: rep.patient?.breed || 'SRD',
         age: rep.patient?.age || 'N/I',
         weight: rep.patient?.weight ? `${rep.patient.weight} kg` : 'N/I',
@@ -38,7 +38,7 @@ export function getIndexedRAGCases(): ClinicalCase[] {
       outcome: 'Em Acompanhamento',
       followUpDuration: '30 dias',
       returnVisitsCount: 1,
-      tags: [rep.patient?.species || 'Canina', 'Prontuário Real', 'Atendimento'],
+      tags: [rep.patient?.species || 'Não informada', 'Prontuário Real', 'Atendimento'],
       clinicalFindings: [rep.anamnesisText || rep.soapText || 'Atendimento registrado no sistema'],
       specialty: 'Clínica Geral',
       affectedSystem: 'Sistema Geral',

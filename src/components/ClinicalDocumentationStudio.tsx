@@ -190,7 +190,7 @@ export const ClinicalDocumentationStudio: React.FC<ClinicalDocumentationStudioPr
     const crmv = activeDocument.signature?.crmv || localStorage.getItem("vetmind_signature_crmv") || "CRMV-SP 14892";
     const date = activeDocument.signature?.date || new Date().toLocaleDateString('pt-BR');
     const patientName = canonicalCase.patient.name || 'Paciente';
-    const species = canonicalCase.patient.species || 'Canino';
+    const species = canonicalCase.patient.species || 'Não informada';
     const breed = canonicalCase.patient.breed || 'SRD';
     const weight = canonicalCase.patient.weight || '--';
     const tutorName = canonicalCase.patient.tutorName || 'Tutor Responsável';
@@ -323,7 +323,7 @@ export const ClinicalDocumentationStudio: React.FC<ClinicalDocumentationStudioPr
     formattedText += `${activeDocument.title.toUpperCase()}\n`;
     formattedText += `${activeDocument.subtitle}\n`;
     formattedText += `========================================\n`;
-    formattedText += `PACIENTE: ${patientName} (${canonicalCase.patient.species || 'Canino'} | ${canonicalCase.patient.breed || 'SRD'} | ${canonicalCase.patient.weight || ''})\n`;
+    formattedText += `PACIENTE: ${patientName} (${canonicalCase.patient.species || 'Não informada'} | ${canonicalCase.patient.breed || 'SRD'} | ${canonicalCase.patient.weight || ''})\n`;
     formattedText += `TUTOR: ${canonicalCase.patient.tutorName || 'Não informado'}\n`;
     formattedText += `VETERINÁRIO: ${vetName} (${crmv})\n`;
     formattedText += `DATA: ${activeDocument.signature?.date || new Date().toLocaleDateString('pt-BR')}\n`;

@@ -164,7 +164,7 @@ export default function CasesWorkspace({ onSelectReport, onNewCase, onToggleMenu
             </div>
             <div>
               <strong>Espécie / Raça</strong>
-              <span>${report.patientSpecies || 'Canino'} • ${report.patientBreed || 'SRD'}</span>
+              <span>${report.patientSpecies || 'Não informada'} • ${report.patientBreed || 'SRD'}</span>
             </div>
             <div>
               <strong>Peso / Sexo</strong>
@@ -225,7 +225,7 @@ export default function CasesWorkspace({ onSelectReport, onNewCase, onToggleMenu
     let msg = `Olá! 🐾\n\n`;
     msg += `Aqui é do atendimento veterinário do(a) *${patientName}* com o(a) *${vetName}*.\n\n`;
     msg += `📄 *Resumo do Atendimento Clínico*\n`;
-    msg += `_Espécie:_ ${report.patientSpecies || 'Canino'} (${report.patientBreed || 'SRD'})\n\n`;
+    msg += `_Espécie:_ ${report.patientSpecies || 'Não informada'} (${report.patientBreed || 'SRD'})\n\n`;
     msg += `🔹 *Orientações Médicas:*\n${report.prescription || report.soapContent.slice(0, 300) + '...'}\n\n`;
     msg += `Qualquer dúvida ou alteração clínica, entre em contato conosco!\n\n`;
     msg += `Atenciosamente,\n*${vetName}*`;
@@ -442,7 +442,7 @@ export default function CasesWorkspace({ onSelectReport, onNewCase, onToggleMenu
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 font-medium mt-0.5 flex items-center gap-2">
-                        <span>{report.patientSpecies || 'Canino'} • {report.patientBreed || 'SRD'}</span>
+                        <span>{report.patientSpecies || 'Não informada'} • {report.patientBreed || 'SRD'}</span>
                         <span>•</span>
                         <span>{report.patientWeight ? `${report.patientWeight} kg` : ''}</span>
                         <span>•</span>

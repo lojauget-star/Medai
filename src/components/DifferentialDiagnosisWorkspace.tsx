@@ -188,7 +188,7 @@ export function processClinicalSessionData(
 ) {
   const text = (anamnesisText || '').trim();
   const lower = text.toLowerCase();
-  const species = patient?.species || 'Canino';
+  const species = patient?.species || 'Não informada';
   const name = patient?.name || 'Pet';
   const breed = patient?.breed || 'SRD';
   const category = detectClinicalDomainCategory(text);
@@ -479,9 +479,13 @@ export function getClinicalCaseModel(
   humanDecisions: Record<string, ItemDecisionStatus> = {}
 ) {
   const session = processClinicalSessionData(anamnesisText, patient);
-  const species = patient?.species || 'Canino';
+  const rawSpecies = patient?.species;
+  const species = (rawSpecies && rawSpecies !== 'Não informada') ? rawSpecies : '';
+  const speciesTag = species ? ` em ${species}` : '';
+  const speciesDesc = species ? species : 'paciente';
   const name = patient?.name || 'Pet';
   const breed = patient?.breed || 'SRD';
+  const breedDesc = (breed && breed !== 'SRD' && breed !== 'Não informada') ? ` (${breed})` : '';
   const category = detectClinicalDomainCategory(anamnesisText);
   const weightVal = parseFloat(patient?.weight || '10') || 10;
 
@@ -814,13 +818,13 @@ export function getClinicalCaseModel(
     hypotheses = [
       {
         id: 'dx_1',
-        title: `Pancreatite Aguda ou Subaguda em ${species}`,
+        title: `Pancreatite Aguda ou Subaguda${speciesTag}`,
         rank: 1,
         probability: 'Alta',
         confidenceScore: 88,
         confidenceLabel: 'Nível de Confiança do Sistema: Alto (88%)',
         decisionStatus: humanDecisions['dx_1'] || 'Pendente',
-        whyConsider: `Sintomas reportados para ${name} (${species}, ${breed}): Apresentação clínica com elevada correlação fisiopatológica.`,
+        whyConsider: `Sintomas reportados para ${name}${species ? ` (${species}${breedDesc})` : ''}: Apresentação clínica com elevada correlação fisiopatológica.`,
         favorableFindings: session.findings.positive.map(f => f.finding),
         unfavorableFindings: session.findings.negative.map(f => f.finding),
         missingInformation: session.findings.unknown.map(f => f.finding),
@@ -828,7 +832,7 @@ export function getClinicalCaseModel(
         recommendedTests: [
           {
             id: 't1',
-            name: `Dosagem de Lipase Pancreática Específica (Spec cPL / Spec fPL)`,
+            name: species === 'Felino' ? 'Dosagem de Lipase Pancreática Específica Felina (Spec fPL)' : (species === 'Canino' ? 'Dosagem de Lipase Pancreática Específica Canina (Spec cPL)' : 'Dosagem de Lipase Pancreática Específica (Spec fPL / Spec cPL conforme espécie)'),
             priority: 'Alta',
             reason: 'Padrão-ouro para confirmação ou exclusão de pancreatite',
             diagnosticValue: 'Confirmação',
@@ -847,7 +851,7 @@ export function getClinicalCaseModel(
             decisionStatus: humanDecisions['t2'] || 'Pendente'
           }
         ],
-        relatedDiagnoses: [`Gastroenterite Aguda em ${species}`, `Obstrução por Corpo Estranho`],
+        relatedDiagnoses: [`Gastroenterite Aguda${speciesTag}`, `Obstrução por Corpo Estranho`],
         conduct: [
           { id: 'c1', label: 'Internação para hidratação parenteral com Ringer Lactato IV', checked: true, decisionStatus: humanDecisions['c1'] || 'Pendente' },
           { id: 'c2', label: 'Inibidor de receptor neurocinina-1: Maropitant (1 mg/kg SC q24h)', checked: true, decisionStatus: humanDecisions['c2'] || 'Pendente' },
@@ -857,7 +861,7 @@ export function getClinicalCaseModel(
       },
       {
         id: 'dx_2',
-        title: `Gastroenterite Aguda / Indiscreção Alimentar em ${species}`,
+        title: `Gastroenterite Aguda / Indiscreção Alimentar${speciesTag}`,
         rank: 2,
         probability: 'Moderada',
         confidenceScore: 68,
@@ -1028,6 +1032,7 @@ export default function DifferentialDiagnosisWorkspace({
   const [customNotes, setCustomNotes] = useState<Record<string, string>>({});
 
   // Drawer / Modal states
+  const [isActionsCollapsed, setIsActionsCollapsed] = useState(false);
   const [showReasoningGraph, setShowReasoningGraph] = useState(false);
   const [showTutorModalState, setShowTutorModalState] = useState(false);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
@@ -1839,7 +1844,7 @@ export default function DifferentialDiagnosisWorkspace({
                   <Check className="w-4 h-4 text-emerald-600" /> Peso do Paciente Confirmado ({patient.weight || '10'} kg)
                 </div>
                 <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center gap-2 text-emerald-900 font-bold">
-                  <Check className="w-4 h-4 text-emerald-600" /> Espécie Taxonômica Validada ({patient.species || 'Canino'})
+                  <Check className="w-4 h-4 text-emerald-600" /> Espécie Taxonômica Validada ({patient.species || 'Não informada'})
                 </div>
                 <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center gap-2 text-emerald-900 font-bold">
                   <Check className="w-4 h-4 text-emerald-600" /> Concentração e Via de Administração Definidas
@@ -1866,47 +1871,69 @@ export default function DifferentialDiagnosisWorkspace({
 
       </div>
 
-      {/* STICKY BOTTOM BAR */}
-      <div className="sticky bottom-0 bg-white/95 backdrop-blur-md border-t border-[#E2E8F0] py-3 px-4 sm:px-8 z-20 shadow-lg">
-        <div className="max-w-[2160px] mx-auto flex items-center justify-between gap-3 overflow-x-auto no-scrollbar">
+      {/* COLLAPSIBLE / MINIMALIST STICKY BOTTOM BAR */}
+      <div className="sticky bottom-0 bg-white/95 backdrop-blur-md border-t border-slate-200 py-1.5 px-3 sm:px-6 z-20 shadow-xs transition-all">
+        <div className="max-w-[2160px] mx-auto flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
           
-          <div className="hidden sm:flex items-center gap-2 text-xs font-sans text-slate-600 shrink-0">
-            <ShieldCheck className="w-4 h-4 text-emerald-500" />
-            <span>Atendimento parametrizado para <strong>{patient.name || "Paciente"}</strong> ({patient.species || "Canino"})</span>
+          <div className="flex items-center gap-2 text-xs font-sans text-slate-600 shrink-0">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+            <span className="truncate">Atendimento: <strong>{patient.name || "Paciente"}</strong> ({patient.species || "Não informada"})</span>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0 ml-auto">
-            
-            <button
-              type="button"
-              onClick={() => {
-                setShowTutorModalState(true);
-                if (onOpenTutorModal) onOpenTutorModal();
-              }}
-              className="px-4 py-2 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-800 transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              <MessageSquare className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Explicar ao Tutor</span>
-            </button>
+          <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+            {isActionsCollapsed ? (
+              <button
+                type="button"
+                onClick={() => setIsActionsCollapsed(false)}
+                className="px-3 py-1 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border border-indigo-200/60 shadow-2xs"
+                title="Expandir ações rápidas do atendimento"
+              >
+                <Zap className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Ações Rápidas</span>
+                <ChevronUp className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowTutorModalState(true);
+                    if (onOpenTutorModal) onOpenTutorModal();
+                  }}
+                  className="px-3 py-1 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-indigo-600" />
+                  <span className="hidden sm:inline">Explicar ao</span> Tutor
+                </button>
 
-            <button
-              type="button"
-              onClick={onGeneratePdf}
-              className="px-4 py-2 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-800 transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              <Printer className="w-3.5 h-3.5 text-slate-500" />
-              <span>Criar PDF</span>
-            </button>
+                <button
+                  type="button"
+                  onClick={onGeneratePdf}
+                  className="px-3 py-1 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5 text-slate-500" />
+                  <span>PDF</span>
+                </button>
 
-            <button
-              type="button"
-              onClick={onOpenPrescription}
-              className="px-6 py-2 rounded-full bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white font-extrabold text-xs shadow-md shadow-indigo-500/20 transition-all flex items-center gap-2 cursor-pointer"
-            >
-              <Zap className="w-4 h-4" />
-              <span>Gerar Prescrição Médica</span>
-            </button>
+                <button
+                  type="button"
+                  onClick={onOpenPrescription}
+                  className="px-3.5 py-1 rounded-full bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>Gerar Prescrição</span>
+                </button>
 
+                <button
+                  type="button"
+                  onClick={() => setIsActionsCollapsed(true)}
+                  className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors ml-1 cursor-pointer"
+                  title="Recolher barra de ações"
+                >
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+              </>
+            )}
           </div>
 
         </div>

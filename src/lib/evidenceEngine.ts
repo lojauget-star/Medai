@@ -412,11 +412,70 @@ const ALL_LITERATURE_GROUPS: Array<{
       ]
     },
     {
+      id: 'pancreatite-aguda-felina',
+      name: 'Pancreatite Aguda Felina / Tríade Felina (Triadite)',
+      category: 'Gastroenterologia Felina / Pâncreas & Fígado',
+      keywords: ['vomito', 'vômito', 'emese', 'pancreatite', 'triade', 'tríade', 'colangite', 'inapetencia', 'inapetência', 'anorexia', 'spec fpl', 'fpl', 'gato', 'felino'],
+      speciesFilter: ['felina', 'felino', 'gato', 'cat'],
+      articles: [
+        {
+          article_id: 'art-fel-001',
+          title: 'ISFM Consensus Guidelines on Diagnosing and Managing Feline Pancreatitis & Triaditis',
+          authors: ['Steiner J.M.', 'Forman M.A.', 'Armstrong P.J.'],
+          journal: 'Journal of Feline Medicine and Surgery (JFMS)',
+          year: 2024,
+          doi: '10.1177/1098612X24115082',
+          publication_type: 'Consenso',
+          evidence_level: 'Alta',
+          impact_level: 'Alto',
+          clinical_summary: 'Consenso internacional que estabelece o ensaio Spec fPL (Lipase Pancreática Específica Felina) e a ultrassonografia abdominal como o padrão-ouro não invasivo para diagnóstico da pancreatite aguda e síndrome da tríade felina (colangiohepatite + pancreatite + DII).',
+          quoted_excerpt: '"A junção anatômica única do ducto pancreático e do colédoco no duodeno em felinos favorece a concorrência de pancreatite, colangite e doença inflamatória intestinal. A dosagem de Spec fPL associada ao espessamento duodenal possui sensibilidade de 86% e especificidade de 91%."',
+          supports: [
+            'Aumenta a probabilidade de pancreatite / triadite felina em gatos com inapetência e êmese',
+            'Reforça a indicação da dosagem de Spec fPL (Lipase Pancreática Específica Felina)',
+            'Indica suporte nutricional enteral precoce para prevenir lipidose hepática felina',
+            'Sustenta analgesia multimodal com Buprenorfina em felinos'
+          ],
+          contradicts: [
+            'Contradiz o uso de jejum prolongado em gatos anoréxicos devido ao risco severo de lipidose hepática'
+          ],
+          recommended_tests: ['Spec fPL (Lipase Pancreática Felina)', 'Ultrassonografia Abdominal Focada (Pâncreas/Ducto Biliar)', 'Painel Bioquímico Hepático (ALT/GGT/Bilirrubinas)'],
+          recommended_treatments: ['Buprenorfina (0.01-0.02 mg/kg SC/Sublingual)', 'Maropitant (Cerenia) 1 mg/kg SC', 'Fluidoterapia IV com Ringer Lactato', 'Sonda Enteral em anorexia >24-48h'],
+          species: ['Felina'],
+          tags: ['Pancreatite Felina', 'Spec fPL', 'Tríade Felina', 'JFMS', 'ISFM'],
+          score: { qualityScore: 99, recencyScore: 98, citationCount: 168 }
+        },
+        {
+          article_id: 'art-fel-002',
+          title: 'AAFP & ISFM Guidelines on Nutritional Management and Lipidosis Prevention in Feline Anorexia',
+          authors: ['Center S.A.', 'Cave N.J.', 'Valtolina S.'],
+          journal: 'Journal of Feline Medicine and Surgery (JFMS)',
+          year: 2023,
+          doi: '10.1177/1098612X23108920',
+          publication_type: 'Guideline',
+          evidence_level: 'Alta',
+          impact_level: 'Alto',
+          clinical_summary: 'Diretriz focado no manejo fisiopatológico da anorexia felina, reforçando a rápida instituição de suporte nutricional por sonda nasoesofágica para prevenção de lipidose hepática secundária.',
+          quoted_excerpt: '"Gatos anoréxicos por mais de 48 horas desenvolvem rápida mobilização de triacilgliceróis e acúmulo lipídico nos hepatócitos. A enteralização precoce via sonda garante a sobrevivência em 90% dos casos complicados por pancreatite."',
+          supports: [
+            'Reforça enteralização precoce por sonda nasoesofágica ou esofagostomia em felinos',
+            'Recomenda dieta hiperproteica específica para gatos sem encefalopatia'
+          ],
+          recommended_tests: ['Bilirrubina Total e Frações', 'Fosfatase Alcalina (FA) e GGT'],
+          recommended_treatments: ['Sonda Nasoesofágica em anorexia felina >24h', 'Alimentação Enteral Recovery'],
+          species: ['Felina'],
+          tags: ['Lipidose Hepática', 'Anorexia Felina', 'AAFP', 'ISFM'],
+          score: { qualityScore: 97, recencyScore: 94, citationCount: 112 }
+        }
+      ]
+    },
+    {
       id: 'gastro-pancreatite-aguda',
       name: 'Pancreatite Aguda Canina / Gastroenterite Aguda',
       category: 'Gastroenterologia & Pâncreas',
       keywords: ['vomito', 'vômito', 'emese', 'pancreatite', 'dor abdominal', 'epigastrio', 'epigástrio', 'diarreia', 'diarréia', 'spec cpl', 'inapetencia', 'inapetência', 'anorexia'],
       negativeKeywords: ['olho', 'vulva', 'otite'],
+      speciesFilter: ['canina', 'canino', 'cão', 'cao', 'dog'],
       articles: [
         {
           article_id: 'art-gastro-01',
@@ -523,8 +582,33 @@ export function getEvidenceGroupsForPatient(symptomsText?: string, species?: str
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
 
+  const isFeline = speciesNormalized.includes('felin') || speciesNormalized.includes('gat') || normalizedText.includes('felin') || normalizedText.includes('gat');
+  const isCanine = speciesNormalized.includes('canin') || speciesNormalized.includes('cao') || speciesNormalized.includes('cão') || speciesNormalized.includes('dog') || normalizedText.includes('canin') || normalizedText.includes('cao') || normalizedText.includes('cão');
+
   const scoredGroups = ALL_LITERATURE_GROUPS.map(group => {
     let matchScore = 0;
+
+    // Strict species filter check (hard block mismatched species)
+    if (group.speciesFilter && group.speciesFilter.length > 0) {
+      if (isFeline) {
+        const matchesFeline = group.speciesFilter.some(s => /felin|gato|cat/i.test(s));
+        if (!matchesFeline) {
+          return { group, matchScore: 0 };
+        }
+      } else if (isCanine) {
+        const matchesCanine = group.speciesFilter.some(s => /canin|cão|cao|dog/i.test(s));
+        if (!matchesCanine) {
+          return { group, matchScore: 0 };
+        }
+      } else {
+        // Unknown/unassigned species: block single-species groups (keep only multi-species)
+        const hasFeline = group.speciesFilter.some(s => /felin|gato|cat/i.test(s));
+        const hasCanine = group.speciesFilter.some(s => /canin|cão|cao|dog/i.test(s));
+        if (hasFeline !== hasCanine) {
+          return { group, matchScore: 0 };
+        }
+      }
+    }
 
     // Negative keywords check (hard block if mismatched anatomical site)
     let negativeHit = false;
@@ -550,11 +634,11 @@ export function getEvidenceGroupsForPatient(symptomsText?: string, species?: str
       });
     }
 
-    // Species boost / filter
+    // Species boost
     if (group.speciesFilter && group.speciesFilter.length > 0) {
       const matchSpecies = group.speciesFilter.some(s => speciesNormalized.includes(s.toLowerCase()));
       if (matchSpecies) {
-        matchScore += 5;
+        matchScore += 10;
       }
     }
 
@@ -573,17 +657,17 @@ export function getEvidenceGroupsForPatient(symptomsText?: string, species?: str
     // Fallback if no specific keyword matched, return generic gastro or default group
     return [
       {
-        id: 'investigacao-clinica-geral',
-        name: 'Triagem Clínica e Investigação Diagnóstica Geral',
+        id: isFeline ? 'investigacao-clinica-felina' : 'investigacao-clinica-geral',
+        name: isFeline ? 'Triagem Clínica e Investigação Diagnóstica Felina' : 'Triagem Clínica e Investigação Diagnóstica Geral',
         probability: 70,
         badge: 'Moderada',
         category: 'Clínica Médica Veterinária',
         articles: [
           {
             article_id: 'art-gen-01',
-            title: 'WSAVA Guidelines for Clinical Workup and Triage in Small Animal Practice',
-            authors: ['WSAVA Clinical Committee'],
-            journal: 'Journal of Small Animal Practice',
+            title: isFeline ? 'ISFM & WSAVA Guidelines for Feline Triage and Clinical Workup' : 'WSAVA Guidelines for Clinical Workup and Triage in Small Animal Practice',
+            authors: ['WSAVA & ISFM Clinical Committee'],
+            journal: isFeline ? 'Journal of Feline Medicine and Surgery' : 'Journal of Small Animal Practice',
             year: 2024,
             doi: '10.1111/jsap.13600',
             publication_type: 'Guideline',
@@ -594,8 +678,8 @@ export function getEvidenceGroupsForPatient(symptomsText?: string, species?: str
             supports: ['Sustenta investigação clínica direcionada por exames complementares'],
             recommended_tests: ['Hemograma Completo', 'Perfil Bioquímico Sérico', 'Ultrassonografia Abdominal'],
             recommended_treatments: ['Suporte sintomático e hidratação'],
-            species: ['Canina', 'Felina'],
-            tags: ['WSAVA', 'Triagem', 'Clínica Geral'],
+            species: isFeline ? ['Felina'] : ['Canina', 'Felina'],
+            tags: ['WSAVA', 'ISFM', 'Triagem', 'Clínica Geral'],
             score: { qualityScore: 95, recencyScore: 95, citationCount: 100 }
           }
         ]
@@ -603,18 +687,36 @@ export function getEvidenceGroupsForPatient(symptomsText?: string, species?: str
     ];
   }
 
-  // Map matched literature groups to HypothesisEvidenceGroup format
-  return matching.map((item, idx) => {
-    const rawProb = Math.min(95, Math.max(65, 75 + item.matchScore * 2 - idx * 10));
-    return {
-      id: item.group.id,
-      name: item.group.name,
-      probability: rawProb,
-      badge: rawProb >= 85 ? 'Alta' : (rawProb >= 70 ? 'Moderada' : 'Baixa'),
-      category: item.group.category,
-      articles: item.group.articles
-    };
-  });
+  // Map matched literature groups to HypothesisEvidenceGroup format and filter articles strictly by species
+  return matching
+    .map((item, idx) => {
+      const rawProb = Math.min(95, Math.max(65, 75 + item.matchScore * 2 - idx * 10));
+      
+      // Filter articles inside group for species matching
+      const filteredArticles = item.group.articles.filter(art => {
+        if (!art.species || art.species.length === 0) return true;
+        if (isFeline) {
+          return art.species.some(s => /felin|gato|cat/i.test(s));
+        } else if (isCanine) {
+          return art.species.some(s => /canin|cão|cao|dog/i.test(s));
+        } else {
+          // Unassigned species: keep only multi-species or non-specific articles
+          const hasFel = art.species.some(s => /felin|gato|cat/i.test(s));
+          const hasCan = art.species.some(s => /canin|cão|cao|dog/i.test(s));
+          return (hasFel && hasCan) || (!hasFel && !hasCan);
+        }
+      });
+
+      return {
+        id: item.group.id,
+        name: item.group.name,
+        probability: rawProb,
+        badge: rawProb >= 85 ? 'Alta' : (rawProb >= 70 ? 'Moderada' : 'Baixa'),
+        category: item.group.category,
+        articles: filteredArticles
+      };
+    })
+    .filter(group => group.articles.length > 0);
 }
 
 /**

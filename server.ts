@@ -103,8 +103,8 @@ function retrieveGlobalRelevantChunks(
 ): string {
   if (documents.length === 0) return "Nenhum livro ou diretriz de referência disponível.";
 
-  const chunkSize = 8000;
-  const overlap = 1000;
+  const chunkSize = 1500;
+  const overlap = 250;
   const allChunks: { source: string; text: string; score: number; index: number; globalIndex: number }[] = [];
   
   let globalIdx = 0;
@@ -450,9 +450,8 @@ async function generateContentWithFallback(params: GenerateContentParams): Promi
     }
   }
   
-  console.warn("[GEMINI] All live models failed or key is limited/invalid. Firing high-fidelity local clinical generator fallback...");
-  
-  // High fidelity dynamic mock fallback generator matching precisely each request's expectation
+  console.warn("[GEMINI] All live models failed or key is limited/invalid.");
+
   let fullText = "";
   if (typeof params.contents === 'string') {
     fullText = params.contents;
@@ -464,6 +463,21 @@ async function generateContentWithFallback(params: GenerateContentParams): Promi
 
   const sysInstruction = params.config?.systemInstruction || "";
   const query = fullText.toLowerCase();
+
+  const isClinicalQuery = 
+    sysInstruction.toLowerCase().includes('soap') ||
+    sysInstruction.toLowerCase().includes('vetmind') ||
+    sysInstruction.toLowerCase().includes('prontuário') ||
+    sysInstruction.toLowerCase().includes('prescrição') ||
+    sysInstruction.toLowerCase().includes('diagnóstico') ||
+    sysInstruction.toLowerCase().includes('revisão') ||
+    query.includes('anamnese') ||
+    query.includes('soap');
+
+  if (isClinicalQuery) {
+    console.error("[GEMINI] Refusing to fire fake canned fallback for clinical diagnostic query.");
+    throw new Error("O serviço de Inteligência Artificial encontrou uma indisponibilidade temporária de cota/rede. O Vetmind não gera diagnósticos fictícios pré-programados para garantir a integridade da conduta médica. Por favor, tente novamente em instantes.");
+  }
 
   // 1. Marketing / Copywriting JSON Request
   if (sysInstruction.toLowerCase().includes('copywriting') || query.includes('marketing') || params.config?.responseMimeType?.includes('json')) {
@@ -732,45 +746,71 @@ const MEDICAL_GUIDELINES = [
   }
 ];
 
-// Combine static guidelines with dynamic Firestore collections
-async function getFullGuidelines() {
-  const list = [...MEDICAL_GUIDELINES];
-  if (!db) return list;
+function filterGuidelinesBySpecies(guidelines: any[], speciesInput?: string) {
+  const normSpecies = (speciesInput || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const isFeline = normSpecies.includes('felin') || normSpecies.includes('gat') || normSpecies.includes('cat');
+  const isCanine = normSpecies.includes('canin') || normSpecies.includes('cao') || normSpecies.includes('dog');
 
-  // Use memory cache to avoid querying Firestore on every serverless lambda invocation
-  if (globalCachedGuidelines && (Date.now() - globalCachedGuidelinesTime < 5 * 60 * 1000)) {
-    console.log(`[GUIDELINES CACHE] Returning cached guidelines (loaded ${Math.round((Date.now() - globalCachedGuidelinesTime) / 1000)}s ago)`);
-    return globalCachedGuidelines;
-  }
+  return guidelines.filter(g => {
+    const text = `${g.topic} ${g.content}`.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const mentionsCanine = text.includes('caes') || text.includes('cao') || text.includes('canin') || text.includes('dog');
+    const mentionsFeline = text.includes('felin') || text.includes('gato') || text.includes('gata') || text.includes('cat');
 
-  try {
-    const firestorePromise = getDocs(collection(db, 'guidelines'));
-    const timeoutPromise = new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error("Firestore query timed out")), 1500)
-    );
-
-    const querySnapshot = await Promise.race([firestorePromise, timeoutPromise]);
-    querySnapshot.forEach((docSnap) => {
-      const data = docSnap.data();
-      if (data.title && data.content) {
-        list.push({
-          topic: `${data.title} [${data.source || 'Banco Customizado'}]`,
-          content: data.content
-        });
+    if (isFeline) {
+      // Must not be canine-only
+      if (mentionsCanine && !mentionsFeline) return false;
+      return true;
+    } else if (isCanine) {
+      // Must not be feline-only
+      if (mentionsFeline && !mentionsCanine) return false;
+      return true;
+    } else {
+      // Species unknown / unassigned: keep ONLY multi-species or general guidelines
+      if (mentionsCanine || mentionsFeline) {
+        return mentionsCanine && mentionsFeline; // keep only if explicitly covers both
       }
-    });
+      return true;
+    }
+  });
+}
 
-    // Update global cache
-    globalCachedGuidelines = list;
-    globalCachedGuidelinesTime = Date.now();
-  } catch (err) {
-    console.warn("Could not load dynamic guidelines from firestore:", err);
-    if (globalCachedGuidelines) {
-      console.log("[GUIDELINES CACHE FALLBACK] Firestore failed or timed out. Returning expired cached guidelines.");
-      return globalCachedGuidelines;
+// Combine static guidelines with dynamic Firestore collections and filter by patient species
+async function getFullGuidelines(speciesInput?: string) {
+  let list = [...MEDICAL_GUIDELINES];
+  if (db) {
+    if (globalCachedGuidelines && (Date.now() - globalCachedGuidelinesTime < 5 * 60 * 1000)) {
+      list = [...globalCachedGuidelines];
+    } else {
+      try {
+        const firestorePromise = getDocs(collection(db, 'guidelines'));
+        const timeoutPromise = new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error("Firestore query timed out")), 1500)
+        );
+
+        const querySnapshot = await Promise.race([firestorePromise, timeoutPromise]);
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.title && data.content) {
+            list.push({
+              topic: `${data.title} [${data.source || 'Banco Customizado'}]`,
+              content: data.content
+            });
+          }
+        });
+
+        // Update global cache
+        globalCachedGuidelines = list;
+        globalCachedGuidelinesTime = Date.now();
+      } catch (err) {
+        console.warn("Could not load dynamic guidelines from firestore:", err);
+        if (globalCachedGuidelines) {
+          list = [...globalCachedGuidelines];
+        }
+      }
     }
   }
-  return list;
+
+  return filterGuidelinesBySpecies(list, speciesInput);
 }
 
 // ==========================================
@@ -814,12 +854,12 @@ function createInitialSession(customPatient?: any): any {
   const patient = customPatient || {
     id: patientId,
     name: '',
-    species: 'Canino',
+    species: 'Não informada',
     breed: '',
     age: '',
     weight: '',
     ownerId: ownerId,
-    sex: 'Macho Inteiro',
+    sex: '',
     tutorName: '',
     tutorPhone: ''
   };
@@ -902,8 +942,8 @@ function createInitialSession(customPatient?: any): any {
           title: 'Corpo Estranho Gastrointestinal',
           confidence: 42,
           probability: 'Baixa',
-          justification: 'Raça Golden Retriever com acesso a quintal, porém sem episódios prévios de picacismo relato.',
-          favorableFindings: ['Acesso a quintal', 'Sensibilidade abdominal'],
+          justification: 'Quadro de êmese e sensibilidade abdominal, porém sem massa palpável ou radiopacidade evidente na palpação inicial.',
+          favorableFindings: ['Acesso a área externa', 'Sensibilidade abdominal'],
           unfavorableFindings: ['Exame de palpação sem massa palpável evidente'],
           status: 'active'
         }
@@ -1321,23 +1361,36 @@ app.delete('/api/admin/guidelines-pdfs/:name', (req, res) => {
 
 function normalizePatientPayload(patient: any, textContext: string = ''): any {
   const norm = { ...(patient || {}) };
-  const combined = `${norm.name || ''} ${norm.species || ''} ${norm.breed || ''} ${textContext || ''}`.toLowerCase();
 
-  // 1. Species normalization based on clinical text context
-  if (/\b(felino|felina|gato|gata|cat|feline)\b/i.test(combined)) {
-    norm.species = 'Felino';
-  } else if (/\b(canino|canina|cão|cao|cadela|cachorro|dog|canine)\b/i.test(combined)) {
-    if (!norm.species) {
+  // 1. Strict species normalization without forced defaults or global text pollution
+  if (norm.species && norm.species !== 'Não informada') {
+    const sp = norm.species.toString().trim().toLowerCase();
+    if (/\b(felino|felina|gato|gata|cat|feline)\b/i.test(sp)) {
+      norm.species = 'Felino';
+    } else if (/\b(canino|canina|cão|cao|cadela|cachorro|dog|canine)\b/i.test(sp)) {
       norm.species = 'Canino';
+    }
+  } else {
+    // Infer species if present anywhere in textContext (e.g. "felino com vomito", "gato com dor")
+    if (/\b(felino|felina|gato|gata|cat|feline)\b/i.test(textContext)) {
+      norm.species = 'Felino';
+    } else if (/\b(canino|canina|cão|cao|cadela|cachorro|dog|canine)\b/i.test(textContext)) {
+      norm.species = 'Canino';
+    } else {
+      norm.species = 'Não informada';
     }
   }
 
-  // 2. Name normalization - filter out false positives like "ha", "há", "pet", etc.
+  // 2. Name normalization - filter out stop-words/placeholders
   const invalidNames = new Set([
     'ha', 'há', 'pet', 'paciente', 'aguardando', 'aguardando cadastro...', 'não informado', 'nao informado', 'srd', 'canino', 'felino', 'macho', 'fêmea', 'femea', ''
   ]);
-  if (norm.name && invalidNames.has(norm.name.toString().trim().toLowerCase())) {
+  if (!norm.name || invalidNames.has(norm.name.toString().trim().toLowerCase())) {
     norm.name = 'Não informado';
+  }
+
+  if (!norm.breed) {
+    norm.breed = 'Não informada';
   }
 
   return norm;
@@ -1353,7 +1406,7 @@ app.post('/api/generate-report', async (req, res) => {
 
     const normPatient = normalizePatientPayload(patient, `${anamnesis || ''} ${examData || ''}`);
 
-    let currentGuidelines = await getFullGuidelines();
+    let currentGuidelines = await getFullGuidelines(normPatient.species);
     if (disabledReferences && disabledReferences.length > 0) {
       currentGuidelines = currentGuidelines.filter(g => {
         return !disabledReferences.some((disabled: string) => 
@@ -1391,16 +1444,21 @@ app.post('/api/generate-report', async (req, res) => {
       Regras:
       1. Se houver imagens de Raio-X, Ultrassom ou exames de sangue, priorize a análise técnica deles.
       2. Mantenha um tom clínico rigoroso e profissional. Responda em Português Brasileiro.
-      3. Seja específico sobre a espécie (Canino/Felino/Outros).
+      3. Respeite estritamente a espécie informada ("${normPatient.species || 'Não informada'}"). Se a espécie for "Não informada", trate o paciente de forma genérica/neutra e NUNCA invente se ele é cão, gato ou qualquer outra espécie.
       4. Na seção M, retorne APENAS o JSON entre chaves, sem markdown code blocks.
-      5. METODOLOGIA DE RACIOCÍNIO CLÍNICO E EVITAÇÃO DE VIÉS DE CONFIRMAÇÃO (MÉTODO ANTI-FECHAMENTO COGNITIVO):
-         Ao ponderar sobre os diagnósticos diferenciais, evite focar futilmente apenas nas queixas primárias ou causas estatísticas mais óbvias. Você deve OBRIGATORIAMENTE realizar uma varredura mental estruturada sob três eixos fisiopatológicos complementares antes de listar os diferenciais:
-         a) Eixo Funcional/Infeccioso/Inundatório: Processos inflamatórios locais, infecções agudas ou crônicas, e distúrbios de teor celular local (ex: saculites, colites, dermatites perianais).
-         b) Eixo Mecânico-Estrutural ou Obstrutivo Extrínseco: Alterações geométricas do canal, fraqueza ou ruptura de diafragmas musculares de suporte (hérnias, divertículos), compressões por órgãos adjacentes (ex: próstata aumentada comprimindo o reto, massas pélvicas, linfonodomegalias) ou estenoses cirúrgicas. Atente-se a alterações físicas de escoamento (como fezes fitiformes/em fita, disfagia, retenção urinária) como fortes indicativos mecânicos que exigem diferenciais mecânicos/cirúrgicos como Hérnia Perineal ou Prostatopatias.
-         c) Eixo de Correlação Epidemiológica (Idade, Sexo Inteiro, Raça): Cruze as predisposições hormonais e estruturais do paciente (ex: machos inteiros têm degenaração androgênica de diafragma pélvico e hiperplasia prostática; raças predispostas como Shih Tzu e Boxer apresentam padrões musculares e anatômicos próprios).
-         Isso garante que o copiloto permaneça clinicamente assertivo e holístico para qualquer sintomatologia apresentada.
+      5. METODOLOGIA DE RACIOCÍNIO CLÍNICO E ISENÇÃO DE VIÉS (ZERO-DEFAULT POLICY):
+         Ao ponderar sobre os diagnósticos diferenciais, você NUNCA deve assumir predisposições de espécie, raça ou idade se não foram explicitamente informadas no caso. Realize uma varredura clínica sob três eixos fisiopatológicos abstratos:
+         a) Eixo Funcional e Infeccioso: Processos inflamatórios, infecciosos ou imunomediados compatíveis com a queixa.
+         b) Eixo Estrutural e Mecânico: Alterações anatômicas ou compressivas inerentes ao sistema afetado.
+         c) Eixo Epidemiológico: Correlação de dados epidemiológicos (se e somente se informados explicitamente).
+         IMPORTANTE: Se um dado não foi informado na anamnese, considere-o como DESCONHECIDO (null). Não invente sinais clínicos, não deduza espécie sem confirmação e não assuma afecções caninas em felinos ou vice-versa.
       6. CRÍTICO - RAG E BIBLIOGRAFIA ATIVA:
          Você DEVE consultar e citar de forma explícita nas justificativas de diagnósticos os livros e PDFs carregados na base de conhecimento (como Blackwell, Fossum, Nelson, etc.) e quaisquer PDFs ativos anexados pelo usuário. Quando citar esses materiais, utilize o nome exato do arquivo ou a menção de cabeçalho do livro para ratificar a conduta clínica e dar máxima credibilidade ao laudo.
+      7. ISOLAMENTO E INTEGRIDADE DE ESPÉCIE OBRIGATÓRIO (ZERO-INVENTION POLICY):
+         Espécie do paciente nesta consulta: "${normPatient.species || 'Não informada'}".
+         - Se a espécie for "Não informada" ou vazia: É ESTRITAMENTE PROIBIDO INVENTAR OU ASSUMIR QUE O PACIENTE É CANINO OU FELINO. Mantenha os termos neutros e genéricos (ex: "Paciente", "Gastroenterite Aguda", "Dosagem de Lipase Pancreática Específica (Spec cPL/Spec fPL conforme espécie)"). NUNCA invente raças (ex: Golden Retriever), idades ou sexos não relatados na anamnese.
+         - Se a espécie for Felino (gato/felina): É ESTRITAMENTE PROIBIDO gerar títulos, diagnósticos, exames ou evidências com nomenclatura canina (ex: "Pancreatite Canina", "Spec cPL", "Cães"). Use OBRIGATORIAMENTE os termos felinos equivalentes (ex: "Pancreatite Aguda Felina", "Tríade Felina", "Spec fPL", "Gatos").
+         - Se a espécie for Canino (cão/canina): É ESTRITAMENTE PROIBIDO gerar termos ou exames específicos de felinos (ex: "Spec fPL", "Tríade Felina").
 
       DIRETRIZES TÉCNICAS (CONCEITOS ADICIONAIS):
       ${currentGuidelines.map(g => `- ${g.topic}: ${g.content}`).join('\n')}
@@ -1409,7 +1467,7 @@ app.post('/api/generate-report', async (req, res) => {
     const userPrompt = `
       DADOS DO PACIENTE:
       Nome: ${normPatient.name || 'Não informado'}
-      Espécie/Raça: ${normPatient.species || 'Canino'} / ${normPatient.breed || 'SRD'}
+      Espécie/Raça: ${normPatient.species || 'Não informada'} / ${normPatient.breed || 'Não informada'}
       Idade: ${normPatient.age || 'Não informada'}
 
       ANAMNESE / HISTÓRICO:
@@ -1524,7 +1582,7 @@ app.post('/api/chat-followup', async (req, res) => {
     const normPatient = normalizePatientPayload(patient, `${message || ''} ${soapContent || ''}`);
 
     // 1. Fazer busca de chunks relevantes na literatura científica (RAG) baseada na dúvida do usuário
-    let currentGuidelines = await getFullGuidelines();
+    let currentGuidelines = await getFullGuidelines(normPatient.species);
     if (disabledReferences && disabledReferences.length > 0) {
       currentGuidelines = currentGuidelines.filter(g => {
         return !disabledReferences.some((disabled: string) => 
@@ -1548,7 +1606,7 @@ app.post('/api/chat-followup', async (req, res) => {
       Você tem acesso a:
       1. Dados do Paciente Atual:
          - Nome: ${normPatient.name || 'Não informado'}
-         - Espécie/Raça: ${normPatient.species || 'Canino'} / ${normPatient.breed || 'SRD'}
+         - Espécie/Raça: ${normPatient.species || 'Não informada'} / ${normPatient.breed || 'Não informada'}
          - Idade: ${normPatient.age || 'Não informada'}
          - Peso: ${normPatient.weight || 'Não informado'} kg
          - Sexo: ${normPatient.sex || 'Não informado'}
@@ -1648,7 +1706,7 @@ app.post('/api/generate-prescription', async (req, res) => {
 
     const normPatient = normalizePatientPayload(patient, `${soapContent || ''} ${selectedDiagnosis || ''}`);
 
-    let currentGuidelines = await getFullGuidelines();
+    let currentGuidelines = await getFullGuidelines(normPatient.species);
     if (disabledReferences && disabledReferences.length > 0) {
       currentGuidelines = currentGuidelines.filter(g => {
         return !disabledReferences.some((disabled: string) => 
@@ -1679,7 +1737,7 @@ app.post('/api/generate-prescription', async (req, res) => {
       Sua missão é sugerir uma prescrição farmacológica rigorosa, precisa e cientificamente amparada pela literatura clássica veterinária e pelas diretrizes fornecidas.
       
       IMPORTANTE:
-      1. Sugira medicamentos com dosagens reais e consagradas internacionalmente (em mg/kg ou UI/kg), adaptadas especificamente à espécie (${normPatient.species || 'Canino/Felino'}) e ao peso de ${normPatient.weight || '10'}kg informado.
+      1. Sugira medicamentos com dosagens reais e consagradas internacionalmente (em mg/kg ou UI/kg), adaptadas especificamente à espécie (${normPatient.species || 'Não informada'}) e ao peso de ${normPatient.weight || 'Não informado'}kg informado.
       2. Inclua via de administração, frequência de intervalo ideal (ex: a cada 8h, 12h, 24h) e o período total em dias de tratamento.${routeInstruction}
       3. ${selectedDiagnosis ? `A prescrição DEVE ser gerada especificamente para o diagnóstico selecionado pelo veterinário: "${selectedDiagnosis}". Baseie as condutas farmacológicas inteiramente nesse diagnóstico.` : 'Consulte as diretrizes embutidas e os arquivos de literatura anexos para ratificar a escolha de primeira linha dos fármacos recomendados para a suspeita identificada.'}
       4. Liste efeitos colaterais comuns que merecem monitoramento e as principais contraindicações relativas ou absolutas dos princípios ativos.
@@ -1696,9 +1754,9 @@ app.post('/api/generate-prescription', async (req, res) => {
       DADOS DO PACIENTE:
       Nome: ${normPatient.name || 'Não informado'}
       Espécie: ${normPatient.species || 'Não informada'}
-      Raça: ${normPatient.breed || 'SRD'}
+      Raça: ${normPatient.breed || 'Não informada'}
       Idade: ${normPatient.age || 'Não informada'}
-      Peso: ${normPatient.weight || '10'} kg
+      Peso: ${normPatient.weight || 'Não informado'} kg
       
       ${selectedDiagnosis ? `DIAGNÓSTICO SELECIONADO:
       O veterinário selecionou o seguinte diagnóstico para esta prescrição: "${selectedDiagnosis}"` : ''}
@@ -1778,13 +1836,13 @@ app.post('/api/generate-tutor-message', async (req, res) => {
 
 app.post('/api/literature-review', async (req, res) => {
   try {
-    const { query: searchQuery, files, disabledReferences = [] } = req.body;
+    const { query: searchQuery, files, disabledReferences = [], species: reqSpecies } = req.body;
 
     if (!searchQuery && (!files || files.length === 0)) {
       return res.status(400).json({ error: 'Forneça uma busca por texto ou envie um arquivo para análise técnica.' });
     }
 
-    let currentGuidelines = await getFullGuidelines();
+    let currentGuidelines = await getFullGuidelines(reqSpecies || searchQuery);
     if (disabledReferences && disabledReferences.length > 0) {
       currentGuidelines = currentGuidelines.filter(g => {
         return !disabledReferences.some((disabled: string) => 

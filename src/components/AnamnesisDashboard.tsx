@@ -86,48 +86,48 @@ export default function AnamnesisDashboard({
   };
 
   return (
-    <div className="w-full flex flex-col bg-[#F8FAFC] min-h-full font-sans text-[#0F172A] selection:bg-indigo-100 selection:text-indigo-700 pb-24">
+    <div className="w-full flex flex-col bg-[#F8FAFC] min-h-full font-sans text-[#0F172A] selection:bg-indigo-100 selection:text-indigo-700 pb-20">
       
-      {/* 56px Compact Desktop Header */}
-      <header className="h-[56px] bg-white border-b border-[#E2E8F0] px-6 flex items-center justify-between shrink-0 z-10">
+      {/* Ultra-Compact Minimalist Desktop Header */}
+      <header className="h-[40px] bg-white border-b border-[#E2E8F0] px-4 flex items-center justify-between shrink-0 z-10 sticky top-0 shadow-3xs">
         {/* Search Bar */}
-        <div className="flex items-center gap-2.5 bg-[#F8FAFC] border border-[#E2E8F0] px-3 py-1 rounded-full w-full max-w-sm focus-within:border-[#4F46E5] focus-within:ring-2 focus-within:ring-[#4F46E5]/10 transition-all">
-          <Search className="w-3.5 h-3.5 text-[#64748B] shrink-0" />
+        <div className="flex items-center gap-2 bg-[#F8FAFC] border border-[#E2E8F0] px-2.5 py-0.5 rounded-full w-full max-w-xs focus-within:border-[#4F46E5] focus-within:ring-2 focus-within:ring-[#4F46E5]/10 transition-all">
+          <Search className="w-3 h-3 text-[#64748B] shrink-0" />
           <input 
             type="text"
             placeholder="Pesquisar casos, pacientes ou literatura médica..."
-            className="w-full bg-transparent text-xs text-[#0F172A] placeholder-[#64748B] outline-none font-normal"
+            className="w-full bg-transparent text-[11px] text-[#0F172A] placeholder-[#64748B] outline-none font-normal"
           />
         </div>
 
         {/* Right Header Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <button 
             type="button"
-            className="p-1.5 rounded-full border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] hover:bg-slate-50 transition-all relative cursor-pointer"
+            className="p-1 rounded-full border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] hover:bg-slate-50 transition-all relative cursor-pointer"
             title="Notificações"
           >
-            <Bell className="w-4 h-4" />
-            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#10B981]" />
+            <Bell className="w-3.5 h-3.5" />
+            <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-[#10B981]" />
           </button>
 
-          <div className="h-5 w-px bg-[#E2E8F0]" />
+          <div className="h-4 w-px bg-[#E2E8F0]" />
 
           {/* Active Vet Avatar */}
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full border border-[#E2E8F0] overflow-hidden bg-slate-100 shrink-0">
+          <div className="flex items-center gap-1.5">
+            <div className="w-6 h-6 rounded-full border border-[#E2E8F0] overflow-hidden bg-slate-100 shrink-0">
               <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(vetName)}`} alt={vetName} className="w-full h-full object-cover" />
             </div>
             <div className="hidden sm:block">
-              <p className="text-xs font-semibold text-[#0F172A] leading-tight font-sans">{vetName}</p>
-              <p className="text-[10px] text-[#10B981] font-medium tracking-tight font-sans">{vetCrmv.toUpperCase().startsWith('CRMV') ? vetCrmv : `CRMV-${vetCrmv}`}</p>
+              <p className="text-[11px] font-semibold text-[#0F172A] leading-tight font-sans">{vetName}</p>
+              <p className="text-[9px] text-[#10B981] font-medium tracking-tight font-sans">{vetCrmv.toUpperCase().startsWith('CRMV') ? vetCrmv : `CRMV-${vetCrmv}`}</p>
             </div>
           </div>
         </div>
       </header>
 
       {/* Main 2-Column Ultra-Compact Dashboard Canvas */}
-      <div className="flex-1 p-3 md:p-4 max-w-[2160px] w-full mx-auto space-y-2.5">
+      <div className="flex-1 p-2 md:p-3 max-w-[2160px] w-full mx-auto space-y-2">
         
         {/* Compact Title */}
         <div className="flex items-center justify-between py-0.5">

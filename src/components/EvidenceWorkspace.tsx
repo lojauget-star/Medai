@@ -47,8 +47,11 @@ export default function EvidenceWorkspace({
   }, [anamnesisText, patient?.species]);
 
   // Selected Hypothesis State
+  const defaultFallbackId = patient?.species === 'Felino' 
+    ? 'pancreatite-aguda-felina' 
+    : (patient?.species === 'Canino' ? 'pancreatite-aguda' : (evidenceGroups[0]?.id || 'investigacao-clinica-geral'));
   const [selectedHypothesisId, setSelectedHypothesisId] = useState<string>(
-    evidenceGroups[0]?.id || 'pancreatite-aguda'
+    evidenceGroups[0]?.id || defaultFallbackId
   );
 
   // Dynamic header stats based on evidence groups

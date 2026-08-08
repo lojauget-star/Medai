@@ -485,7 +485,7 @@ export const ClinicalDecisionWorkspace: React.FC<ClinicalDecisionWorkspaceProps>
               <div className="flex items-center justify-between">
                 <span className="font-bold text-[#0F172A] text-sm">{patient.name || 'Paciente Sem Nome'}</span>
                 <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-[#4F46E5] font-bold text-[10px]">
-                  {patient.species || 'Canina'}
+                  {patient.species || 'Não informada'}
                 </span>
               </div>
               <div className="text-[#64748B] space-y-1">
