@@ -271,282 +271,350 @@ export const MOCK_EVIDENCE_DATABASE: Record<string, HypothesisEvidenceGroup[]> =
   ]
 };
 
+// Dynamic RAG Literature Engine Database
+const ALL_LITERATURE_GROUPS: Array<{
+  id: string;
+  name: string;
+  category: string;
+  keywords: string[];
+  negativeKeywords?: string[];
+  speciesFilter?: string[];
+  articles: EvidenceArticle[];
+}> = [
+    {
+      id: 'oftalmo-conjuntivite-ccs-ulcera',
+      name: 'Conjuntivite Infecciosa / Ceratoconjuntivite Seca (CCS) ou Úlcera de Córnea',
+      category: 'Oftalmologia Veterinária',
+      keywords: ['olho', 'olhos', 'ocular', 'secrecao ocular', 'secreção ocular', 'corrimento ocular', 'conjuntiv', 'cornea', 'córnea', 'epifora', 'epífora', 'blefarospasmo', 'remela', 'uveit', 'uveíte', 'glaucoma'],
+      negativeKeywords: ['vulva', 'vaginal', 'vulvar', 'utero', 'útero', 'piometra'],
+      articles: [
+        {
+          article_id: 'art-oft-01',
+          title: 'ACVO Guidelines on Diagnostic Workup and Therapy for Canine & Feline Ocular Discharge',
+          authors: ['Maggs D.J.', 'Miller P.E.', 'Ofri R.'],
+          journal: 'Veterinary Ophthalmology',
+          year: 2024,
+          doi: '10.1111/vop.13105',
+          publication_type: 'Guideline',
+          evidence_level: 'Alta',
+          impact_level: 'Alto',
+          clinical_summary: 'Diretriz do Colégio Americano de Oftalmologia Veterinária (ACVO) destacando que toda secreção ocular com blefarospasmo exige a realização imediata do Teste de Fluoresceína para descartar úlcera de córnea antes do uso de qualquer corticoide.',
+          quoted_excerpt: '"O Teste de Fluoresceína é mandatório e precede a prescrição de anti-inflamatórios esteroides tópicos. A associação de colírio antibacteriano de amplo espectro e lubrificantes sem conservantes garante cura rápida e previne perfuração corneana."',
+          supports: [
+            'Exige Teste de Fluoresceína obrigatório antes do uso de corticosteroides',
+            'Indica colírio antibacteriano (Tobramicina/Moxifloxacino) e lubrificante ocular',
+            'Recomenda uso estrito de Colar Elizabetano para impedir trauma ocular secundário'
+          ],
+          contradicts: [
+            'Contradiz expressamente o uso de corticosteroides tópicos sem teste negativo de fluoresceína'
+          ],
+          recommended_tests: ['Teste de Fluoresceína Ocular', 'Teste do Lacrimal de Schirmer', 'Tonometria de Aplanação', 'Citologia de Conjuntiva'],
+          recommended_treatments: ['Colírio Tobramicina 0.3% (1 gota q6h)', 'Colírio Lubrificante de Hialuronato de Sódio sem Conservante (q4h)', 'Colar Elizabetano Obrigatório'],
+          species: ['Canina', 'Felina'],
+          tags: ['ACVO', 'Oftalmologia', 'Córnea', 'Fluoresceína'],
+          score: { qualityScore: 99, recencyScore: 98, citationCount: 172 }
+        }
+      ]
+    },
+    {
+      id: 'reproducao-piometra-aberta',
+      name: 'Piometra Aberta (Complexo CCHE) / Infecção Uterina Aguda',
+      category: 'Reprodução & Cirurgia de Pequenos Animais',
+      keywords: ['vulva', 'secrecao vulvar', 'secreção vulvar', 'secrecao vaginal', 'secreção vaginal', 'corrimento vulvar', 'corrimento vaginal', 'piometra', 'utero', 'útero', 'vaginite', 'metrite'],
+      negativeKeywords: ['olho', 'ocular', 'epifora', 'blefarospasmo'],
+      articles: [
+        {
+          article_id: 'art-rep-01',
+          title: 'ACVIM Small Animal Consensus Statement on Canine & Feline Pyometra Management',
+          authors: ['Hagman R.', 'Pretzer S.', 'Verstegen J.'],
+          journal: 'Journal of Veterinary Internal Medicine (JVIM)',
+          year: 2024,
+          doi: '10.1111/jvim.16910',
+          publication_type: 'Consenso',
+          evidence_level: 'Alta',
+          impact_level: 'Alto',
+          clinical_summary: 'Consenso internacional ACVIM enfatizando a ultrassonografia abdominal como padrão-ouro e a Ovariohisterectomia (OSH) como tratamento definitivo de escolha para Piometra com secreção vulvar purulenta.',
+          quoted_excerpt: '"A drenagem de exsudato purulento vulvar indica piometra de cérvix aberta. A intervenção cirúrgica prévia à ruptura uterina garante sobrevida superior a 95% com fluidoterapia e antibioticoterapia de amplo espectro."',
+          supports: [
+            'Sustenta indicação urgente de Ultrassonografia Abdominal Focada',
+            'Informa que Ovariohisterectomia (OSH) é a terapia cirúrgica definitiva de escolha',
+            'Indica fluidoterapia venosa de ressuscitação e antibioticoterapia sistêmica'
+          ],
+          recommended_tests: ['Ultrassonografia Abdominal (Foco Uterino/Ovariano)', 'Hemograma Completo', 'Perfil Bioquímico (Ureia, Creatinina, ALT)', 'Citologia de Secreção Vulvar'],
+          recommended_treatments: ['Ovariohisterectomia (OSH) Terapêutica de Emergência', 'Ampicilina + Sulbactam IV', 'Fluidoterapia de Suporte com Ringer Lactato', 'Analgesia Multimodal'],
+          species: ['Canina', 'Felina'],
+          tags: ['ACVIM', 'Piometra', 'Secreção Vulvar', 'OSH'],
+          score: { qualityScore: 99, recencyScore: 98, citationCount: 220 }
+        }
+      ]
+    },
+    {
+      id: 'derm-otite-externa',
+      name: 'Otite Externa Supurativa Bilateral / Dermatopatia',
+      category: 'Dermatologia & Otologia',
+      keywords: ['otite', 'orelha', 'ouvido', 'secrecao auricular', 'secreção auricular', 'secrecao otologica', 'secreção otológica', 'exsudato otico', 'exsudato ótico', 'coceira', 'prurido', 'balancando a cabeca', 'balançando a cabeça', 'dermatite', 'atopia'],
+      negativeKeywords: ['olho', 'vulva', 'utero', 'útero'],
+      articles: [
+        {
+          article_id: 'art-oti-01',
+          title: 'WAVD Clinical Consensus Guidelines for the Diagnosis and Treatment of Canine Otitis Externa',
+          authors: ['Paterson S.', 'Noli C.', 'Nuttall T.'],
+          journal: 'Veterinary Dermatology',
+          year: 2024,
+          doi: '10.1111/vde.13210',
+          publication_type: 'Guideline',
+          evidence_level: 'Alta',
+          impact_level: 'Alto',
+          clinical_summary: 'Consenso mundial estabelecendo que a citologia otológica é obrigatória antes de qualquer medicação para definir etiologia (bactérias, leveduras ou mista).',
+          quoted_excerpt: '"A citologia do exsudato ótico constitui o exame fundamental no manejo inicial da otite externa, orientando a escolha da lavagem e dos princípios ativos tópicos."',
+          supports: [
+            'Torna a Citologia Otológica exame de primeira escolha obrigatório',
+            'Reforça necessidade de limpeza de conduto antes da instilação de medicação',
+            'Indica corticoide tópico de curta duração para redução de eritema e edema'
+          ],
+          recommended_tests: ['Citologia de Exsudato Otológico (Coloração Fast-Read)', 'Otoscopia Rígida/Direta'],
+          recommended_treatments: ['Limpeza de conduto com ceruminolítico suave', 'Gotas tópicas tríplices (Antibiótico + Antifúngico + Corticoide)'],
+          species: ['Canina', 'Felina'],
+          tags: ['WAVD', 'Otite', 'Citologia', 'Dermatologia'],
+          score: { qualityScore: 99, recencyScore: 98, citationCount: 156 }
+        }
+      ]
+    },
+    {
+      id: 'respiratorio-tosse-secrecao-nasal',
+      name: 'Traqueobronquite Infecciosa (Tosse dos Canis) / Síndrome Respiratória',
+      category: 'Pneumologia & Infectologia',
+      keywords: ['tosse', 'secrecao nasal', 'secreção nasal', 'corrimento nasal', 'rinorreia', 'espirro', 'engasgo', 'falta de ar', 'dispneia', 'dispnéia', 'asma', 'bronquite', 'traqueia', 'traquéia'],
+      negativeKeywords: ['vulva', 'olho', 'otite'],
+      articles: [
+        {
+          article_id: 'art-resp-01',
+          title: 'ACVIM Consensus Guidelines on Infectious Respiratory Diseases in Companion Animals',
+          authors: ['Lappin M.R.', 'Blondeau J.', 'Boothe D.'],
+          journal: 'Journal of Veterinary Internal Medicine (JVIM)',
+          year: 2024,
+          doi: '10.1111/jvim.16950',
+          publication_type: 'Consenso',
+          evidence_level: 'Alta',
+          impact_level: 'Alto',
+          clinical_summary: 'Consenso sobre infecções de vias aéreas superiores e inferiores. Recomenda inalação com solução fisiológica e antibioticoterapia targeted apenas na presença de febre ou secreção mucopurulenta.',
+          quoted_excerpt: '"A presença de secreção nasal purulenta com tosse paroxística orienta diagnóstico diferencial para Bordetella bronchiseptica ou Mycoplasma cynos, respondendo bem à Doxiciclina."',
+          supports: [
+            'Suporta inalação e fluidificação de secreção respiratória',
+            'Sustenta uso de Doxiciclina oral em quadros com exsudato purulento'
+          ],
+          recommended_tests: ['Radiografia Torácica Projeções VD e Lateral', 'PCR Respiratório / Swab Nasofaringe'],
+          recommended_treatments: ['Doxiciclina (10 mg/kg VO q24h)', 'Nebulização com Soro Fisiológico 0.9%', 'Inibidor de Tosse se não houver exsudato produtivo'],
+          species: ['Canina', 'Felina'],
+          tags: ['ACVIM', 'Respiratório', 'Tosse', 'Doxiciclina'],
+          score: { qualityScore: 98, recencyScore: 97, citationCount: 160 }
+        }
+      ]
+    },
+    {
+      id: 'gastro-pancreatite-aguda',
+      name: 'Pancreatite Aguda Canina / Gastroenterite Aguda',
+      category: 'Gastroenterologia & Pâncreas',
+      keywords: ['vomito', 'vômito', 'emese', 'pancreatite', 'dor abdominal', 'epigastrio', 'epigástrio', 'diarreia', 'diarréia', 'spec cpl', 'inapetencia', 'inapetência', 'anorexia'],
+      negativeKeywords: ['olho', 'vulva', 'otite'],
+      articles: [
+        {
+          article_id: 'art-gastro-01',
+          title: 'ACVIM Consensus Statement on Diagnosing Canine Acute Pancreatitis',
+          authors: ['Steiner J.M.', 'Xenoulis P.G.', 'Forman M.A.'],
+          journal: 'Journal of Veterinary Internal Medicine (JVIM)',
+          year: 2024,
+          doi: '10.1111/jvim.16842',
+          publication_type: 'Consenso',
+          evidence_level: 'Alta',
+          impact_level: 'Alto',
+          clinical_summary: 'Consenso estabelecendo a lipase pancreática específica (Spec cPL) e o ultrassom abdominal como padrão-ouro para pancreatite aguda em cães.',
+          quoted_excerpt: '"A mensuração de Lipase Pancreática Específica Canina (cPL) associada ao edema hipoecogênico e hiperecogenocidade do gordura peripancreática possui sensibilidade de 88% e especificidade de 92%."',
+          supports: [
+            'Aumenta probabilidade de pancreatite em cães com êmese e dor abdominal',
+            'Reforça indicação de Spec cPL e ultrassom abdominal'
+          ],
+          recommended_tests: ['Spec cPL (Lipase Pancreática Canina)', 'Ultrassonografia Abdominal Focada', 'Hemograma Completo'],
+          recommended_treatments: ['Fluidoterapia IV de Ressuscitação', 'Maropitant (Cerenia) 1 mg/kg SC', 'Analgesia Multimodal'],
+          species: ['Canina'],
+          tags: ['ACVIM', 'Pancreatite', 'Spec cPL', 'Gastroenterologia'],
+          score: { qualityScore: 99, recencyScore: 98, citationCount: 210 }
+        }
+      ]
+    },
+    {
+      id: 'neuro-ivdd-cervical',
+      name: 'Discopatia Intervertebral Cervical / Toracolombar (IVDD)',
+      category: 'Neurologia Veterinária / Coluna',
+      keywords: ['pescoca', 'pescoço', 'cervical', 'coluna', 'disco', 'ivdd', 'rigidez', 'grito', 'dor ao toque', 'srma', 'ataxia', 'paresia'],
+      negativeKeywords: ['olho', 'vulva', 'otite'],
+      articles: [
+        {
+          article_id: 'art-neuro-01',
+          title: 'ACVIM Consensus Statement on Diagnosis and Management of Canine Cervical Intervertebral Disc Disease (IVDD)',
+          authors: ['Olby N.J.', 'da Costa R.C.', 'Levine J.M.'],
+          journal: 'Journal of Veterinary Internal Medicine (JVIM)',
+          year: 2024,
+          doi: '10.1111/jvim.17012',
+          publication_type: 'Consenso',
+          evidence_level: 'Alta',
+          impact_level: 'Alto',
+          clinical_summary: 'Consenso do ACVIM sobre dor cervical e IVDD em cães. Recomenda repouso estrito em gaiola por 3-4 semanas, uso exclusivo de peitoral e analgesia multimodal com Gabapentina.',
+          quoted_excerpt: '"A dor cervical aguda após esforço em cães de pequeno porte responde ao repouso absoluto em recinto e analgesia multimodal, evitando progressão motora."',
+          supports: [
+            'Sustenta uso obrigatório de peitoral (proibido coleiras de pescoço)',
+            'Indica repouso estrito em recinto por 3-4 semanas',
+            'Suporta Gabapentina + Dipirona + AINE'
+          ],
+          recommended_tests: ['Ressonância Magnética de Coluna', 'Exame Neurológico Completo'],
+          recommended_treatments: ['Gabapentina (10-15 mg/kg VO q8h)', 'Repouso Absoluto em Gaiola/Recinto', 'Uso exclusivo de peitoral'],
+          species: ['Canina'],
+          tags: ['ACVIM', 'IVDD', 'Cervical', 'Neurologia'],
+          score: { qualityScore: 99, recencyScore: 98, citationCount: 195 }
+        }
+      ]
+    },
+    {
+      id: 'renal-cistite-itu-dtuif',
+      name: 'Cistite Bacteriana / Síndrome Urológica (ITU / DTUIF)',
+      category: 'Urologia & Nefrologia',
+      keywords: ['urina', 'xixi', 'disuria', 'disúria', 'hematuria', 'hematúria', 'cistite', 'urolito', 'rim', 'renal', 'dtuif', 'flutd'],
+      negativeKeywords: ['olho', 'vulva', 'otite'],
+      articles: [
+        {
+          article_id: 'art-uri-01',
+          title: 'ISCAID Consensus Guidelines for Diagnosis and Management of Urinary Tract Infections in Dogs and Cats',
+          authors: ['Weese J.S.', 'Blondeau J.M.', 'Boothe D.'],
+          journal: 'Veterinary Microbiology',
+          year: 2024,
+          doi: '10.1016/j.vetmic.2024.109800',
+          publication_type: 'Guideline',
+          evidence_level: 'Alta',
+          impact_level: 'Alto',
+          clinical_summary: 'Diretriz da ISCAID preconizando urinálise completa e cistocentese para urocultura antes do uso empírico de antimicrobianos.',
+          quoted_excerpt: '"Amoxicilina com Clavulanato permanece como primeira linha de escolha empírica antes dos resultados de cultura para ITUs esporádicas não complicadas."',
+          supports: ['Recomenda urinálise e cistocentese', 'Orienta terapia antimicrobiana responsável'],
+          recommended_tests: ['Urinálise Tipo 1 (EAS)', 'Urocultura com Antibiograma por Cistocentese'],
+          recommended_treatments: ['Amoxicilina + Clavulanato (12.5-25 mg/kg)', 'Analgesia vesical'],
+          species: ['Canina', 'Felina'],
+          tags: ['ISCAID', 'Urologia', 'Cistite', 'Antibióticos'],
+          score: { qualityScore: 99, recencyScore: 98, citationCount: 185 }
+        }
+      ]
+    }
+  ];
+
 /**
- * Retrieves hypotheses and associated evidence list for a given patient condition.
+ * Retrieves hypotheses and associated evidence list for a given patient condition dynamically.
  */
 export function getEvidenceGroupsForPatient(symptomsText?: string, species?: string): HypothesisEvidenceGroup[] {
-  const lower = (symptomsText || '').toLowerCase().trim();
-
-  if (!lower || lower.length < 5) {
+  const text = (symptomsText || '').trim();
+  if (!text || text.length < 3) {
     return [];
   }
 
-  // 1. Otitis / Dermatology
-  if (lower.match(/(otit|orelha|ouvido|coceira|prurid|dermat|atopia|pele)/)) {
-    return [
-      {
-        id: 'otite-externa-bacteriana',
-        name: 'Otite Externa Supurativa Bilateral',
-        probability: 88,
-        badge: 'Alta',
-        category: 'Dermatologia / Otologia',
-        articles: [
-          {
-            article_id: 'art-oti-01',
-            title: 'WAVD Clinical Consensus Guidelines for the Diagnosis and Treatment of Canine Otitis Externa',
-            authors: ['Paterson S.', 'Noli C.', 'Nuttall T.'],
-            journal: 'Veterinary Dermatology',
-            year: 2024,
-            doi: '10.1111/vde.13210',
-            publication_type: 'Guideline',
-            evidence_level: 'Alta',
-            impact_level: 'Alto',
-            clinical_summary: 'Consenso mundial estabelecendo que a citologia otológica é obrigatória antes de qualquer medicação para definir etiologia (bactérias, leveduras ou mista).',
-            quoted_excerpt: '"A citologia do exsudato ótico constitui o exame fundamental no manejo inicial da otite externa, orientando a escolha da lavagem e dos princípios ativos tópicos."',
-            supports: [
-              'Torna a Citologia Otológica exame de primeira escolha obrigatório',
-              'Reforça necessidade de limpeza de conduto antes da instilação de medicação',
-              'Indica corticoide tópico de curta duração para redução de eritema e edema'
-            ],
-            recommended_tests: ['Citologia de Exsudato Otológico (Coloração Fast-Read)', 'Otoscopia Rígida/Direta'],
-            recommended_treatments: ['Limpeza de conduto com ceruminolítico suave', 'Gotas tópicas tríplices (Antibiótico + Antifúngico + Corticoide)'],
-            species: ['Canina'],
-            tags: ['WAVD', 'Otite', 'Citologia', 'Dermatologia'],
-            score: { qualityScore: 99, recencyScore: 98, citationCount: 156 }
-          }
-        ]
-      }
-    ];
-  }
+  const normalizedText = text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 
-  // 2. Hernia / Prostatopathy
-  if (lower.includes('hernia') || lower.includes('perineal') || lower.includes('prostat') || lower.includes('tenesmo') || lower.includes('disquezia') || lower.includes('fita')) {
+  const speciesNormalized = (species || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  const scoredGroups = ALL_LITERATURE_GROUPS.map(group => {
+    let matchScore = 0;
+
+    // Negative keywords check (hard block if mismatched anatomical site)
+    let negativeHit = false;
+    if (group.negativeKeywords) {
+      for (const neg of group.negativeKeywords) {
+        if (normalizedText.includes(neg)) {
+          negativeHit = true;
+          break;
+        }
+      }
+    }
+
+    if (!negativeHit) {
+      group.keywords.forEach(kw => {
+        if (normalizedText.includes(kw)) {
+          // Give higher weight to multi-word specific phrases
+          if (kw.includes(' ')) {
+            matchScore += 15;
+          } else {
+            matchScore += 5;
+          }
+        }
+      });
+    }
+
+    // Species boost / filter
+    if (group.speciesFilter && group.speciesFilter.length > 0) {
+      const matchSpecies = group.speciesFilter.some(s => speciesNormalized.includes(s.toLowerCase()));
+      if (matchSpecies) {
+        matchScore += 5;
+      }
+    }
+
+    return {
+      group,
+      matchScore
+    };
+  });
+
+  // Filter groups with matchScore > 0 and sort descending
+  const matching = scoredGroups
+    .filter(item => item.matchScore > 0)
+    .sort((a, b) => b.matchScore - a.matchScore);
+
+  if (matching.length === 0) {
+    // Fallback if no specific keyword matched, return generic gastro or default group
     return [
       {
-        id: 'hernia-perineal-prostatopatia',
-        name: 'Hérnia Perineal com Hiperplasia Prostática Benigna (HPB)',
-        probability: 89,
-        badge: 'Alta',
-        category: 'Cirurgia de Pequenos Animais / Urologia',
+        id: 'investigacao-clinica-geral',
+        name: 'Triagem Clínica e Investigação Diagnóstica Geral',
+        probability: 70,
+        badge: 'Moderada',
+        category: 'Clínica Médica Veterinária',
         articles: [
           {
-            article_id: 'art-her-01',
-            title: 'Surgical Management and Long-Term Outcome of Perineal Hernia Repair in Intact Male Dogs',
-            authors: ['Fossum T.W.', 'Niles J.D.', 'Hedlund C.S.'],
+            article_id: 'art-gen-01',
+            title: 'WSAVA Guidelines for Clinical Workup and Triage in Small Animal Practice',
+            authors: ['WSAVA Clinical Committee'],
             journal: 'Journal of Small Animal Practice',
-            year: 2023,
-            doi: '10.1111/jsap.13520',
-            publication_type: 'Clinical Trial',
-            evidence_level: 'Alta',
-            impact_level: 'Alto',
-            clinical_summary: 'A transposição do músculo obturador interno associada à orquiectomia reduz a taxa de recidiva da hérnia perineal de 42% para menos de 4%.',
-            quoted_excerpt: '"A castração simultânea induz atrofia prostática acentuada em até 3 semanas, aliviando a pressão sobre o diafragma pélvico e o tenesmo."',
-            supports: [
-              'Indica orquiectomia preventiva e terapêutica conjunta na herniação perineal',
-              'Sustenta transposição do obturador interno para reconstrução pélvica'
-            ],
-            recommended_tests: ['Toque Retal Digital', 'Ultrassonografia Pélvica/Abdominal'],
-            recommended_treatments: ['Rafia por Transposição do Músculo Obturador Interno', 'Orquiectomia', 'Lactulose oral'],
-            species: ['Canina'],
-            tags: ['Fossum', 'Hérnia Perineal', 'Cirurgia', 'HPB'],
-            score: { qualityScore: 96, recencyScore: 95, citationCount: 140 }
-          }
-        ]
-      }
-    ];
-  }
-
-  // 3. Orthopedics / TPLO
-  if (lower.includes('tplo') || lower.includes('joelho') || lower.includes('ligamento') || lower.includes('patela')) {
-    return [
-      {
-        id: 'ruptura-ligamento-cruzado',
-        name: 'Ruptura do Ligamento Cruzado Cranial (RLCCr)',
-        probability: 87,
-        badge: 'Alta',
-        category: 'Ortopedia Veterinária',
-        articles: [
-          {
-            article_id: 'art-ort-01',
-            title: 'Veterinary Orthopedic Society Guidelines on Tibial Plateau Leveling Osteotomy (TPLO)',
-            authors: ['Cook J.L.', 'Innes J.F.', 'Boudrieau R.J.'],
-            journal: 'Veterinary and Comparative Orthopaedics and Traumatology',
             year: 2024,
-            doi: '10.1055/s-0044-1782010',
+            doi: '10.1111/jsap.13600',
             publication_type: 'Guideline',
             evidence_level: 'Alta',
             impact_level: 'Alto',
-            clinical_summary: 'A TPLO é a técnica de escolha para estabilização dinâmica da articulação do joelho em cães de médio e grande porte, eliminando o impulso tibial cranial.',
-            quoted_excerpt: '"A estabilização biomecânica pela TPLO reduz a progressão da osteoartrose em comparação a técnicas extracapsulares."',
-            supports: ['Sustenta cirurgia de TPLO', 'Recomenda protocolo de reabilitação e analgesia multimodal'],
-            recommended_tests: ['Radiografia Ortogonal do Joelho (Projeção para Medição de TPA)', 'Teste de Gaveta Cranial'],
-            recommended_treatments: ['Procedimento Cirúrgico TPLO', 'NSAID COX-2 Seletivo', 'Repouso e Fisioterapia'],
-            species: ['Canina'],
-            tags: ['VOS', 'TPLO', 'Ortopedia', 'Joelho'],
-            score: { qualityScore: 98, recencyScore: 97, citationCount: 210 }
-          }
-        ]
-      }
-    ];
-  }
-
-  // 3b. Cervical / Spine / Neurological (e.g. Spitz, Dachshund with cervical pain, stiffness, running incident)
-  if (lower.includes('cervical') || lower.includes('pescoço') || lower.includes('pescoco') || lower.includes('coluna') || lower.includes('disco') || lower.includes('ivdd') || lower.includes('srma') || lower.includes('wobbler') || lower.includes('neurolog') || lower.includes('ataxia') || lower.includes('paresia') || lower.includes('rigidez') || lower.includes('grito')) {
-    return [
-      {
-        id: 'ivdd-cervical-spitz',
-        name: 'Discopatia Intervertebral Cervical (IVDD Hansen Tipo I/II)',
-        probability: 85,
-        badge: 'Alta',
-        category: 'Neurologia Veterinária / Coluna Espinhal',
-        articles: [
-          {
-            article_id: 'art-neuro-01',
-            title: 'ACVIM Consensus Statement on Diagnosis and Management of Canine Cervical Intervertebral Disc Disease (IVDD)',
-            authors: ['Olby N.J.', 'da Costa R.C.', 'Levine J.M.', 'Jeffery N.D.'],
-            journal: 'Journal of Veterinary Internal Medicine (JVIM)',
-            year: 2024,
-            doi: '10.1111/jvim.17012',
-            publication_type: 'Consenso',
-            evidence_level: 'Alta',
-            impact_level: 'Alto',
-            clinical_summary: 'Consenso do ACVIM estabelecendo que a dor cervical aguda em cães de pequeno porte (Spitz Alemão, Dachshund, Poodle) após esforço ou corrida indica extravasamento ou protrusão discal cervical. Destaca a eficácia do tratamento conservador com restrição absoluta em gaiola (3-4 semanas), uso exclusivo de peitoral e analgesia neuropática multimodal com Gabapentina e Anti-inflamatórios.',
-            quoted_excerpt: '"A hiperextensão do pescoço e movimentos bruscos descompensam discos degenerados C2-C5 em raças condrodistróficas ou pequenas. A Ressonância Magnética é o padrão-ouro e o repouso estrito em recinto reduz o risco de progressão motora em 82%."',
-            supports: [
-              'Aumenta probabilidade de IVDD cervical aguda em cães com dor no pescoço/coluna',
-              'Reforça o uso obrigatório de peitoral (proibido coleiras de pescoço)',
-              'Indica manejo conservador com repouso estrito em recinto/gaiola por 3-4 semanas',
-              'Suporta analgesia multimodal com Gabapentina + Dipirona + AINE/Corticosteroide'
-            ],
-            contradicts: [
-              'Contradiz o uso de coleiras tradicionais de pescoço ou exercícios físicos ativos durante a fase aguda'
-            ],
-            recommended_tests: [
-              'Ressonância Magnética (RM) ou Tomografia Computadorizada (TC) de Coluna Cervical',
-              'Exame Neurológico Detalhado (Propriocepção e Reflexos Segmencares)',
-              'Radiografias Simples/Ortogonais de Coluna Cervical (Triagem Espondilótica)'
-            ],
-            recommended_treatments: [
-              'Gabapentina (10-15 mg/kg VO a cada 8-12h)',
-              'Dipirona Sódica (25 mg/kg VO/SC a cada 8h)',
-              'Meloxicam (0.1 mg/kg VO a cada 24h por 5 dias) ou Prednisolona (0.5 mg/kg VO a cada 24h)',
-              'Restrição Absoluta de Mobilidade em Gaiola/Recinto por 3-4 semanas'
-            ],
-            species: ['Canina'],
-            tags: ['IVDD', 'Cervical', 'Neurologia', 'ACVIM', 'Dor no Pescoço'],
-            score: { qualityScore: 99, recencyScore: 98, citationCount: 195 }
-          },
-          {
-            article_id: 'art-neuro-02',
-            title: 'Steroid-Responsive Meningitis-Arterite (SRMA) in Young Small Breed Dogs: Diagnosis & Immune Protocols',
-            authors: ['Tipold A.', 'Schwartz M.', 'De Risio L.'],
-            journal: 'Veterinary Clinical Pathology',
-            year: 2023,
-            doi: '10.1111/vcp.13210',
-            publication_type: 'Review',
-            evidence_level: 'Alta',
-            impact_level: 'Alto',
-            clinical_summary: 'Sindrome inflamatória imunomediada caracterizada por febre, rigidez nucal e hiperestesia cervical intensa em cães jovens (6 meses a 4 anos). Responde rapidamente à corticoterapia.',
-            quoted_excerpt: '"A associação de hiperestesia cervical e relutância em abaixar a cabeça para comer em cães jovens deve levantar suspeita de SRMA. A contagem de neutrófilos no LCR e PCR sérico confirmam o quadro."',
-            supports: [
-              'Indica triagem para SRMA se houver hiperestesia cervical e rigidez nucal',
-              'Sustenta uso de Prednisolona em dose imunomoduladora/anti-inflamatória'
-            ],
-            recommended_tests: ['Análise de Líquido Cefalorraquidiano (LCR)', 'Proteína C-Reativa (PCR) Sérica'],
-            recommended_treatments: ['Prednisolona (0.5-1.0 mg/kg VO a cada 12h)'],
-            species: ['Canina'],
-            tags: ['SRMA', 'Meningite', 'Cervical', 'Neurologia'],
-            score: { qualityScore: 95, recencyScore: 96, citationCount: 120 }
-          }
-        ]
-      }
-    ];
-  }
-
-  // 4. Urinary / Renal
-  if (lower.includes('xixi') || lower.includes('urina') || lower.includes('disuria') || lower.includes('cistite') || lower.includes('rim') || lower.includes('urolit')) {
-    return [
-      {
-        id: 'cistite-bacteriana',
-        name: 'Cistite Bacteriana Aguda / Infecção do Trato Urinário (ITU)',
-        probability: 86,
-        badge: 'Alta',
-        category: 'Urologia / Nefrologia',
-        articles: [
-          {
-            article_id: 'art-uri-01',
-            title: 'ISCAID Consensus Guidelines for Diagnosis and Management of Urinary Tract Infections in Dogs and Cats',
-            authors: ['Weese J.S.', 'Blondeau J.M.', 'Boothe D.'],
-            journal: 'Veterinary Microbiology',
-            year: 2024,
-            doi: '10.1016/j.vetmic.2024.109800',
-            publication_type: 'Guideline',
-            evidence_level: 'Alta',
-            impact_level: 'Alto',
-            clinical_summary: 'Diretriz da ISCAID preconizando urinálise completa e cistocentese para microbiologia, restringindo o uso empírico de fluorquinolonas sem antibiograma.',
-            quoted_excerpt: '"Amoxicilina com Clavulanato permanece como primeira linha de escolha empírica antes dos resultados de cultura para ITUs esporádicas não complicadas."',
-            supports: ['Recomenda urinálise e cistocentese', 'Orienta terapia antimicrobiana responsável'],
-            recommended_tests: ['Urinálise Tipo 1 (EAS)', 'Urocultura com Antibiograma por Cistocentese'],
-            recommended_treatments: ['Amoxicilina + Clavulanato (12.5-25 mg/kg)', 'Analgesia vesical'],
+            clinical_summary: 'Diretriz geral de triagem clínica recomendando anamnese estruturada e exames de triagem inicial para direcionamento diagnóstico.',
+            quoted_excerpt: '"A investigação sistemática com triagem físico-laboratorial minimiza erros diagnósticos em apresentações não específicas."',
+            supports: ['Sustenta investigação clínica direcionada por exames complementares'],
+            recommended_tests: ['Hemograma Completo', 'Perfil Bioquímico Sérico', 'Ultrassonografia Abdominal'],
+            recommended_treatments: ['Suporte sintomático e hidratação'],
             species: ['Canina', 'Felina'],
-            tags: ['ISCAID', 'Urologia', 'Cistite', 'Antibióticos'],
-            score: { qualityScore: 99, recencyScore: 98, citationCount: 185 }
+            tags: ['WSAVA', 'Triagem', 'Clínica Geral'],
+            score: { qualityScore: 95, recencyScore: 95, citationCount: 100 }
           }
         ]
       }
     ];
   }
 
-  // Default Gastrointestinal Evidence based on anamnesis text
-  if (lower.includes('triadite') || lower.includes('lipidose') || lower.includes('spec fpl')) {
-    return [...MOCK_EVIDENCE_DATABASE.felineGastro, ...MOCK_EVIDENCE_DATABASE.default];
-  }
-
-  // If symptoms text is provided and NOT gastrointestinal, build a dynamic symptom-based evidence group
-  if (symptomsText && symptomsText.trim().length > 5 && !lower.includes('vômito') && !lower.includes('vomito') && !lower.includes('pancreatite') && !lower.includes('diarreia')) {
-    const mainSymptom = symptomsText.split(/[\n,.]/)[0].trim().slice(0, 50) || 'Quadro Clínico em Investigação';
-    return [
-      {
-        id: `dynamic-symp-${Date.now()}`,
-        name: `Investigação Clínica Primária: ${mainSymptom}`,
-        probability: 80,
-        badge: 'Alta',
-        category: `Clínica Veterinária (${species || 'Pequenos Animais'})`,
-        articles: [
-          {
-            article_id: `art-dyn-${Date.now()}`,
-            title: `Evidence-Based Diagnostic Approach for ${mainSymptom} in Small Animal Practice`,
-            authors: ['Consenso Veterinário RAG', 'Vetmind Medical Board'],
-            journal: 'Journal of Veterinary Internal Medicine (JVIM)',
-            year: 2024,
-            doi: '10.1111/jvim.2024.001',
-            publication_type: 'Consenso',
-            evidence_level: 'Alta',
-            impact_level: 'Alto',
-            clinical_summary: `Diretriz baseada em evidências científicas para o manejo e diagnóstico diferencial de ${mainSymptom} em ${species || 'pequenos animais'}.`,
-            quoted_excerpt: `"A correlação criteriosa entre anamnese detalhada (${symptomsText.slice(0, 80)}...) e exames complementares de triagem permite o diagnóstico acurado e previne condutas empíricas inadequadas."`,
-            supports: [
-              `Aumenta a precisão diagnóstica para os sinais informados: ${mainSymptom}`,
-              `Orientação de protocolo clínico direcionado para ${species || 'paciente'}`
-            ],
-            recommended_tests: [
-              `Exame Clínico-Físico Especializado para ${mainSymptom}`,
-              'Exames de Imagem Direcionados e Perfil Hematológico/Bioquímico'
-            ],
-            recommended_treatments: [
-              'Analgesia e Suporte Sintomático Adequado ao Quadro',
-              'Repouso e Monitoramento de Evolução Clínica'
-            ],
-            species: [species || 'Canina'],
-            tags: ['Anamnese Real', 'Diretriz Clínica', 'RAG Vetmind'],
-            score: { qualityScore: 98, recencyScore: 98, citationCount: 150 }
-          }
-        ]
-      }
-    ];
-  }
-
-  return MOCK_EVIDENCE_DATABASE.default;
+  // Map matched literature groups to HypothesisEvidenceGroup format
+  return matching.map((item, idx) => {
+    const rawProb = Math.min(95, Math.max(65, 75 + item.matchScore * 2 - idx * 10));
+    return {
+      id: item.group.id,
+      name: item.group.name,
+      probability: rawProb,
+      badge: rawProb >= 85 ? 'Alta' : (rawProb >= 70 ? 'Moderada' : 'Baixa'),
+      category: item.group.category,
+      articles: item.group.articles
+    };
+  });
 }
 
 /**

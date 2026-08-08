@@ -59,9 +59,13 @@ export function getCanonicalCaseForPatient(patient: Patient, anamnesisText?: str
   }
 
   // Determine category
-  let category: 'derm_otitis' | 'renal_urinary' | 'vector_borne' | 'respiratory' | 'ortho_neuro' | 'gastro' = 'gastro';
+  let category: 'ophthalmology' | 'reproductive' | 'derm_otitis' | 'renal_urinary' | 'vector_borne' | 'respiratory' | 'ortho_neuro' | 'gastro' = 'gastro';
 
-  if (lower.match(/(otite|coceira|prurido|orelha|secreção auricular|secrecao auricular|pele|pelo|alopecia|dermatite|atopia|alergia)/)) {
+  if (lower.match(/(olho|olhos|ocular|secreção ocular|secrecao ocular|corrimento ocular|conjuntiv|córnea|cornea|epífora|epifora|blefarospasmo|uveít|uveit|glaucoma|remela)/)) {
+    category = 'ophthalmology';
+  } else if (lower.match(/(vulva|secreção vulvar|secrecao vulvar|secreção vaginal|secrecao vaginal|corrimento vulvar|corrimento vaginal|piometra|útero|utero|vaginite|metrite)/)) {
+    category = 'reproductive';
+  } else if (lower.match(/(otite|coceira|prurido|orelha|secreção auricular|secrecao auricular|pele|pelo|alopecia|dermatite|atopia|alergia)/)) {
     category = 'derm_otitis';
   } else if (lower.match(/(xixi|urina|sangue na urina|hematuria|hematúria|disuria|disúria|polaciúria|cistite|rim|renal|urolito|urólito|dtuif|estranguria|estrangúria)/)) {
     category = 'renal_urinary';
@@ -71,6 +75,90 @@ export function getCanonicalCaseForPatient(patient: Patient, anamnesisText?: str
     category = 'respiratory';
   } else if (lower.match(/(mancando|claudicação|claudicacao|dor na coluna|cervical|pescoço|pescoco|coluna|disco|hernia|discopatia|ivdd|srma|paralisia|convulsão|fratura|trauma|dor|grito|rigidez|ataxia|paresia)/)) {
     category = 'ortho_neuro';
+  }
+
+  if (category === 'ophthalmology') {
+    return {
+      patient: { name, species, breed, age, weight: weightStr, tutorName, tutorPhone, ownerId: 'owner-current' },
+      activeHypothesis: `Conjuntivite / Ceratoconjuntivite Seca (CCS) / Úlcera em ${species}`,
+      medications: [
+        {
+          name: 'Colírio Tobramicina 0,3% ou Moxifloxacino 0,5%',
+          dose: '1 gota no olho afetado',
+          frequency: 'A cada 6 horas',
+          duration: '7 a 10 dias',
+          route: 'Tópica Ocular',
+          notes: 'Antibiótico de amplo espectro para profilaxia e combate de infecções conjuncionais.'
+        },
+        {
+          name: 'Colírio Lubrificante (Hialuronato de Sódio 0,15% sem conservantes)',
+          dose: '1 gota no olho afetado',
+          frequency: 'A cada 4 horas',
+          duration: '14 dias',
+          route: 'Tópica Ocular',
+          notes: 'Proteção do filme lacrimal pré-corneano e alívio do ressecamento.'
+        }
+      ],
+      requestedExams: [
+        'Teste de Fluoresceína Ocular (Obrigatório pré-corticosteroide)',
+        'Teste do Lacrimal de Schirmer (TLS)',
+        'Tonometria de Aplanação (Medição de PIO)'
+      ],
+      careGoals: [
+        'Cessação do blefarospasmo e desconforto ocular em 48h',
+        'Preservação da transparência corneana sem estroma desnudado',
+        'Prevenção de automutilação com uso contínuo de Colar Elizabetano'
+      ],
+      tutorInstructions: [
+        `Manter o Colar Elizabetano no(a) ${name} 24 horas por dia até o retorno.`,
+        'Higienizar o excesso de secreção com gaze limpa embebida em soro fisiológico antes dos colírios.',
+        'Aguardar intervalo de 10 minutos entre a aplicação de colírios diferentes.',
+        'PROIBIDO usar colírios com corticoides sem reavaliação médica prévia.'
+      ],
+      anamnesisSummary: cleanText,
+      version: 1
+    };
+  }
+
+  if (category === 'reproductive') {
+    return {
+      patient: { name, species, breed, age, weight: weightStr, tutorName, tutorPhone, ownerId: 'owner-current' },
+      activeHypothesis: `Piometra Aberta / Infecção Uterina Aguda em ${species}`,
+      medications: [
+        {
+          name: 'Ampicilina + Sulbactam (20 mg/kg)',
+          dose: weightVal > 0 ? `${Math.round(weightVal * 20)} mg` : '20 mg/kg',
+          frequency: 'A cada 8 horas',
+          duration: '7 a 10 dias',
+          route: 'Endovenosa / Oral',
+          notes: 'Antibióticoterapia de amplo espectro para infecções reprodutivas agudas.'
+        },
+        {
+          name: 'Dipirona Sódica (25 mg/kg) + Tramadol (3 mg/kg)',
+          dose: weightVal > 0 ? `Dipirona ${Math.round(weightVal * 25)} mg + Tramadol ${Math.round(weightVal * 3)} mg` : 'Conforme peso',
+          frequency: 'A cada 8 horas',
+          duration: '5 dias',
+          route: 'Endovenosa / Oral',
+          notes: 'Analgesia multimodal para dor visceral e uterina.'
+        }
+      ],
+      requestedExams: [
+        'Ultrassonografia Abdominal Total com Foco Uterino/Ovariano',
+        'Hemograma Completo com Plaquetograma (Pesquisa de Leucocitose com Desvio)',
+        'Perfil Bioquímico (Ureia, Creatinina, ALT, Fosfatase Alcalina)'
+      ],
+      careGoals: [
+        'Estabilização hemodinâmica e controle de toxemia',
+        'Resolução cirúrgica definitiva via Ovariohisterectomia (OSH) emergencial'
+      ],
+      tutorInstructions: [
+        `Manter ${name} em repouso e sob observação atenta de temperatura e comportamento.`,
+        'Acompanhar ingestão hídrica e presença de emese ou prostração severa.',
+        'Agendar cirurgia de remoção uterina (OSH) conforme indicação médica imediata.'
+      ],
+      anamnesisSummary: cleanText,
+      version: 1
+    };
   }
 
   if (category === 'derm_otitis') {

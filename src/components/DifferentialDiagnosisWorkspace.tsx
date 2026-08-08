@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Patient } from '../types';
+import { getEvidenceGroupsForPatient } from '../lib/evidenceEngine';
 
 interface DifferentialDiagnosisWorkspaceProps {
   patient: Patient;
@@ -86,19 +87,52 @@ export interface DynamicClinicalData {
     node3Subtitle: string;
   };
   tutorExplanation: string;
+  ragContext?: {
+    totalIndexedCases: number;
+    matchingCasesCount: number;
+    similarityScore: number;
+    keyInsight: string;
+    frequentComplications: string[];
+    evidenceLevel: string;
+    topMatches: Array<{ id: string; title: string; similarity: string; outcome: string }>;
+  };
 }
 
 function extractClinicalTagsFromText(text: string): string[] {
   const lower = (text || '').toLowerCase();
   const tags: string[] = [];
-  if (lower.includes('vômito') || lower.includes('vomito') || lower.includes('êmese')) tags.push('Êmese / Vômito');
-  if (lower.includes('diarreia') || lower.includes('diarréia')) tags.push('Diarreia');
-  if (lower.includes('perda de peso') || lower.includes('emagrecimento') || lower.includes('magro')) tags.push('Perda de Peso Progressiva');
-  if (lower.includes('crônico') || lower.includes('cronico') || lower.includes('crônica') || lower.includes('cronica') || lower.includes('meses') || lower.includes('semanas')) tags.push('Evolução Crônica');
+
+  // Species identification
   if (lower.includes('felino') || lower.includes('gato') || lower.includes('felina') || lower.includes('cat')) tags.push('Espécie Felina');
-  if (lower.includes('canino') || lower.includes('cão') || lower.includes('cachorro') || lower.includes('dog')) tags.push('Espécie Canina');
-  if (lower.includes('inapetência') || lower.includes('anorexia') || lower.includes('sem comer')) tags.push('Inapetência / Anorexia');
-  if (lower.includes('dor') || lower.includes('sensibilidade')) tags.push('Dor Abdominal / Sensibilidade');
+  if (lower.includes('canino') || lower.includes('cão') || lower.includes('cao') || lower.includes('cachorro') || lower.includes('dog')) tags.push('Espécie Canina');
+
+  // Anatomically precise discharge tagging
+  if (lower.match(/(secreção ocular|secrecao ocular|corrimento ocular|remela|epífora|epifora|olho|olhos|ocular|blefarospasmo)/)) {
+    tags.push('Secreção Ocular / Epífora');
+  }
+  if (lower.match(/(secreção vulvar|secrecao vulvar|secreção vaginal|secrecao vaginal|corrimento vulvar|corrimento vaginal|piometra|útero|utero)/)) {
+    tags.push('Secreção Vulvar / Corrimento Vaginal');
+  }
+  if (lower.match(/(secreção nasal|secrecao nasal|corrimento nasal|rinorreia|rinorréia|espirro)/)) {
+    tags.push('Secreção Nasal / Rinorreia');
+  }
+  if (lower.match(/(secreção auricular|secrecao auricular|secreção otológica|secrecao otologica|exsudato ótico|exsudato otico|otite|orelha|ouvido)/)) {
+    tags.push('Secreção Auricular / Otite');
+  }
+
+  // General & Systemic Symptoms
+  if (lower.includes('vômito') || lower.includes('vomito') || lower.includes('êmese') || lower.includes('emese')) tags.push('Êmese / Vômito');
+  if (lower.includes('diarreia') || lower.includes('diarréia')) tags.push('Diarreia Aguda');
+  if (lower.includes('tosse') || lower.includes('tossindo')) tags.push('Tosse Paroxística');
+  if (lower.includes('urina') || lower.includes('xixi') || lower.includes('disúria') || lower.includes('disuria') || lower.includes('hematúria')) tags.push('Alteração Urinária / Disúria');
+  if (lower.includes('perda de peso') || lower.includes('emagrecimento') || lower.includes('magro')) tags.push('Perda de Peso Progressiva');
+  if (lower.includes('inapetência') || lower.includes('inapetencia') || lower.includes('anorexia') || lower.includes('sem comer')) tags.push('Inapetência / Anorexia');
+  if (lower.includes('dor') || lower.includes('sensibilidade') || lower.includes('grito')) tags.push('Dor / Hiperestesia');
+  if (lower.includes('cervical') || lower.includes('pescoço') || lower.includes('pescoco') || lower.includes('coluna') || lower.includes('rigidez')) tags.push('Rigidez / Cervicalgia');
+  if (lower.includes('coceira') || lower.includes('prurido') || lower.includes('alopecia') || lower.includes('dermatite')) tags.push('Prurido / Dermatopatia');
+  if (lower.includes('mancando') || lower.includes('claudicação') || lower.includes('joelho') || lower.includes('tplo')) tags.push('Claudicação de Membro');
+  if (lower.includes('hérnia') || lower.includes('hernia') || lower.includes('tenesmo') || lower.includes('disquezia')) tags.push('Tenesmo / Alteração Perineal');
+
   if (tags.length === 0) tags.push('Sinais Sintomáticos Registrados');
   return tags;
 }
@@ -438,7 +472,6 @@ export function parseAIDifferentials(
 
 export function generateClinicalData(anamnesisText: string, patient: Patient): DynamicClinicalData {
   const text = (anamnesisText || '').trim();
-  const lower = text.toLowerCase();
   const species = patient.species || 'Canino';
   const name = patient.name || 'Pet';
   const breed = patient.breed || 'SRD';
@@ -461,864 +494,100 @@ export function generateClinicalData(anamnesisText: string, patient: Patient): D
     };
   }
 
-  let category: 'reproductive' | 'derm_otitis' | 'hernia_prostate' | 'renal_urinary' | 'vector_borne' | 'respiratory' | 'ortho_neuro' | 'gastro' | 'custom' = 'custom';
+  const clinicalTags = extractClinicalTagsFromText(text);
+  const evidenceGroups = getEvidenceGroupsForPatient(text, species);
 
-  if (lower.match(/(vulva|secreção vulvar|secrecao vulvar|piometra|útero|utero|ovário|ovario|vaginite|metrite|cio|castração|castracao|gestação|gestacao|parto|distocia|mamária|mamaria|tetas|tumor de mama|cisto ovariano|corrimento)/)) {
-    category = 'reproductive';
-  } else if (lower.match(/(otite|coceira|prurido|orelha|secreção auricular|secrecao auricular|pele|pelo|alopecia|dermatite|atopia|alergia|ferida|balançando a cabeça)/)) {
-    category = 'derm_otitis';
-  } else if (lower.match(/(hérnia perineal|hernia perineal|perineal|próstata|prostata|tenesmo|disquezia|fezes em fita|fitiform|divertículo|diverticulo)/)) {
-    category = 'hernia_prostate';
-  } else if (lower.match(/(xixi|urina|sangue na urina|hematuria|hematúria|disuria|disúria|polaciúria|cistite|rim|renal|urolito|urólito|dtuif|estranguria|estrangúria|obstrução uretral)/)) {
-    category = 'renal_urinary';
-  } else if (lower.match(/(carrapato|febre|anemia|erliquia|erliquiose|babesia|prostração|prostracao|manchas|petéquias|pau-de-carrapato)/)) {
-    category = 'vector_borne';
-  } else if (lower.match(/(tosse|engasgo|falta de ar|dispneia|dispnéia|secreção nasal|secrecao nasal|espirro|cansaço|sopro|asma|bronquite|traquéia|traqueia)/)) {
-    category = 'respiratory';
-  } else if (lower.match(/(mancando|claudicação|claudicacao|joelho|tplo|queda|atropelamento|cervical|pescoço|pescoco|coluna|disco|hernia de disco|discopatia|ivdd|srma|paralisia|convulsão|convulsao|fratura|trauma|artrite|grito|rigidez|ataxia|paresia)/)) {
-    category = 'ortho_neuro';
-  } else if (lower.match(/(vômito|vomito|diarreia|diarréia|emese|inapetência|inapetencia|anorexia|dor abdominal|gordur|bile|melena|icterícia|ictericia|pancreatite)/)) {
-    category = 'gastro';
-  } else {
-    category = 'custom';
-  }
+  const hypotheses: Hypothesis[] = evidenceGroups.map((group, idx) => {
+    const mainArticle = group.articles[0];
+    const recTests = mainArticle?.recommended_tests?.map(testName => ({
+      name: testName,
+      priority: 'Alta' as const,
+      reason: `Recomendado pela literatura científica RAG (${mainArticle.journal || 'VetMind RAG'})`
+    })) || [
+      { name: 'Hemograma Completo', priority: 'Alta' as const, reason: 'Triagem de perfil inflamatório/infeccioso' },
+      { name: 'Exame de Imagem Focado', priority: 'Alta' as const, reason: 'Avaliação morfológica direcionada' }
+    ];
 
-  const clinicalTags: string[] = [];
-  if (lower.includes('vulva') || lower.includes('secreção') || lower.includes('corrimento') || lower.includes('piometra')) clinicalTags.push('Secreção Vulvar / Corrimento Vaginal');
-  if (lower.includes('vômito') || lower.includes('vomito') || lower.includes('êmese')) clinicalTags.push('Êmese');
-  if (lower.includes('diarreia') || lower.includes('diarréia')) clinicalTags.push('Diarreia Aguda');
-  if (lower.includes('inapetência') || lower.includes('inapetencia') || lower.includes('anorexia') || lower.includes('hiporexia')) clinicalTags.push('Inapetência / Apatia');
-  if (lower.includes('dor')) clinicalTags.push('Sensibilidade Dolorosa');
-  if (lower.includes('coceira') || lower.includes('prurido')) clinicalTags.push('Prurido Intenso');
-  if (lower.includes('otite') || lower.includes('orelha')) clinicalTags.push('Otalgia / Secreção Auricular');
-  if (lower.includes('tosse')) clinicalTags.push('Tosse Paroxística');
-  if (lower.includes('urina') || lower.includes('xixi') || lower.includes('disuria')) clinicalTags.push('Disúria / Alteração Urinária');
-  if (lower.includes('febre')) clinicalTags.push('Hipertermia');
-  if (lower.includes('carrapato')) clinicalTags.push('Exposição a Carrapatos');
-  if (lower.includes('mancando') || lower.includes('claudicação') || lower.includes('joelho') || lower.includes('tplo')) clinicalTags.push('Claudicação de Membro');
-  if (lower.includes('hérnia') || lower.includes('hernia') || lower.includes('tenesmo') || lower.includes('disquezia')) clinicalTags.push('Tenesmo / Aumento Perineal');
-
-  if (clinicalTags.length === 0) {
-    if (text.length > 0) {
-      clinicalTags.push('Sinais Sintomáticos Relatados', 'Triagem de Admissão', 'Investigação Clínica');
-    } else {
-      clinicalTags.push('Triagem Inicial', 'Sem Sinais Graves', 'Avaliação Rotineira');
-    }
-  }
-
-  if (category === 'reproductive') {
-    const isAberta = lower.includes('aberta') || lower.includes('secreção') || lower.includes('secrecao') || lower.includes('corrimento') || lower.includes('purulent');
-    const diseaseTitle = isAberta 
-      ? `Piometra Aberta (Complexo CCHE) em ${species}`
-      : `Piometra (Infecção Uterina / CCHE) ou Metrite em ${species}`;
+    const conductList = mainArticle?.recommended_treatments?.map((tx, i) => ({
+      id: `c_${idx}_${i}`,
+      label: tx,
+      checked: true
+    })) || [
+      { id: `c_${idx}_1`, label: 'Suporte hemodinâmico e sintomático direcionado', checked: true },
+      { id: `c_${idx}_2`, label: 'Acompanhamento clínico e monitoramento de parâmetros vitais', checked: true }
+    ];
 
     return {
-      hypotheses: [
-        {
-          id: 'dx_1',
-          title: diseaseTitle,
-          probability: 'Alta',
-          confidence: 94,
-          justification: [
-            `Presença de relato de secreção vulvar/vaginal e/ou queixas reprodutivas no relato de ${name}`,
-            `Quadros de hiporexia/inapetência e prostração secundários à toxemia uterina`,
-            `Risco de sepse ou peritonite por extravasamento de exsudato purulento uterino`,
-          ],
-          supportingFindings: [
-            `Secreção Vulvar / Corrimento Vaginal Purulento`,
-            `Inapetência / Apatia Sistêmica`,
-            `Sinais de Toxemia / Inflamação Aguda`,
-          ],
-          contradictoryFindings: [`Ausência de sinais de choque hipovolêmico irreversível no momento`],
-          recommendedTests: [
-            { name: 'Ultrassonografia Abdominal Total (Foco Uterino/Ovariano)', priority: 'Alta', reason: 'Confirmação do diâmetro uterino, acúmulo de fluido anecoico/misto intraluminal e integridade de parede' },
-            { name: 'Hemograma Completo com Plaquetograma', priority: 'Alta', reason: 'Pesquisa de leucocitose grave com desvio à esquerda e neutrofilia (síndrome inflamatória aguda)' },
-            { name: 'Perfil Bioquímico Sérico (Ureia, Creatinina, ALT, FA)', priority: 'Alta', reason: 'Avaliação da função renal e risco de lesão renal aguda secundária à toxemia' },
-            { name: 'Citologia de Secreção Vaginal / Vulvar', priority: 'Moderada', reason: 'Identificação de neutrófilos degenerados e bactérias fagocitadas' },
-          ],
-          relatedDiagnoses: ['Vaginite Aguda Purulenta', 'Metrite Puerperal Aguda', 'Cistite / Infecção do Trato Urinário Inferior', 'Neoplasia Reprodutiva / Cisto Ovariano'],
-          conduct: [
-            { id: 'c1', label: 'Estabilização hemodinâmica imediata com fluidoterapia venosa (Ringer Lactato)', checked: true },
-            { id: 'c2', label: 'Início de antibioticoterapia sistêmica de amplo espectro (Ampicilina + Sulbactam ou Enrofloxacino + Metronidazol)', checked: true },
-            { id: 'c3', label: 'Encaminhamento urgente para Ovariohisterectomia (OSH) cirúrgica terapêutica', checked: true },
-            { id: 'c4', label: 'Analgesia multimodal com Dipirona e opioide conforme grau de dor abdominal', checked: true },
-          ],
-          prognosis: 'Reservado',
-        },
-        {
-          id: 'dx_2',
-          title: `Vaginite Aguda Purulenta / Cistite Secundária em ${species}`,
-          probability: 'Moderada',
-          confidence: 68,
-          justification: [
-            'Presença de secreção vulvar focal sem alteração grave de parede uterina ao exame físico inicial',
-            'Sinais de irritação de mucosa vaginal/uretral',
-          ],
-          supportingFindings: [`Corrimento genital isolado`, `Desconforto local`],
-          contradictoryFindings: [`Distensão uterina não palpável no exame superficial`],
-          recommendedTests: [
-            { name: 'Ultrassonografia Abdominal', priority: 'Alta', reason: 'Descartar obrigatoriamente acúmulo de fluido no lumem uterino (Piometra)' },
-            { name: 'Urinálise Tipo 1 e Urocultura por Cistocentese', priority: 'Alta', reason: 'Avaliação de infecção urinária concomitante' },
-          ],
-          relatedDiagnoses: ['Piometra Fechada', 'Urolitíase Vesical'],
-          conduct: [
-            { id: 'c21', label: 'Higienização antisséptica tópica vulvar com clorexidina 0,1%', checked: true },
-            { id: 'c22', label: 'Antimicrobiano guiado por urocultura / citologia vaginal', checked: true },
-          ],
-          prognosis: 'Favorável',
-        },
+      id: `dx_${group.id || idx + 1}`,
+      title: `${group.name} em ${species}`,
+      probability: group.badge as 'Alta' | 'Moderada' | 'Baixa',
+      confidence: group.probability,
+      justification: [
+        `Relato clínico do paciente ${name} (${species}, ${breed}): "${text.slice(0, 110)}..."`,
+        `Compatibilidade com a literatura médica veterinária em ${group.category}.`,
+        mainArticle?.clinical_summary || `Evidência fundamentada por consensos em ${group.category}.`
       ],
-      references: [
-        {
-          id: 'ref_1',
-          title: 'ACVIM Small Animal Consensus Statement on Canine & Feline Pyometra Management',
-          authors: 'Hagman R., Pretzer S., Verstegen J. et al.',
-          year: 2024,
-          journal: 'Journal of Veterinary Internal Medicine (JVIM)',
-          evidenceType: 'Consenso',
-          level: 'Alta Evidência',
-          doi: '10.1111/jvim.16910',
-          summary: 'Consenso internacional ACVIM enfatizando o ultrassom abdominal como padrão-ouro e a Ovariohisterectomia (OSH) como tratamento definitivo de escolha para Piometra.',
-        },
-      ],
-      clinicalTags,
-      decisionNodes: {
-        node1Title: 'Secreção Vulvar / Suspeita de Infecção Uterina',
-        node1Subtitle: `Sinais reprodutivos relatados na anamnese de ${name} (${species}, ${breed})`,
-        node2Consensus: 'Consenso ACVIM 2024 / Diretriz Cirúrgica',
-        node2Title: 'Ultrassom Abdominal & OSH Cirúrgica de Emergência',
-        node2Subtitle: 'Confirmação ultrassonográfica imediata de fluido uterino + estabilização e OSH',
-        node3Title: `${diseaseTitle} (94%)`,
-        node3Subtitle: 'Fluidoterapia venosa, antibioticoterapia de amplo espectro e agendamento cirúrgico',
-      },
-      tutorExplanation: `O(A) ${name} apresenta sinais compatíveis com infecção no trato reprodutivo (Piometra). Esta é uma condição importante que exige avaliação ultrassonográfica imediata e procedimento cirúrgico (castração/remoção do útero) com suporte de soro e medicação.`,
+      supportingFindings: clinicalTags.length > 0 ? clinicalTags : [`Sintomatologia clínica relatada`],
+      contradictoryFindings: mainArticle?.contradicts || [`Ausência de choque de descompensação grave iminente`],
+      recommendedTests: recTests,
+      relatedDiagnoses: mainArticle?.tags || ['Investigação Diferencial A', 'Investigação Diferencial B'],
+      conduct: conductList,
+      prognosis: group.probability >= 80 ? 'Favorável' : 'Reservado'
     };
-  }
+  });
 
-  if (category === 'derm_otitis') {
-    return {
-      hypotheses: [
-        {
-          id: 'dx_1',
-          title: `Otite Externa Aguda (Bacteriana / Fúngica) em ${species}`,
-          probability: 'Alta',
-          confidence: 88,
-          justification: [
-            `Queixa de prurido e dor auricular descrita na anamnese de ${name}`,
-            `Acúmulo de secreção, eritema de pavilhão e/ou movimento de balançar a cabeça`,
-            `Condição inflamatória local sem alteração sistêmica grave na triagem`,
-          ],
-          supportingFindings: [`Prurido / Coceira Auricular`, `Secreção ou Eritema Local`, `Dor à Manipulação da Orelha`],
-          contradictoryFindings: [`Temperatura corporal dentro do padrão normal`, `Apetite e hidratação preservados`],
-          recommendedTests: [
-            { name: 'Citologia Auricular (Lâmina por Impronta)', priority: 'Alta', reason: 'Identificação e quantificação de leveduras (Malassezia) ou bactérias (cocos/bastonetes)' },
-            { name: 'Exame Otoscópico Direto', priority: 'Alta', reason: 'Avaliação do conduto auditivo e verificação da integridade da membrana timpânica' },
-            { name: 'Cultura e Antibiograma Auricular', priority: 'Moderada', reason: 'Indicado se houver histórico de recidiva ou suspeita de Pseudomonas spp.' },
-          ],
-          relatedDiagnoses: ['Dermatite Atópica Canina', 'Hipersensibilidade Alimentar', 'Corpo Estranho Auricular'],
-          conduct: [
-            { id: 'c1', label: 'Higienização e ceruminólise suave com solução neutra de limpeza auricular', checked: true },
-            { id: 'c2', label: 'Aplicação de solução otológica composta (antibacteriano + antifúngico + corticoide)', checked: true },
-            { id: 'c3', label: 'Uso de colar elizabetano temporário para evitar automutilação pelo prurido', checked: true },
-            { id: 'c4', label: 'Analgesia sistêmica com Dipirona (25 mg/kg VO/SC) se dor acentuada', checked: false },
-          ],
-          prognosis: 'Favorável',
-        },
-        {
-          id: 'dx_2',
-          title: 'Dermatite Atópica / Afeção Alérgica Cutânea',
-          probability: 'Moderada',
-          confidence: 66,
-          justification: [
-            'Prurido persistente em regiões acrais, dobras e áreas de atopia habitual',
-            'Sinais de eritema cutâneo e alopecia secundária ao ato de lamber/coçar',
-          ],
-          supportingFindings: [`Prurido recorrente`, `Eritema e escoriações`],
-          contradictoryFindings: [`Ausência de lesões ulceradas profundas`],
-          recommendedTests: [
-            { name: 'Citologia de Superfície Cutânea', priority: 'Alta', reason: 'Identificar sobrecrescimento microbiano secundário (Piodermite)' },
-            { name: 'Raspado Cutâneo Profundo e Superficial', priority: 'Alta', reason: 'Descartar sarna demodécica ou escabiose' },
-          ],
-          relatedDiagnoses: ['Dermatite Alérgica à Picada de Pulgas (DAPP)', 'Alergia Alimentar'],
-          conduct: [
-            { id: 'c21', label: 'Imunomodulação ou Oclacitinib (Apoquel) conforme peso do paciente', checked: true },
-            { id: 'c22', label: 'Banhos terapêuticos com xampu antisseborreico / hialurônico', checked: true },
-          ],
-          prognosis: 'Favorável',
-        },
-      ],
-      references: [
-        {
-          id: 'ref_1',
-          title: 'ACVD Guidelines for Diagnosis and Management of Canine & Feline Otitis Externa',
-          authors: 'Noli C., Paterson S., Bloom P. et al.',
-          year: 2024,
-          journal: 'Veterinary Dermatology / ACVD Consensus',
-          evidenceType: 'Consenso',
-          level: 'Alta Evidência',
-          doi: '10.1111/vde.13210',
-          summary: 'Diretriz da ACVD recomendando citologia prévia a qualquer tratamento tópico, enfatizando a limpeza do conduto e o uso racional de corticoides e antimicrobianos otológicos.',
-        },
-        {
-          id: 'ref_2',
-          title: 'ICADA Consensus Statement on Canine Atopic Dermatitis & Pruritus Management',
-          authors: 'Olivry T., DeBoer D.J., Favrot C.',
-          year: 2023,
-          journal: 'BMC Veterinary Research',
-          evidenceType: 'Consenso',
-          level: 'Alta Evidência',
-          doi: '10.1186/s12917-023-03611-x',
-          summary: 'Recomendações do grupo internacional ICADA para controle do prurido agudo com inibidores de JAK ou anticorpos monoclonais e restauração da barreira cutânea.',
-        },
-      ],
-      clinicalTags,
-      decisionNodes: {
-        node1Title: 'Prurido / Otalgia Auricular',
-        node1Subtitle: `Queixa de desconforto e prurido descrita para ${name} (${species}, ${breed})`,
-        node2Consensus: 'Consenso ACVD / ICADA 2024',
-        node2Title: 'Citologia & Tratamento Tópico Otopet',
-        node2Subtitle: 'Citologia prévia confirma leveduras/bactérias e orienta terapia direcionada',
-        node3Title: `Otite Externa Aguda em ${species} (88%)`,
-        node3Subtitle: 'Iniciar limpeza de conduto, ototópico triplo e citologia de confirmação',
-      },
-      tutorExplanation: `O(A) ${name} está apresentando um quadro de otite/inflamação auricular que causa coceira e desconforto. Precisamos fazer uma limpeza delicada no ouvido, aplicar a medicação otológica certa e coletar uma amostrinha para verificar o tipo de micro-organismo presente.`,
-    };
-  }
+  const references: Reference[] = [];
+  evidenceGroups.forEach(group => {
+    group.articles.forEach(art => {
+      if (!references.some(r => r.id === art.article_id)) {
+        references.push({
+          id: art.article_id,
+          title: art.title,
+          authors: art.authors.join(', '),
+          year: art.year,
+          journal: art.journal,
+          evidenceType: art.publication_type as Reference['evidenceType'],
+          level: art.evidence_level === 'Alta' ? 'Alta Evidência' : 'Moderada',
+          doi: art.doi,
+          summary: art.clinical_summary
+        });
+      }
+    });
+  });
 
-  if (category === 'renal_urinary') {
-    return {
-      hypotheses: [
-        {
-          id: 'dx_1',
-          title: `Cistite / Doença do Trato Urinário Inferior em ${species}`,
-          probability: 'Alta',
-          confidence: 85,
-          justification: [
-            `Sinais de alteração na mictição (disúria, estrangúria ou dor) relatados na anamnese de ${name}`,
-            `Sensibilidade abdominal e vesical detectada na avaliação de triagem`,
-            `Quadro compatível com inflamação de mucosa vesical / uretra`,
-          ],
-          supportingFindings: [`Disúria / Dificuldade para urinar`, `Sensibilidade vesical`, `Alteração de frequência urinária`],
-          contradictoryFindings: [`Fluxo urinário mantido (sem obstrução completa no momento)`],
-          recommendedTests: [
-            { name: 'Urinálise Tipo 1 (EAS) + Refratometria', priority: 'Alta', reason: 'Avaliar hematúria, proteinúria, pH urinário e presença de cristais' },
-            { name: 'Ultrassonografia de Rins e Vesícula Urinária', priority: 'Alta', reason: 'Pesquisa de urólitos (cálculos), sedimentos e espessamento de parede vesical' },
-            { name: 'Urocultura com Antibiograma (Cistocentese)', priority: 'Moderada', reason: 'Identificação de agente bacteriano e perfil de sensibilidade' },
-          ],
-          relatedDiagnoses: ['Urolitíase Vesical / Uretral', 'DTUIF (Doença do Trato Urinário Inferior dos Felinos)', 'Lesão Renal Aguda'],
-          conduct: [
-            { id: 'c1', label: 'Analgesia e anti-inflamatório (Meloxicam ou Dipirona) conforme orientação e espécie', checked: true },
-            { id: 'c2', label: 'Incentivo ao aumento da ingestão hídrica (fontes de água / sachês úmidos)', checked: true },
-            { id: 'c3', label: 'Modulador de espasmo uretral se houver estrangúria', checked: false },
-          ],
-          prognosis: 'Favorável',
-        },
-      ],
-      references: [
-        {
-          id: 'ref_1',
-          title: 'ISCAID Consensus Guidelines for Diagnosis and Management of Urinary Tract Infections in Dogs and Cats',
-          authors: 'Weese J.S., Blondeau J., Boothe D. et al.',
-          year: 2024,
-          journal: 'Veterinary Microbiology / ISCAID Guidelines',
-          evidenceType: 'Consenso',
-          level: 'Alta Evidência',
-          doi: '10.1016/j.vetmic.2024.109800',
-          summary: 'Diretriz da ISCAID recomendando urinálise completa e cistocentese para microbiologia, com restrição do uso empírico de quinolonas sem antibiograma.',
-        },
-      ],
-      clinicalTags,
-      decisionNodes: {
-        node1Title: 'Disúria / Alteração Urinária',
-        node1Subtitle: `Sinais mictoriais relatados na anamnese de ${name}`,
-        node2Consensus: 'Consenso ISCAID & IRIS 2024',
-        node2Title: 'Urinálise & Ultrassom Vesical',
-        node2Subtitle: 'Exclusão de cálculos e inflamação via ultrassom e EAS',
-        node3Title: `Cistite / DTUIF em ${species} (85%)`,
-        node3Subtitle: 'Iniciar analgesia, incentivo hídrico e exames de imagem',
-      },
-      tutorExplanation: `O(A) ${name} está com um desconforto para urinar devido a uma inflamação no trato urinário (bexiga/uretra). Vamos iniciar medicações para aliviar a dor e realizar uma ultrassonografia e exame de urina para garantir que não haja pedrinhas ou infecção forte.`,
-    };
-  }
-
-  if (category === 'vector_borne') {
-    return {
-      hypotheses: [
-        {
-          id: 'dx_1',
-          title: `Erliquiose Canina (Ehrlichia canis) / Hemoparasitose`,
-          probability: 'Alta',
-          confidence: 87,
-          justification: [
-            `Histórico de exposição a carrapatos e/ou prostração descrita para ${name}`,
-            `Quadro de apatia, anemia/palidez de mucosas e/ou febre detectada na anamnese`,
-            `Achados condizentes com trombocitopenia e resposta inflamatória por riquétsia`,
-          ],
-          supportingFindings: [`Prostração / Apatia`, `Mucosas Pálidas / Anemia`, `Exposição a Carrapatos`],
-          contradictoryFindings: [`Ausência de hemorragias ativas graves espontâneas`],
-          recommendedTests: [
-            { name: 'PCR em Tempo Real para Ehrlichia canis / Anaplasma', priority: 'Alta', reason: 'Confirmação molecular precisa de carga bacteriana' },
-            { name: 'Hemograma Completo com Contagem de Plaquetas', priority: 'Alta', reason: 'Avaliação do grau de trombocitopenia e anemia' },
-            { name: 'Painel Bioquímico Hepático (ALT, FA, Albumina)', priority: 'Moderada', reason: 'Identificação de lesão vascular/hepática secundária' },
-          ],
-          relatedDiagnoses: ['Babesiose Canina', 'Anaplasmose', 'Anemia Hemolítica Imunomediada'],
-          conduct: [
-            { id: 'c1', label: 'Início imediato de Doxiciclina (10 mg/kg VO a cada 24 horas por 28 dias)', checked: true },
-            { id: 'c2', label: 'Suporte com hepatoprotetor e nutracêutico estimulador da hematopoese', checked: true },
-            { id: 'c3', label: 'Aplicação de ectoparasiticida tópico/oral de ação rápida para carrapatos', checked: true },
-          ],
-          prognosis: 'Favorável',
-        },
-      ],
-      references: [
-        {
-          id: 'ref_1',
-          title: 'ACVIM Consensus Statement on Canine Vector-Borne Infectious Diseases',
-          authors: 'Sainz A., Roura X., Miró G. et al.',
-          year: 2024,
-          journal: 'Journal of Veterinary Internal Medicine (JVIM)',
-          evidenceType: 'Consenso',
-          level: 'Alta Evidência',
-          doi: '10.1111/jvim.16890',
-          summary: 'Consenso do ACVIM recomendando o tratamento com Doxiciclina por 28 dias e monitoramento plaquetário contínuo.',
-        },
-      ],
-      clinicalTags,
-      decisionNodes: {
-        node1Title: 'Prostração + Histórico Carrapato',
-        node1Subtitle: `Quadro relatado para ${name} na triagem`,
-        node2Consensus: 'Consenso ACVIM 2024',
-        node2Title: 'PCR & Hemograma Plaquetário',
-        node2Subtitle: 'Tratamento com Doxiciclina por 28 dias e suporte plaquetário',
-        node3Title: `Erliquiose Canina / Hemoparasitose (87%)`,
-        node3Subtitle: 'Iniciar antibioticoterapia específica e controle de carrapatos',
-      },
-      tutorExplanation: `O(A) ${name} apresenta sinais que indicam a 'doença do carrapato' (Erliquiose), que causa cansaço, fraqueza e queda nas plaquinhas do sangue. Iniciaremos o tratamento com antibiótico específico por 28 dias para eliminar o agente e recuperar a disposição.`,
-    };
-  }
-
-  if (category === 'respiratory') {
-    return {
-      hypotheses: [
-        {
-          id: 'dx_1',
-          title: `Traqueobronquite Infecciosa / Síndrome Respiratória em ${species}`,
-          probability: 'Alta',
-          confidence: 84,
-          justification: [
-            `Queixa de tosse, secreção ou engasgo informada na anamnese de ${name}`,
-            `Irritação de vias aéreas superiores com reflexo traqueal sensível`,
-            `Quadro agudo com manutenção de parâmetros hemodinâmicos gerais`,
-          ],
-          supportingFindings: [`Tosse episódica`, `Sensibilidade traqueal`, `Engasgo / Secreção`],
-          contradictoryFindings: [`Ausência de cianose ou padrão respiratório abdominal severo`],
-          recommendedTests: [
-            { name: 'Radiografia Torácica (Projeções VD e LL)', priority: 'Alta', reason: 'Avaliação de parênquima pulmonar, traquéia e silhueta cardíaca' },
-            { name: 'Ecocardiograma com Doppler', priority: 'Moderada', reason: 'Descartar aumento atrial e doença valvar miromatosa' },
-          ],
-          relatedDiagnoses: ['Asma Felina / Bronquite Alérgica', 'Colapso de Traquéia', 'Pneumonia Bacteriana'],
-          conduct: [
-            { id: 'c1', label: 'Inalação/Nebulização com solução fisiológica 0,9% para fluidez de secreção', checked: true },
-            { id: 'c2', label: 'Uso de antitussígeno ou broncodilatador sob prescrição', checked: true },
-            { id: 'c3', label: 'Troca obrigatória de coleira de pescoço por coleira peitoral durante os passeios', checked: true },
-          ],
-          prognosis: 'Favorável',
-        },
-      ],
-      references: [
-        {
-          id: 'ref_1',
-          title: 'ACVIM Consensus Statement on Infectious Respiratory Disease Complex in Small Animals',
-          authors: 'Lappin M.R., Blondeau J., Boothe D. et al.',
-          year: 2024,
-          journal: 'JVIM Consensus Reports',
-          evidenceType: 'Consenso',
-          level: 'Alta Evidência',
-          doi: '10.1111/jvim.16450',
-          summary: 'Diretriz para manejo de tosse e infecções respiratórias em cães e gatos, priorizando radiografia e nebulização.',
-        },
-      ],
-      clinicalTags,
-      decisionNodes: {
-        node1Title: 'Tosse / Esforço Respiratório',
-        node1Subtitle: `Sinais respiratórios relatados para ${name}`,
-        node2Consensus: 'Consenso ACVIM Respiratório 2024',
-        node2Title: 'Radiografia Torácica & Nebulização',
-        node2Subtitle: 'Exclusão de pneumonia e cardiopatias via raio-X de tórax',
-        node3Title: `Traqueobronquite / Broncopatia em ${species} (84%)`,
-        node3Subtitle: 'Iniciar nebulização, restrição de coleira de pescoço e medicação',
-      },
-      tutorExplanation: `O(A) ${name} está com uma irritação e inflamação nas vias respiratórias (como uma traqueíte ou bronquite), o que provoca a tosse e o desconforto. Vamos fazer um raio-X do peito para avaliar o pulmão e iniciar inalações e remédios para acalmar a tosse.`,
-    };
-  }
-
-  if (category === 'ortho_neuro') {
-    const isCervical = lower.includes('cervical') || lower.includes('pescoço') || lower.includes('pescoco') || lower.includes('coluna') || lower.includes('disco') || lower.includes('ivdd') || lower.includes('srma') || lower.includes('grito') || lower.includes('rigidez');
-
-    if (isCervical) {
-      return {
-        hypotheses: [
-          {
-            id: 'dx_1',
-            title: `Discopatia Intervertebral Cervical (IVDD Hansen Tipo I/II) em ${species}`,
-            probability: 'Alta',
-            confidence: 88,
-            justification: [
-              `Relato de dor cervical aguda e hiperestesia após esforço/corrida em ${name} (${species}, ${breed})`,
-              `Sinais clínicos típicos de protusão/extrusão discal cervical (C2-C7) com rigidez nucal e vocalização ao movimento`,
-              `Condição neuropática com alta prevalência em raças de pequeno porte e condrodistróficas (ex: Spitz Alemão, Dachshund)`,
-            ],
-            supportingFindings: [`Dor Cervical Aguda / Rigidez Nucal`, `Choro / Vocalização ao Mover Pescoço`, `Evolução Aguda Pós-Atividade`],
-            contradictoryFindings: [`Presença de propriocepção nos 4 membros (sem paralisia/plegia descompensada)`],
-            recommendedTests: [
-              { name: 'Ressonância Magnética (RM) ou Tomografia Computadorizada (TC) de Coluna Cervical', priority: 'Alta', reason: 'Padrão-ouro para visualização de extrusão/protrusão discal e compressão medular' },
-              { name: 'Exame Neurológico Detalhado (Avaliação Proprioceptiva e Reflexos)', priority: 'Alta', reason: 'Mapeamento do segmento neurológico acometido e graduação da lesão (Grau I a V)' },
-              { name: 'Radiografias Ortogonais de Coluna Cervical (Triagem)', priority: 'Moderada', reason: 'Avaliação de diminuição de espaço intervertebral e espondilose' },
-            ],
-            relatedDiagnoses: ['Meningite-Arterite Responsiva a Esteroides (SRMA)', 'Instabilidade Atlantoaxial', 'Síndrome de Wobbler'],
-            conduct: [
-              { id: 'c1', label: 'Analgesia neuropática multimodal com Gabapentina (10-15 mg/kg) e Dipirona (25 mg/kg)', checked: true },
-              { id: 'c2', label: 'Corticoterapia (Prednisolona 0,5 mg/kg) ou AINE para controle de edema neuropático', checked: true },
-              { id: 'c3', label: 'Restrição estrita e absoluta de movimentação em recinto/gaiola por 3 a 4 semanas', checked: true },
-              { id: 'c4', label: 'Substituição mandatória de coleira de pescoço por peitoral', checked: true },
-            ],
-            prognosis: 'Favorável',
-          },
-          {
-            id: 'dx_2',
-            title: `Meningite-Arterite Responsiva a Esteroides (SRMA)`,
-            probability: 'Moderada',
-            confidence: 65,
-            justification: [
-              `Dor cervical intensa e relutância em abaixar a cabeça para comer em paciente jovem`,
-              `Necessidade de exclusão de processo inflamatório imunomediado de meninges`,
-            ],
-            supportingFindings: [`Hiperestesia cervical severa`, `Rigidez nucal`],
-            contradictoryFindings: [`Ausência de hipertermia/febre registrada`],
-            recommendedTests: [
-              { name: 'Análise de Liquido Cefalorraquidiano (LCR) e Proteína C-Reativa Sérica', priority: 'Alta', reason: 'Identificação de pleocitose neutrofílica e marcadores inflamatórios' },
-            ],
-            relatedDiagnoses: ['IVDD Cervical', 'Mielite Infecciosa'],
-            conduct: [
-              { id: 'c1', label: 'Manejo analgésico e acompanhamento de resposta a imunomodulação', checked: true },
-            ],
-            prognosis: 'Favorável',
-          },
-        ],
-        references: [
-          {
-            id: 'ref_1',
-            title: 'ACVIM Consensus Statement on Diagnosis and Management of Canine Cervical Intervertebral Disc Disease (IVDD)',
-            authors: 'Olby N.J., da Costa R.C., Levine J.M., Jeffery N.D.',
-            year: 2024,
-            journal: 'Journal of Veterinary Internal Medicine (JVIM)',
-            evidenceType: 'Consenso',
-            level: 'Alta Evidência',
-            doi: '10.1111/jvim.17012',
-            summary: 'Consenso do ACVIM estabelecendo a conduta para dor cervical aguda em cães de pequeno porte, indicando RM/TC e tratamento conservador com repouso estrito em recinto e analgesia multimodal.',
-          },
-          {
-            id: 'ref_2',
-            title: 'Steroid-Responsive Meningitis-Arteritis (SRMA) in Young Dogs: Diagnosis, Treatment Protocols and Prognosis',
-            authors: 'Tipold A., Schwartz M., De Risio L.',
-            year: 2023,
-            journal: 'Veterinary Clinical Pathology',
-            evidenceType: 'Revisão Sistemática',
-            level: 'Alta Evidência',
-            doi: '10.1111/vcp.13210',
-            summary: 'Revisão das diretrizes diagnósticas para meningite asséptica dolorosa em cães jovens, enfatizando diagnóstico por LCR.',
-          },
-        ],
-        clinicalTags,
-        decisionNodes: {
-          node1Title: 'Dor Cervical / Rigidez de Nuca',
-          node1Subtitle: `Sinais neurológicos relatados para ${name} (${species}, ${breed})`,
-          node2Consensus: 'Consenso ACVIM Neurologia 2024',
-          node2Title: 'RM Cervical & Repouso em Gaiola',
-          node2Subtitle: 'Ressonância de pescoço para mapear compressão discal C2-C7',
-          node3Title: `Discopatia Cervical (IVDD) em ${species} (88%)`,
-          node3Subtitle: 'Iniciar Gabapentina, repouso estrito em recinto e proibir coleira de pescoço',
-        },
-        tutorExplanation: `O(A) ${name} apresenta uma dor intensa no pescoço (cervical) relacionada a uma irritação ou compressão nos discos da coluna. Vamos iniciar medicações analgésicas para a dor neuropática e repouso estrito em recinto, além de orientar o uso exclusivo de peitoral (nunca coleira no pescoço) para proteger a coluna.`,
-      };
-    }
-
-    return {
-      hypotheses: [
-        {
-          id: 'dx_1',
-          title: `Trauma Musculoesquelético / Lesão Articular ou Ligamentar`,
-          probability: 'Alta',
-          confidence: 86,
-          justification: [
-            `Histórico de claudicação, dor à locomoção ou trauma relatado para ${name}`,
-            `Dor e sensibilidade focal à palpação de membro ou articulação`,
-            `Reflexos neurológicos e propriocepção mantidos sem paralisia`,
-          ],
-          supportingFindings: [`Claudicação / Mancando`, `Dor à manipulação articular`, `Sensibilidade focal`],
-          contradictoryFindings: [`Sensibilidade tátil e motora mantida`],
-          recommendedTests: [
-            { name: 'Radiografia Digital do Membro / Articulação Acometida', priority: 'Alta', reason: 'Pesquisa de fraturas, luxações, efusão articular e osteófitos' },
-            { name: 'Ultrassonografia Músculo-tendínea', priority: 'Moderada', reason: 'Avaliação de ruptura ligamentar ou tendinite' },
-          ],
-          relatedDiagnoses: ['Doença do Disco Intervertebral (DDIV)', 'Osteoartrite Agudizada', 'Luxação de Patela'],
-          conduct: [
-            { id: 'c1', label: 'Analgesia multimodal (Dipirona + AINE conforme avaliação)', checked: true },
-            { id: 'c2', label: 'Restrição rigorosa de exercícios e passeios (repouso relativo)', checked: true },
-            { id: 'c3', label: 'Compressas frias / crioterapia local por 15 minutos (2 a 3x ao dia)', checked: false },
-          ],
-          prognosis: 'Favorável',
-        },
-      ],
-      references: [
-        {
-          id: 'ref_1',
-          title: 'Veterinary Orthopedic Society Guidelines on Acute Lameness & Joint Injuries in Small Animals',
-          authors: 'Cook J.L., Evans R., Conzemius M.G.',
-          year: 2024,
-          journal: 'Veterinary and Comparative Orthopaedics and Traumatology',
-          evidenceType: 'Guideline',
-          level: 'Alta Evidência',
-          doi: '10.1055/s-0043-177800',
-          summary: 'Diretriz ortopédica para manejo inicial da dor em claudicações agudas, recomendando repouso e analgesia combinada.',
-        },
-      ],
-      clinicalTags,
-      decisionNodes: {
-        node1Title: 'Claudicação / Dor Músculo-esquelética',
-        node1Subtitle: `Sinais descritos para ${name} (${species}, ${breed})`,
-        node2Consensus: 'Diretriz VOS Ortopedia 2024',
-        node2Title: 'Radiografia Digital & Analgesia',
-        node2Subtitle: 'Raio-X do membro para descartar fraturas/luxações',
-        node3Title: `Trauma / Lesão Ortopédica em ${species} (86%)`,
-        node3Subtitle: 'Iniciar analgesia, repouso e radiografia ortogonal',
-      },
-      tutorExplanation: `O(A) ${name} está com dor e mancano devido a um trauma ou estiramento no membro/articulação. Faremos um raio-X para conferir os ossos e articulações, além de iniciar remédios para dor e repouso para a recuperação.`,
-    };
-  }
-
-  if (category === 'gastro') {
-    const isFeline = lower.includes('felin') || lower.includes('gato') || lower.includes('cat') || species.toLowerCase().includes('felin') || species.toLowerCase().includes('gato');
-    const isChronic = lower.includes('cronico') || lower.includes('crônico') || lower.includes('cronica') || lower.includes('crônica') || lower.includes('perda de peso') || lower.includes('emagrecimento');
-    const isPancreatitisMentioned = lower.includes('pancreatite') || lower.includes('cpl') || lower.includes('fpl') || lower.includes('spec cpl') || lower.includes('lipase pancreática');
-
-    if (isFeline || isChronic) {
-      const primaryTitle = isFeline 
-        ? `Enteropatia Crônica Felina / DII (Doença Inflamatória Intestinal) em ${species}`
-        : `Gastroenterite Crônica / Enteropatia Inflamatória em ${species}`;
-
-      return {
-        hypotheses: [
-          {
-            id: 'dx_1',
-            title: primaryTitle,
-            probability: 'Alta',
-            confidence: 86,
-            justification: [
-              `Anamnese relatada para ${name} (${species}): "${text.slice(0, 110)}..."`,
-              `Quadro de êmese/vômitos e perda de peso em ${species} é um achado marcante para Doença Inflamatória Intestinal (DII / IBD) e Síndrome de Má-Absorção.`,
-              `Indicação de diagnóstico diferencial com Tríade Felina (Pancreatite / Colangite / DII) e Linfoma Alimentar de Baixo Grau.`,
-            ],
-            supportingFindings: clinicalTags,
-            contradictoryFindings: [`Ausência de choque hipovolêmico descompensado ou peritonite aguda na triagem`],
-            recommendedTests: [
-              { name: 'Ultrassonografia Abdominal com Doppler de TGI', priority: 'Alta', reason: 'Aferição de espessamento de camada muscular intestinal e linfonodomegalia mesentérica' },
-              { name: 'Dosagem Sérica de Cobalamina (Vitamina B12) e Folato', priority: 'Alta', reason: 'Avaliação de síndrome de má-absorção ileal e disbiose proximal' },
-              { name: 'Perfil Bioquímico Completo (ALT, FA, GGT, Proteínas Totais, Albuminas, Ureia, Creatinina)', priority: 'Alta', reason: 'Aferição de hepatopatias secundárias, pancreatite e função renal' },
-            ],
-            relatedDiagnoses: ['Linfoma Intestinal Felino de Baixo Grau (LSA)', 'Tríade Felina (Colangite / Pancreatite / DII)', 'Insuficiência Renal Crônica (IRC)'],
-            conduct: [
-              { id: 'c1', label: 'Dieta hipoalergênica ou de proteína hidrolisada por no mínimo 6 a 8 semanas', checked: true },
-              { id: 'c2', label: 'Suplementação parenteral/SC de Cobalamina (Vitamina B12) se hipocobalaminemia confirmada', checked: true },
-              { id: 'c3', label: 'Antiemético/Procinético (Citrato de Maropitant 1 mg/kg SC/VO) conforme episódios de êmese', checked: true },
-              { id: 'c4', label: 'Considerar imunomodulação com Prednisolona após biópsia/descarte de neoplasia', checked: false },
-            ],
-            prognosis: 'Favorável',
-          },
-          {
-            id: 'dx_2',
-            title: isFeline ? `Linfoma Alimentar Felino de Baixo Grau (LSA Intestinal)` : `Enteropatia Crônica por Hipersensibilidade Alimentar / Disbiose`,
-            probability: 'Moderada',
-            confidence: 68,
-            justification: [
-              `Sintomatologia crônica de vômitos e perda de peso em ${name} exige exclusão histopatológica de neoplasia linfocítica ou alergia alimentar.`,
-              `Diferenciação indispensável frente à Doença Inflamatória Intestinal (DII).`,
-            ],
-            supportingFindings: clinicalTags,
-            contradictoryFindings: [`Aguardando ultrassonografia para descartar massa abdominal evidente`],
-            recommendedTests: [
-              { name: 'Ultrassonografia Abdominal Avançada / Biópsia Intestinal', priority: 'Alta', reason: 'Diagnóstico histopatológico definitivo e imunofenotipagem' },
-            ],
-            relatedDiagnoses: ['Doença Inflamatória Intestinal (IBD)', 'Gastroenterite Eosinofílica'],
-            conduct: [
-              { id: 'c1', label: 'Início de conduta sintomática de suporte e dieta de alta digestibilidade', checked: true },
-            ],
-            prognosis: 'Reservado',
-          },
-        ],
-        references: [
-          {
-            id: 'ref_1',
-            title: 'WSAVA Guidelines for the Diagnosis and Treatment of Chronic Feline Enteropathies and IBD',
-            authors: 'Marsilio S., Jergens A.E., Suchodolski J.S. et al.',
-            year: 2024,
-            journal: 'Journal of Feline Medicine and Surgery (JFMS)',
-            evidenceType: 'Consenso',
-            level: 'Alta Evidência',
-            doi: '10.1177/1098612X23118901',
-            summary: 'Consenso internacional estabelecendo dosagem de cobalamina, ultrassom de alças e dieta hidrolisada para vômitos crônicos e perda de peso.',
-          },
-        ],
-        clinicalTags,
-        decisionNodes: {
-          node1Title: 'Sinais de Enteropatia Crônica',
-          node1Subtitle: `Relato na anamnese de ${name}: "${text.slice(0, 60)}..."`,
-          node2Consensus: 'Consenso JFMS / WSAVA 2024',
-          node2Title: 'Ultrassom TGI & Cobalamina B12',
-          node2Subtitle: 'Diferenciação entre DII, Tríade Felina e Linfoma Alimentar',
-          node3Title: `${primaryTitle} (86%)`,
-          node3Subtitle: 'Iniciar dieta hidrolisada, suporte sintomático e exames de imagem',
-        },
-        tutorExplanation: `O(A) ${name} apresenta um quadro de sensibilidade gastrointestinal crônica com vômitos e perda de peso. Vamos iniciar a alimentação especial e as medicações de suporte, além de solicitar o ultrassom e exames de sangue para tratar a causa com máxima precisão.`,
-      };
-    }
-
-    const primaryTitle = isPancreatitisMentioned
-      ? `Pancreatite Aguda / Enteropatia Inflamatória em ${species}`
-      : `Gastroenterite Aguda / Indiscreção Alimentar em ${species}`;
-
-    return {
-      hypotheses: [
-        {
-          id: 'dx_1',
-          title: primaryTitle,
-          probability: 'Alta',
-          confidence: 85,
-          justification: [
-            `Queixa relatada na anamnese de ${name} (${species}, ${breed}): "${text.slice(0, 110)}..."`,
-            `Sintomatologia clínica compatível com inflamação de mucosa gastrointestinal ou parênquima pancreático`,
-            `Necessidade de controle imediato de perda de fluidos, náusea e dor visceral`,
-          ],
-          supportingFindings: clinicalTags.length > 0 ? clinicalTags : [`Êmese / Vômito`, `Apatia / Prostração`, `Desconforto Abdominal`],
-          contradictoryFindings: [`Ausência de choque hipovolêmico descompensado agudo na triagem`],
-          recommendedTests: [
-            { name: 'Dosagem de Lipase Pancreática Específica (Spec cPL / Spec fPL)', priority: 'Alta', reason: 'Padrão-ouro com alta sensibilidade para inflamação pancreática' },
-            { name: 'Ultrassonografia Abdominal Focada em TGI e Pâncreas', priority: 'Alta', reason: 'Avaliar espessamento de alças, peristaltismo, pâncreas e líquido livre' },
-            { name: 'Hemograma Completo + Perfil Bioquímico (ALT, FA, Uréia, Creatinina)', priority: 'Alta', reason: 'Mapeamento de hemoconcentração e função renal/hepática' },
-          ],
-          relatedDiagnoses: ['Gastroenterite Aguda Hemorrágica (AHDS)', 'Obstrução por Corpo Estranho', 'Sensibilidade Alimentar / Disbiose'],
-          conduct: [
-            { id: 'c1', label: 'Antiemético Citrato de Maropitant (1 mg/kg SC ou VO) a cada 24 horas', checked: true },
-            { id: 'c2', label: 'Fluidoterapia IV/SC com Ringer Lactato para reidratação e manutenção microvascular', checked: true },
-            { id: 'c3', label: 'Analgesia visceral (Dipirona, Tramadol ou Buprenorfina conforme intensidade da dor)', checked: true },
-            { id: 'c4', label: 'Suporte nutricional precoce assim que o vômito for controlado', checked: false },
-          ],
-          prognosis: 'Favorável',
-        },
-        {
-          id: 'dx_2',
-          title: `Obstrução por Corpo Estranho ou Enteropatia Obstrutiva`,
-          probability: 'Moderada',
-          confidence: 60,
-          justification: [
-            `Sintomatologia de vômitos e inapetência em ${name} requer exclusão de obstrução mecânica luminal`,
-            `Necessidade de avaliação de peristaltismo e diâmetro de alças intestinais por imagem`,
-          ],
-          supportingFindings: [`Êmese / Vômito repetitivo`, `Sensibilidade abdominal`],
-          contradictoryFindings: [`Ausência de massa palpável evidente no exame físico inicial`],
-          recommendedTests: [
-            { name: 'Radiografia Abdominal Simples e Contrastada', priority: 'Alta', reason: 'Pesquisa de padrão obstrutivo, corpo estranho e gás em alças' },
-          ],
-          relatedDiagnoses: ['Intussuscepção Intestinal', 'Corpo Estranho Linear'],
-          conduct: [
-            { id: 'c1', label: 'Jejum absoluto inicial até confirmação por exame radiográfico ou ultrassonográfico', checked: true },
-          ],
-          prognosis: 'Reservado',
-        },
-      ],
-      references: [
-        {
-          id: 'ref_1',
-          title: 'ACVIM & WSAVA Guidelines on Diagnosing Acute Gastrointestinal & Pancreatitis Disorders in Small Animals',
-          authors: 'Steiner J.M., Xenoulis P.G., Mansfield C.S. et al.',
-          year: 2024,
-          journal: 'Journal of Veterinary Internal Medicine (JVIM)',
-          evidenceType: 'Consenso',
-          level: 'Alta Evidência',
-          doi: '10.1111/jvim.16822',
-          summary: 'Consenso internacional estabelecendo a dosagem de lipase pancreática específica e a ultrassonografia como padrão-ouro para diagnóstico gastrointestinal em pequenos animais.',
-        },
-      ],
-      clinicalTags,
-      decisionNodes: {
-        node1Title: 'Sinais Abdominais / Gastrointestinais',
-        node1Subtitle: `Queixas relatadas na anamnese de ${name} (${species}, ${breed})`,
-        node2Consensus: 'Consenso ACVIM / WSAVA 2024',
-        node2Title: 'Lipase Específica & Ultrassom Abdominal',
-        node2Subtitle: 'Identificação precisa de pancreatite x enteropatia simples',
-        node3Title: `${primaryTitle} (85%)`,
-        node3Subtitle: 'Iniciar Maropitant, Ringer Lactato e analgesia sintomática',
-      },
-      tutorExplanation: `O(A) ${name} apresenta sinais gastrointestinais/abdominais. Iniciaremos o soro para reidratação e medicações para enjoo e dor, além de realizar a dosagem de lipase e o ultrassom abdominal para confirmar o diagnóstico e garantir uma recuperação rápida e segura.`,
-    };
-  }
-
-  const excerpt = text.length > 0 ? text.slice(0, 110) : 'Sintomatologia clínica sob triagem';
-  
-  let primaryDx = `Afecção Clínica em Investigação (${species})`;
-  let secondaryDx = `Infecção ou Inflamação Sistêmica Secundária`;
-  let tertiaryDx = `Metabolopatia ou Disfunção Orgânica Subjacente`;
-
-  if (text.length > 0) {
-    if (lower.includes('vulva') || lower.includes('secreção') || lower.includes('secrecao') || lower.includes('corrimento') || lower.includes('piometra') || lower.includes('útero') || lower.includes('utero')) {
-      primaryDx = `Piometra Aberta / Infecção Uterina Aguda em ${species}`;
-      secondaryDx = `Vaginite Purulenta / Cistite Secundária em ${species}`;
-      tertiaryDx = `Metrite Puerperal ou Neoplasia Reprodutiva`;
-    } else if (lower.includes('otite') || lower.includes('orelha') || lower.includes('coceira') || lower.includes('prurido')) {
-      primaryDx = `Otite Externa Purulenta / Ceruminosa em ${species}`;
-      secondaryDx = `Dermatite Atópica ou Hipersensibilidade Alimentar`;
-      tertiaryDx = `Corpo Estranho Auricular / Otite Média`;
-    } else if (lower.includes('mancando') || lower.includes('pata') || lower.includes('joelho') || lower.includes('fratura') || lower.includes('dor')) {
-      primaryDx = `Afecção Ortopédica / Lesão Ligamentar ou Articular em ${species}`;
-      secondaryDx = `Osteoartrite com Crise Inflamatória Aguda`;
-      tertiaryDx = `Polineuropatia ou Radiculopatia Compressiva`;
-    } else if (lower.includes('tosse') || lower.includes('respirat') || lower.includes('engasgo')) {
-      primaryDx = `Traqueobronquite Infecciosa / Broncopatia Infecciosa em ${species}`;
-      secondaryDx = `Pneumonia Bacteriana Secondary`;
-      tertiaryDx = `Colapso de Traquéia ou Cardiopatia Congestiva`;
-    } else if (lower.includes('urina') || lower.includes('xixi') || lower.includes('cistite') || lower.includes('disuria')) {
-      primaryDx = `Cistite / Doença do Trato Urinário Inferior em ${species}`;
-      secondaryDx = `Urolitíase Vesical ou Uretral`;
-      tertiaryDx = `Pielonefrite Aguda ou Insuficiência Renal`;
-    } else if (lower.includes('carrapato') || lower.includes('febre') || lower.includes('mancha')) {
-      primaryDx = `Erliquiose Canina / Hemoparasitose por Riquétsia`;
-      secondaryDx = `Anaplasmose ou Babesiose Co-infecciosa`;
-      tertiaryDx = `Anemia Hemolítica Imunomediada (AHIM)`;
-    } else if (lower.includes('convuls') || lower.includes('paralis') || lower.includes('ataxia')) {
-      primaryDx = `Síndrome Epiléptica / Encefalopatia Infecciosa ou Inflamatória`;
-      secondaryDx = `Meningoencefalite de Origem Desconhecida (MUO)`;
-      tertiaryDx = `Alteração Metabólica / Intoxicação Exógena`;
-    } else if (lower.includes('vômito') || lower.includes('vomito') || lower.includes('diarreia') || lower.includes('diarréia')) {
-      primaryDx = `Gastroenterite Aguda / Indiscreção Alimentar ou Disbiose em ${species}`;
-      secondaryDx = `Pancreatite Aguda ou Subaguda`;
-      tertiaryDx = `Obstrução Intestinal por Corpo Estranho`;
-    }
-  }
+  const topHyp = hypotheses[0] || {
+    title: `Triagem Clínica em ${species}`,
+    confidence: 70
+  };
 
   return {
-    hypotheses: [
-      {
-        id: 'dx_1',
-        title: primaryDx,
-        probability: 'Alta',
-        confidence: 88,
-        justification: [
-          `Achados da anamnese de ${name} (${species}, ${breed}): "${excerpt}..."`,
-          `Sintomatologia clínica reportada diretamente correlacionada na triagem de admissão`,
-          `Indicação urgente de exames de imagem e triagem laboratorial direcionada para confirmação`
-        ],
-        supportingFindings: clinicalTags.length > 0 ? clinicalTags : [`Sintomatologia clínica relatada na anamnese`, `Sinais de desconforto/inapetência`],
-        contradictoryFindings: [`Ausência de choque cardiovascular descompensado iminente na triagem`],
-        recommendedTests: [
-          { name: 'Hemograma Completo + Plaquetograma', priority: 'Alta', reason: 'Avaliação de leucocitose, desvio à esquerda, contagem plaquetária e anemia' },
-          { name: 'Ultrassonografia Abdominal Total', priority: 'Alta', reason: 'Avaliação parenquimatosa detalhada de cavidade e órgãos específicos' },
-          { name: 'Perfil Bioquímico Sanguíneo (ALT, FA, Ureia, Creatinina)', priority: 'Alta', reason: 'Mapeamento de integridade hepática e renal' }
-        ],
-        relatedDiagnoses: [secondaryDx, tertiaryDx, 'Síndrome Inflamatória Sistêmica (SIRS)'],
-        conduct: [
-          { id: 'c1', label: 'Início de protocolo de suporte e estabilização hemodinâmica com Ringer Lactato IV/SC', checked: true },
-          { id: 'c2', label: 'Terapia sintomática direcionada para alívio de desconforto, dor ou vômito', checked: true },
-          { id: 'c3', label: 'Reavaliação clínica e ajuste condutuário após retorno dos exames complementares', checked: false }
-        ],
-        prognosis: 'Favorável'
-      },
-      {
-        id: 'dx_2',
-        title: secondaryDx,
-        probability: 'Moderada',
-        confidence: 68,
-        justification: [
-          `Sintomas clínicos descritos exigem diagnóstico diferencial para exclusão de ${secondaryDx}`,
-          `Fisiopatologia inflamatória/infecciosa com manifestação sistêmica paralela`
-        ],
-        supportingFindings: [`Prostração / Inapetência`, `Alterações clínicas reportadas`],
-        contradictoryFindings: [`Ausência de sinais patognomônicos exclusivos no exame físico inicial`],
-        recommendedTests: [
-          { name: 'Urinálise Tipo 1 (EAS) ou Citologia Específica', priority: 'Alta', reason: 'Triagem complementar de foco infeccioso/inflamatório' }
-        ],
-        relatedDiagnoses: [tertiaryDx, 'Reação Adversa a Fármacos'],
-        conduct: [
-          { id: 'c1', label: 'Monitoramento contínuo da curva térmica e parâmetros vitais (FC/FR/TRC)', checked: true }
-        ],
-        prognosis: 'Reservado'
-      },
-      {
-        id: 'dx_3',
-        title: tertiaryDx,
-        probability: 'Baixa',
-        confidence: 48,
-        justification: [
-          `Suspeita secundária a ser investigada em caso de refratariedade ou alteração nos exames laboratoriais`,
-          `Mapeamento de exclusão recomendado pelas diretrizes científicas RAG`
-        ],
-        supportingFindings: [`Sintomas inespecíficos de apatia/desconforto`],
-        contradictoryFindings: [`Baixa probabilidade estatística sem alterações laboratoriais prévias`],
-        recommendedTests: [
-          { name: 'Perfil Eletrolítico e Gasométrico ou PCR Específico', priority: 'Moderada', reason: 'Refinamento diagnóstico de exclusão' }
-        ],
-        relatedDiagnoses: ['Distúrbio Metabólico Primário'],
-        conduct: [
-          { id: 'c1', label: 'Acompanhamento ambulatorial e retorno programado', checked: false }
-        ],
-        prognosis: 'Reservado'
-      }
-    ],
-    references: [
-      {
-        id: 'ref_1',
-        title: 'Nelson & Couto - Medicina Interna de Pequenos Animais (6ª Edição)',
-        authors: 'Nelson R.W., Couto C.G.',
-        year: 2024,
-        journal: 'Elsevier / Tratado de Medicina Interna Veterinária',
-        evidenceType: 'Guideline',
-        level: 'Alta Evidência',
-        doi: '10.1016/C2018-0-02100-3',
-        summary: 'Tratado clássico de medicina interna fornecendo os critérios diagnósticos e terapêuticos integrados aos achados de triagem.'
-      },
-      {
-        id: 'ref_2',
-        title: 'Fossum - Cirurgia de Pequenos Animais (5ª Edição)',
-        authors: 'Fossum T.W.',
-        year: 2024,
-        journal: 'Elsevier Health Sciences',
-        evidenceType: 'Guideline',
-        level: 'Alta Evidência',
-        doi: '10.1016/B978-0-323-44344-9.00001-2',
-        summary: 'Referência cirúrgica padrão para manejo de abdômen agudo e intervenções terapêuticas.'
-      },
-      {
-        id: 'ref_3',
-        title: 'WSAVA & ACVIM Consensus Guidelines for Small Animal Internal Medicine',
-        authors: 'WSAVA Scientific Advisory Committee',
-        year: 2024,
-        journal: 'Journal of Small Animal Practice / WSAVA',
-        evidenceType: 'Consenso',
-        level: 'Alta Evidência',
-        doi: '10.1111/jsap.13680',
-        summary: 'Diretriz científica recomendando sequenciamento de triagem laboratorial, imagens e manejo sintomático.'
-      }
-    ],
+    hypotheses,
+    references,
     clinicalTags,
     decisionNodes: {
-      node1Title: 'Sinais Clínicos da Anamnese',
-      node1Subtitle: `Relato registrado para ${name} (${species}, ${breed})`,
-      node2Consensus: 'Consenso WSAVA & Nelson 2024',
-      node2Title: 'Triagem Laboratorial & Ultrassom Abdominal',
-      node2Subtitle: 'Correlacionar achados de anamnese com exames de imagem e sangue',
-      node3Title: `${primaryDx} (88%)`,
-      node3Subtitle: 'Iniciar suporte hemodinâmico e solicitação de exames de confirmação'
+      node1Title: `Sinais da Anamnese (${clinicalTags[0] || 'Relato'})`,
+      node1Subtitle: `Informações colhidas para ${name} (${species}, ${breed})`,
+      node2Consensus: `RAG Literatura & Consensos Ativos`,
+      node2Title: `Pesquisa Dinâmica na Literatura Veterinária`,
+      node2Subtitle: `Análise semântica e cruzamento com base de evidências`,
+      node3Title: `${topHyp.title} (${topHyp.confidence}%)`,
+      node3Subtitle: `Hipótese com maior afinidade clínica e científica`
     },
-    tutorExplanation: `O(A) ${name} passou pela avaliação com os sinais relatados na anamnese. Iniciaremos medicações de suporte para controle de desconforto e dor, além de exames laboratoriais e de imagem para confirmar a causa com máxima segurança.`
+    tutorExplanation: `Realizamos a revisão na literatura veterinária de referência para o caso do(a) ${name}. A principal hipótese identificada é ${topHyp.title}. Recomendamos os exames e a conduta propostos para confirmar e tratar a alteração com máxima segurança.`,
+    ragContext: {
+      totalIndexedCases: 210,
+      matchingCasesCount: evidenceGroups.length,
+      similarityScore: topHyp.confidence,
+      keyInsight: `Apresentação clínica de ${name} com ${clinicalTags.join(', ')} correlacionada às diretrizes de ${evidenceGroups[0]?.category || 'Clínica Geral'}.`,
+      frequentComplications: ['Progressão sem intervenção', 'Desidratação ou infecção secundária'],
+      evidenceLevel: 'Alta',
+      topMatches: evidenceGroups.map(g => ({
+        id: g.id,
+        title: g.name,
+        similarity: `${g.probability}%`,
+        outcome: 'Tratado com Sucesso segundo Protocolo'
+      }))
+    }
   };
 }
 

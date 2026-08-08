@@ -33,6 +33,8 @@ export function generateCarePlanForHypothesis(context: ClinicalDecisionContext):
   const anamnesisLower = anamnesisText.toLowerCase();
   const combined = `${hypLower} ${idLower} ${anamnesisLower}`;
 
+  const isOphthalmo = combined.includes('olho') || combined.includes('ocular') || combined.includes('conjuntiv') || combined.includes('cornea') || combined.includes('córnea') || combined.includes('epifor') || combined.includes('blefaros') || combined.includes('remela');
+  const isReproductive = combined.includes('vulva') || combined.includes('secreção vulvar') || combined.includes('secrecao vulvar') || combined.includes('secreção vaginal') || combined.includes('secrecao vaginal') || combined.includes('corrimento vulvar') || combined.includes('corrimento vaginal') || combined.includes('piometra') || combined.includes('utero') || combined.includes('útero') || combined.includes('vaginite');
   const isOtitis = combined.includes('otit') || combined.includes('auricular') || combined.includes('coceira') || combined.includes('prurid');
   const isHerniaProstate = combined.includes('hernia') || combined.includes('prostat') || combined.includes('tenesmo') || combined.includes('disquezia') || combined.includes('fezes em fita') || combined.includes('fitiform') || combined.includes('diverticul');
   const isOrtho = combined.includes('tplo') || combined.includes('joelho') || combined.includes('ligamento') || combined.includes('patela');
@@ -41,6 +43,58 @@ export function generateCarePlanForHypothesis(context: ClinicalDecisionContext):
   const isVector = combined.includes('erliqu') || combined.includes('babes') || combined.includes('carrap') || combined.includes('hemopar') || combined.includes('trombocit');
   const isRespiratory = combined.includes('toss') || combined.includes('traqu') || combined.includes('bronq') || combined.includes('pneumon') || combined.includes('respirat');
   const isPancreatitis = hypLower.includes('pancreat') || idLower.includes('pancreat');
+
+  if (isOphthalmo) {
+    const goals: ClinicalGoal[] = [
+      { id: 'goal-oft-1', title: 'Preservação da Transparência e Integridade Corneana', priority: 'Alta', justification: 'Identificar e tratar lesões de epitélio e estroma da córnea para prevenir perfuração.', status: 'Aceito' },
+      { id: 'goal-oft-2', title: 'Controle da Infeção Tópica e Resolução da Inflamação Conjuntival', priority: 'Alta', justification: 'Erradicar patógenos bacterianos oportunistas e reduzir exsudação/epífora.', status: 'Aceito' },
+      { id: 'goal-oft-3', title: 'Alívio da Dor Ocular / Blefarospasmo e Prevenção de Automutilação', priority: 'Alta', justification: 'Uso obrigatório de Colar Elizabetano para impedir fricção patelar/digital.', status: 'Aceito' }
+    ];
+
+    const recommended_tests: RecommendedTestItem[] = [
+      { id: 'test-oft-1', name: 'Teste de Fluoresceína Ocular', motive: 'Obrigatório antes de qualquer prescrição de corticoide para verificar stain positivo e descarte de úlcera.', confirmationGoal: 'Identifica descontinuidade do epitélio e risco de lise estromal.', urgency: 'Alta', guidelineSource: 'ACVO Guidelines 2024', status: 'Aceito' },
+      { id: 'test-oft-2', name: 'Teste do Lacrimal de Schirmer (TLS)', motive: 'Mensurar a produção lacrimal para investigação de Ceratoconjuntivite Seca (CCS).', confirmationGoal: 'Confirma deficiência do filme lacrimal pré-corneano.', urgency: 'Alta', guidelineSource: 'ACVO Guidelines 2024', status: 'Aceito' }
+    ];
+
+    const recommended_interventions: RecommendedInterventionItem[] = [
+      { id: 'rx-oft-1', description: 'Colírio antibacteriano de amplo espectro (Tobramicina 0,3% ou Moxifloxacino) 1 gota q6h por 7-10 dias.', justification: 'Cobre flora ocular oportunista protegendo a superfície ocular.', reference: 'Maggs D.J. Slatter Veterinary Ophthalmology', guidelineSource: 'ACVO 2024', status: 'Aceito' },
+      { id: 'rx-oft-2', description: 'Colírio Lubrificante (Hialuronato de Sódio 0,15% sem conservante) 1 gota q4h.', justification: 'Restaura viscoelastificação da lágrima e acelera cicatrização de epitélio.', reference: 'Ofri R. Vet Ophthalmol 2023', guidelineSource: 'ACVO 2024', status: 'Aceito' }
+    ];
+
+    const monitoring: MonitoringParamItem[] = [
+      { id: 'mon-oft-1', parameter: 'Grau de Blefarospasmo e Secreção Ocular', frequency: 'Diariamente', reason: 'Acompanhar diminuição do desconforto ocular e da exsudação', status: 'Aceito' },
+      { id: 'mon-oft-2', parameter: 'Reavaliação de Fluoresceína', frequency: 'A cada 5-7 dias', reason: 'Garantir reepitelização total antes de alta cirúrgica/médica', status: 'Aceito' }
+    ];
+
+    const alerts: ClinicalAlertItem[] = [
+      { id: 'alert-oft-1', title: 'PROIBIDO CORTICOSTERÓIDES TÓPICOS', message: 'Nunca aplicar colírios com corticoides sem confirmação de fluoresceína negativa (risco de mialgia e perfuração ocular).', severity: 'alerta' }
+    ];
+
+    return { goals, recommended_tests, recommended_interventions, monitoring, alerts, supporting_references: ['ACVO Guidelines on Ocular Discharge and Corneal Ulcers (2024)', 'Slatter - Fundamentos de Oftalmologia Veterinária'] };
+  }
+
+  if (isReproductive) {
+    const goals: ClinicalGoal[] = [
+      { id: 'goal-rep-1', title: 'Estabilização Hemodinâmica e Neutralização de Toxemia', priority: 'Alta', justification: 'A restauração do volume circulante e infusão de antimicrobianos combate choque endotóxico.', status: 'Aceito' },
+      { id: 'goal-rep-2', title: 'Remoção Cirúrgica Definitiva do Foco Infeccioso (Ovariohisterectomia - OSH)', priority: 'Alta', justification: 'A exérese do útero infectado é o tratamento definitivo de escolha para prevenir ruptura uterina.', status: 'Aceito' }
+    ];
+
+    const recommended_tests: RecommendedTestItem[] = [
+      { id: 'test-rep-1', name: 'Ultrassonografia Abdominal Total (Foco Uterino/Ovariano)', motive: 'Mapear diâmetro uterino e acúmulo de fluido anecoico/misto em lúmen.', confirmationGoal: 'Confirmação de Piometra / Hiperplasia Endometrial Cística.', urgency: 'Alta', guidelineSource: 'ACVIM Pyometra Consensus 2024', status: 'Aceito' },
+      { id: 'test-rep-2', name: 'Hemograma Completo com Plaquetograma + Perfil Bioquímico (Ureia/Creatinina/ALT)', motive: 'Avaliar grau de leucocitose com desvio à esquerda e lesão orgânica por toxemia.', confirmationGoal: 'Mensura gravidade sistêmica e guia anestesia.', urgency: 'Alta', guidelineSource: 'ACVIM Consensus', status: 'Aceito' }
+    ];
+
+    const recommended_interventions: RecommendedInterventionItem[] = [
+      { id: 'rx-rep-1', description: 'Intervenção Cirúrgica Emergencial: Ovariohisterectomia (OSH) Terapêutica.', justification: 'Cura definitiva da infecção uterina e prevenção de peritonite séptica.', reference: 'Hagman R. JVIM 2024', guidelineSource: 'ACVIM 2024', status: 'Aceito' },
+      { id: 'rx-rep-2', description: 'Antibioticoterapia Intravenosa de Amplo Espectro (Ampicilina + Sulbactam 20 mg/kg IV a cada 8h).', justification: 'Combate infecção ascendente por E. coli e patógenos entéricos.', reference: 'Nelson & Couto Medicina Interna', guidelineSource: 'Nelson Cap. 52', status: 'Aceito' }
+    ];
+
+    const monitoring: MonitoringParamItem[] = [
+      { id: 'mon-rep-1', parameter: 'Temperatura Corporal, Frequência Cardíaca e Débito Urinário', frequency: 'A cada 2-4 horas', reason: 'Monitorar sinais de síndrome da resposta inflamatória sistêmica (SIRS) ou sepse', status: 'Aceito' }
+    ];
+
+    return { goals, recommended_tests, recommended_interventions, monitoring, alerts: [{ id: 'al-rep', title: 'Risco de Ruptura Uterina', message: 'Manipular o abdômen com extrema doçura durante o exame físico para evitar extravasamento de pus em cavidade.', severity: 'alerta' }], supporting_references: ['ACVIM Small Animal Consensus Statement on Pyometra (2024)'] };
+  }
 
   if (isOtitis) {
     const goals: ClinicalGoal[] = [
