@@ -1606,7 +1606,7 @@ export default function ReportWorkspace({
 
         {/* Dynamic bottom controls and ultra-clean chat input bar (Shown only on chat follow-up) */}
         {chatMessages.length > 1 && (
-          <div className="bg-white border-t border-slate-100 p-2.5 sm:p-4 pb-24 sm:pb-24 flex flex-col gap-2 sm:gap-3 shrink-0 z-10 animate-in slide-in-from-bottom duration-300">
+          <div className="bg-white border-t border-slate-100 p-2.5 sm:p-4 pb-4 sm:pb-4 flex flex-col gap-2 sm:gap-3 shrink-0 z-10 animate-in slide-in-from-bottom duration-300">
             
             {/* List of uploaded files */}
             {uploadedExamFiles.length > 0 && (

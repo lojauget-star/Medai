@@ -89,7 +89,7 @@ export default function AnamnesisDashboard({
     <div className="w-full flex flex-col bg-[#F8FAFC] min-h-full font-sans text-[#0F172A] selection:bg-indigo-100 selection:text-indigo-700 pb-20">
       
       {/* Ultra-Compact Minimalist Desktop Header */}
-      <header className="h-[40px] bg-white border-b border-[#E2E8F0] px-4 flex items-center justify-between shrink-0 z-10 sticky top-0 shadow-3xs">
+      <header className="h-[40px] bg-white border-b border-[#E2E8F0] px-4 flex items-center justify-between shrink-0 z-10 relative shadow-3xs">
         {/* Search Bar */}
         <div className="flex items-center gap-2 bg-[#F8FAFC] border border-[#E2E8F0] px-2.5 py-0.5 rounded-full w-full max-w-xs focus-within:border-[#4F46E5] focus-within:ring-2 focus-within:ring-[#4F46E5]/10 transition-all">
           <Search className="w-3 h-3 text-[#64748B] shrink-0" />

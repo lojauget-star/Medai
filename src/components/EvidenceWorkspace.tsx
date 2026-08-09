@@ -157,7 +157,7 @@ export default function EvidenceWorkspace({
     <div className="w-full bg-[#F8FAFC] min-h-screen text-[#0F172A] font-sans flex flex-col justify-between">
       
       {/* ================= PAINEL SUPERIOR ================= */}
-      <header className="bg-white border-b border-[#E2E8F0] px-6 py-5 sticky top-0 z-20 shadow-2xs">
+      <header className="bg-white border-b border-[#E2E8F0] px-6 py-5 relative z-20 shadow-2xs">
         <div className="max-w-[2560px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
           
           {/* Título e Subtítulo */}

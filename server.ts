@@ -1425,9 +1425,9 @@ app.post('/api/generate-report', async (req, res) => {
       ## O (Objetivo): Analise detalhadamente os achados clínicos, exames de imagem ou laboratoriais anexados. Se houver imagens, descreva o que vê tecnicamente.
       ## A (Avaliação): Interpretação clínica. Quais são as suspeitas principais e por quê?
       ## P (Plano): Recomendações terapêuticas, exames adicionais ou monitoramento.
-      ## D (Diferenciais): Liste EXATAMENTE 3 diagnósticos diferenciais prováveis ranqueados em ordem de plausibilidade (1º, 2º, 3º). Para cada diagnóstico, retorne OBRIGATORIAMENTE nesta estrutura:
-         - **[Nome da Patologia] - [Porcentagem de Assertividade, ex: 85%] de Probabilidade**
-         - **Revisão Sistemática (RAG) / Por que esta causa?**: Uma revisão crítica detalhada e sistemática justificando clinicamente por que essa patologia é compatível com os exames e a anamnese fornecidos.
+      ## D (Diferenciais): Liste PELO MENOS 3 diagnósticos diferenciais prováveis ranqueados em ordem de plausibilidade (1º, 2º, 3º, etc). Para cada diagnóstico, retorne OBRIGATORIAMENTE nesta estrutura:
+      ### [Nome da Patologia] - [Porcentagem de Assertividade, ex: 85%] de Probabilidade
+      - **Revisão Sistemática (RAG) / Por que esta causa?**: Uma revisão crítica detalhada e sistemática justificando clinicamente por que essa patologia é compatível com os exames e a anamnese fornecidos.
          - **Achados Compatíveis**: Liste de 2 a 4 sinais específicos relatados na anamnese ou exames que corroboram esta suspeita.
          - **Exames Complementares Sugeridos**:
             - [Nome do Exame 1] (Prioridade: Alta) - Razão clínica detalhada
@@ -1435,8 +1435,8 @@ app.post('/api/generate-report', async (req, res) => {
          - **Conduta Inicial Recomendada**:
             - [Manejo 1 - Ex: Estabilização e fluidoterapia]
             - [Manejo 2 - Ex: Antimicrobiano ou Analgesia]
-         - **Embasamento Literário (Múltiplas Referências Cruzadas)**: Forneça OBRIGATORIAMENTE de 2 a 3 referências bibliográficas distintas, complementares e de alto impacto (cruzando os livros clássicos integrados com os artigos, consensos científicos e PDFs ativos fornecidos pelo RAG). Cada uma deve ser EXTREMAMENTE RASTREÁVEL e completamente CLICÁVEL em formato de link Markdown, utilizando o seguinte padrão:
-            - Clássico de Referência (Tratado/Livro): \`[Nome do Livro (ex: Nelson - Medicina Interna de Pequenos Animais, Fossum - Cirurgia de Pequenos Animais ou Blackwell's Five-Minute Veterinary Consult), Cap. X, pág. Y](https://scholar.google.com/scholar?q=Nelson+Internal+Medicine+Small+Animals+Chapter+X+Page+Y)\`
+         - **Embasamento Literário (Múltiplas Referências Cruzadas)**: Forneça OBRIGATORIAMENTE de 2 a 3 referências bibliográficas distintas, complementares e de alto impacto (cruzando TODAS AS FONTES DISPONÍVEIS: diretrizes anexadas, documentos/PDFs carregados pelo usuário, e literatura científica integrada na base). Cada uma deve ser EXTREMAMENTE RASTREÁVEL e completamente CLICÁVEL em formato de link Markdown, utilizando o seguinte padrão:
+            - Material Fornecido ou Livro de Referência: \`[Nome do Documento, Artigo ou Livro (ex: Diretriz Interna da Clínica, Material Carregado, Nelson, Fossum, etc.), Cap. X, pág. Y](https://scholar.google.com/scholar?q=Nome+do+Documento)\`
             - Consenso Clínico ou Artigo Periódico Recente: \`[Título do Artigo/Consenso (ex: ACVIM Consensus Statement ou Journal of Veterinary Internal Medicine)](https://scholar.google.com/scholar?q=Nome+do+Artigo+Ou+Consenso)\` ou se houver DOI: \`[DOI: 10.xxxx/yyyy](https://doi.org/10.xxxx/yyyy)\`
          Sempre certifique-se de que o médico possa confrontar a suspeita tanto por uma perspectiva clínica de tratado quanto por evidências científicas recentes em links clicáveis ativos.
       ## M (Métricas): Forneça os valores encontrados para FC (Freq. Cardíaca), FR (Freq. Respiratória), Temp (Temperatura), TRC (Tempo Repreenchimento Capilar) e a ORIGEM do cliente (Indicação, Instagram, Google, Facebook ou Outros) no formato JSON simple: {"fc": "valor", "fr": "valor", "temp": "valor", "trc": "valor", "origem": "valor"}. Se não encontrar a origem na anamnese, classifique como "Outros" ou tente deduzir pelo contexto.
@@ -1453,7 +1453,7 @@ app.post('/api/generate-report', async (req, res) => {
          c) Eixo Epidemiológico: Correlação de dados epidemiológicos (se e somente se informados explicitamente).
          IMPORTANTE: Se um dado não foi informado na anamnese, considere-o como DESCONHECIDO (null). Não invente sinais clínicos, não deduza espécie sem confirmação e não assuma afecções caninas em felinos ou vice-versa.
       6. CRÍTICO - RAG E BIBLIOGRAFIA ATIVA:
-         Você DEVE consultar e citar de forma explícita nas justificativas de diagnósticos os livros e PDFs carregados na base de conhecimento (como Blackwell, Fossum, Nelson, etc.) e quaisquer PDFs ativos anexados pelo usuário. Quando citar esses materiais, utilize o nome exato do arquivo ou a menção de cabeçalho do livro para ratificar a conduta clínica e dar máxima credibilidade ao laudo.
+         Você DEVE consultar e citar de forma explícita TODAS as literaturas disponíveis, não se restringindo apenas aos livros clássicos (como Fossum ou Nelson), mas sim abrangendo ativamente QUAISQUER arquivos e PDFs anexados pelo usuário ou presentes na base de conhecimento. As informações da anamnese devem ser cruzadas sistematicamente com todo o material fornecido. Quando citar esses materiais, utilize o nome exato do arquivo, artigo ou a menção de cabeçalho do livro para ratificar a conduta clínica e dar máxima credibilidade ao laudo.
       7. ISOLAMENTO E INTEGRIDADE DE ESPÉCIE OBRIGATÓRIO (ZERO-INVENTION POLICY):
          Espécie do paciente nesta consulta: "${normPatient.species || 'Não informada'}".
          - Se a espécie for "Não informada" ou vazia: É ESTRITAMENTE PROIBIDO INVENTAR OU ASSUMIR QUE O PACIENTE É CANINO OU FELINO. Mantenha os termos neutros e genéricos (ex: "Paciente", "Gastroenterite Aguda", "Dosagem de Lipase Pancreática Específica (Spec cPL/Spec fPL conforme espécie)"). NUNCA invente raças (ex: Golden Retriever), idades ou sexos não relatados na anamnese.
@@ -1521,7 +1521,7 @@ app.post('/api/generate-report', async (req, res) => {
     }
 
     const response = await generateContentWithFallback({
-      model: 'gemini-3.5-flash',
+      model: 'gemini-2.5-flash',
       contents: { parts },
       config: {
         systemInstruction
@@ -1642,7 +1642,7 @@ app.post('/api/chat-followup', async (req, res) => {
     `;
 
     const response = await generateContentWithFallback({
-      model: 'gemini-3.5-flash',
+      model: 'gemini-2.5-flash',
       contents: { parts: [{ text: userPrompt }] },
       config: {
         systemInstruction
@@ -1679,7 +1679,7 @@ app.post('/api/transcribe', async (req, res) => {
     }
 
     const response = await generateContentWithFallback({
-      model: 'gemini-3.5-flash',
+      model: 'gemini-2.5-flash',
       contents: {
         parts: [
           { text: "Você é um assistente de transcrição veterinária de alta precisão. Transcreva o áudio recebido exatamente como falado pelo veterinário de maneira literal.\n\nCRÍTICO: Retorne APENAS o texto da fala literal transcrita. Não adicione cabeçalhos, títulos (como '**Transcrição do áudio:**'), introduções, aspas, pontuações dramáticas, nem explicações adicionais de sintomas. A resposta deve ser apenas o texto falado puro." },
@@ -1775,7 +1775,7 @@ app.post('/api/generate-prescription', async (req, res) => {
     parts.push(...adminPDFParts);
 
     const response = await generateContentWithFallback({
-      model: 'gemini-3.5-flash',
+      model: 'gemini-2.5-flash',
       contents: { parts },
       config: { systemInstruction }
     });
@@ -1822,7 +1822,7 @@ app.post('/api/generate-tutor-message', async (req, res) => {
     `;
 
     const response = await generateContentWithFallback({
-      model: 'gemini-3.5-flash',
+      model: 'gemini-2.5-flash',
       contents: { parts: [{ text: userPrompt }] },
       config: { systemInstruction }
     });
@@ -1857,13 +1857,9 @@ app.post('/api/literature-review', async (req, res) => {
       Você analisa artigos científicos fornecidos pelo usuário (via anexos) ou realiza a busca profunda a partir de diretrizes consagradas.
       
       HIERARQUIA DE FONTES E RESOLUÇÃO DE CONFLITOS (MALHAS DE SEGURANÇA):
-      1. Se o usuário anexou arquivos de exames, artigos ou tabelas nesta chamada, revise-os prioritariamente.
-      2. No entanto, realize um "CROSS-CHECK" (verificação cruzada) compulsório com a literatura de referência consagrada nacional e internacional disponível de forma embutida em seu cérebro:
-         - Nelson & Couto (Medicina Interna de Pequenos Animais)
-         - Fossum (Cirurgia de Pequenos Animais)
-         - WSAVA (Vaccination and Pain Management Guidelines)
-         - ACVIM Consensuses
-      3. Se as orientações inovadoras fornecidas no arquivo do usuário entrarem em choque ou divergência com as práticas já consagradas, você DEVE explicitamente destacar isso em uma seção de ALERTA. Informando e alertando o veterinário da diferença, salvaguardando a conduta clínica do profissional.
+      1. Se o usuário anexou arquivos de exames, manuais, diretrizes, artigos científicos ou tabelas de conduta nesta chamada (via anexos ou base de conhecimento do RAG), você DEVE obrigatoriamente realizar a varredura primária EM TODOS ELES sem exceção. A leitura dos arquivos do usuário é ABSOLUTA PRIORIDADE.
+      2. Em seguida, realize um "CROSS-CHECK" (verificação cruzada) compulsório com toda a literatura de referência consagrada nacional e internacional disponível, incluindo manuais clássicos (como Medicina Interna de Nelson ou Cirurgia de Fossum), consensos mundiais (WSAVA, ACVIM) e diretrizes atualizadas.
+      3. Se as orientações inovadoras fornecidas nos arquivos do usuário entrarem em choque ou divergência com as práticas já consagradas, você DEVE explicitamente destacar isso em uma seção de ALERTA. Informando e alertando o veterinário da diferença, salvaguardando a conduta clínica do profissional. Mas respeite os dados enviados pelo usuário como ponto principal da dúvida clínica.
       4. ZERO ALUCINAÇÃO: Não invente, extrapole ou deduza protocolos não documentados. Se não houver consistência metodológica, aponte os limites do material.
 
       FORMATO DE SAÍDA OBRIGATÓRIO (Por favor, use esses exatos marcadores de seção ##):
@@ -1881,7 +1877,7 @@ app.post('/api/literature-review', async (req, res) => {
 
       ## 📖 CITAÇÃO CLÍNICA EXATA
       (Informe a citação científica completa no padrão ABNT ou Vancouver para que o médico possa encontrar o artigo, livro ou diretriz original, indicando capítulo ou página aplicável se for pertinente. Você DEVE tornar essa referência bibliográfica completamente CLICÁVEL, fornecendo links no formato markdown, como:
-      - Para livros: \`[Nome do Livro (ex: Fossum - Cirurgia de Pequenos Animais), Cap. X, pág. Y](https://scholar.google.com/scholar?q=Fossum+Small+Animal+Surgery+Chapter+X+Page+Y)\`
+      - Para materiais carregados/diretrizes: \`[Nome do Material (ex: Diretriz da Clínica ou Tratado Consagrado), Cap. X, pág. Y](https://scholar.google.com/scholar?q=Nome+do+Material)\`
       - Para artigos ou consensos: \`[Título do Artigo ou Consenso (ex: WSAVA Vaccination Guidelines)](https://scholar.google.com/scholar?q=WSAVA+Vaccination+Guidelines)\` ou se houver DOI: \`[DOI: 10.xxxx/yyyy](https://doi.org/10.xxxx/yyyy)\`
       Crie links diretos e inteligentes automatizados no Google Scholar: "https://scholar.google.com/scholar?q=...", ou URLs DOI resolver "https://doi.org/...")
 
@@ -1936,7 +1932,7 @@ app.post('/api/literature-review', async (req, res) => {
     }
 
     const response = await generateContentWithFallback({
-      model: 'gemini-3.5-flash',
+      model: 'gemini-2.5-flash',
       contents: { parts },
       config: {
         systemInstruction
@@ -2044,7 +2040,7 @@ Gere todo o material no formato JSON solicitado.
 
     console.log("[MARKETING IA] Calling Gemini 3.5-flash for text generation...");
     const response = await generateContentWithFallback({
-      model: 'gemini-3.5-flash',
+      model: 'gemini-2.5-flash',
       contents: [
         { text: systemInstruction },
         { text: userPrompt }

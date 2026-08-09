@@ -519,17 +519,18 @@ export function parseAiReportTextToClinicalModel(
     if (!dSection.trim()) return null;
 
     // Parse differential items
-    const diffBlocks = dSection.split(/(?=\n\s*-\s*\*\*\[)/g).filter(b => b.trim().length > 10);
+    const diffBlocks = ('\n' + dSection).split(/(?=\n\s*(?:###\s+|-\s*\*\*.*(?:Probabilidade|Assertividade)))/i).filter(b => b.trim().length > 10);
     const hypotheses: Hypothesis[] = [];
     const references: Reference[] = [];
     let rank = 1;
 
     for (const block of diffBlocks) {
-      const titleMatch = block.match(/\*\*\[?(.*?)\]?\s*-\s*\[?(\d+)%?\]?\s*de\s*Probabilidade\*\*/i) ||
+      const titleMatch = block.match(/(?:###|\*\*)\s*\[?(.*?)\]?\s*-\s*\[?(\d+)%?\]?\s*de\s*Probabilidade/i) ||
+                         block.match(/(?:###|\*\*)\s*\[?(.*?)\]?\s*-\s*\**(\d+)%?\**/i) ||
                          block.match(/\*\*\[?(.*?)\]?\*\*/);
       if (!titleMatch) continue;
 
-      const title = titleMatch[1].trim();
+      const title = titleMatch[1].trim().replace(/\*+$/, '').trim();
       const probPercent = titleMatch[2] ? parseInt(titleMatch[2], 10) : (rank === 1 ? 85 : rank === 2 ? 65 : 45);
       const probLabel: 'Alta' | 'Moderada' | 'Baixa' = probPercent >= 75 ? 'Alta' : probPercent >= 50 ? 'Moderada' : 'Baixa';
 
@@ -2035,7 +2036,7 @@ export default function DifferentialDiagnosisWorkspace({
       </AnimatePresence>
 
       {/* TOP CLINICAL HEADER (CDSS CONTROL & VERSIONING) */}
-      <header className="bg-white border-b border-[#E2E8F0] px-4 py-3 sm:px-6 shadow-2xs sticky top-0 z-20">
+      <header className="bg-white border-b border-[#E2E8F0] px-4 py-3 sm:px-6 shadow-2xs relative z-20">
         <div className="max-w-[2160px] mx-auto flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           
           <div className="space-y-1">
@@ -2186,7 +2187,7 @@ export default function DifferentialDiagnosisWorkspace({
       </AnimatePresence>
 
       {/* WORKSPACE SUB-NAVIGATION TABS */}
-      <div className="bg-white border-b border-[#E2E8F0] px-4 sm:px-6 py-2 overflow-x-auto no-scrollbar sticky top-[61px] z-10 shadow-3xs">
+      <div className="bg-white border-b border-[#E2E8F0] px-4 sm:px-6 py-2 overflow-x-auto no-scrollbar relative z-10 shadow-3xs">
         <div className="max-w-[2160px] mx-auto flex items-center gap-2">
           
           <button
@@ -2241,7 +2242,7 @@ export default function DifferentialDiagnosisWorkspace({
       </div>
 
       {/* MAIN WORKSPACE CONTENT */}
-      <div className="p-4 sm:p-6 max-w-[2160px] w-full mx-auto pb-28">
+      <div className="p-4 sm:p-6 max-w-[2160px] w-full mx-auto pb-6 sm:pb-8">
         
         {/* ================= TAB 1: HIPÓTESES DIFERENCIAIS ================= */}
         {activeTab === 'differentials' && (
